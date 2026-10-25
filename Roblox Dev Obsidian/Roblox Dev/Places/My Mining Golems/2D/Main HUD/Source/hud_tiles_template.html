@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HUD: з підкладками чи без</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;800;900&display=swap">
+<style>
+:root{--bg:#1d2129;--fg:#e9edf3;--muted:#9aa3b2;--line:#323846;--f:'Montserrat','Arial Black',sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f);padding:20px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+.wrap{max-width:1340px;margin:0 auto}
+h1{font-weight:900;font-size:24px;margin:0 0 4px}
+h2{font-weight:900;font-size:18px;margin:28px 0 4px;display:flex;align-items:center;gap:10px}
+h2 .tag{font-size:12px;font-weight:800;padding:3px 9px;border-radius:6px;background:#2f3646;color:#c9ff3a}
+p.lead{color:var(--muted);font-weight:600;font-size:14px;margin:0 0 10px;max-width:90ch}
+.frame{position:relative;width:100%;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.stage{position:absolute;left:0;top:0;width:1328px;height:720px;transform-origin:0 0;overflow:hidden}
+.scene{position:absolute;inset:0;background-color:#5b6377;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Cpath d='M8 9h12v10H8z' fill='none' stroke='%2346505f' stroke-width='2.2'/%3E%3Cpath d='M9 18h10' stroke='%23727b90' stroke-width='1.4'/%3E%3C/svg%3E");background-size:28px 28px}
+.scene::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,rgba(255,255,255,.06),transparent 55%,rgba(0,0,0,.25))}
+.hud{position:absolute;inset:0;font-family:var(--f)}
+.a{position:absolute}
+img{display:block;pointer-events:none}
+.lab{position:absolute;left:50%;transform:translateX(-50%);font-weight:900;color:#fff;white-space:nowrap;line-height:1;-webkit-text-stroke:var(--sw) #14161a;paint-order:stroke fill;z-index:3}
+.plate{position:absolute;display:flex;align-items:center;background:linear-gradient(90deg,rgba(18,22,30,.72),rgba(18,22,30,.45) 60%,rgba(18,22,30,0))}
+.val{font-weight:900;color:#fff;-webkit-text-stroke:var(--sw) #14161a;paint-order:stroke fill;line-height:1}
+.rb{position:absolute;border-radius:22px;background:rgba(18,18,22,.75);display:grid;place-items:center}
+/* стиль A: плитка */
+.tile{position:absolute;border:3px solid #14161a;border-radius:12px;overflow:hidden;background:linear-gradient(var(--c1),var(--c2));box-shadow:0 3px 0 rgba(0,0,0,.5)}
+.tile::before{content:"";position:absolute;inset:0;opacity:.28;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Crect x='3.5' y='4.5' width='7' height='7' rx='1.6' fill='%23000' fill-opacity='.35'/%3E%3Crect x='3.5' y='3.5' width='7' height='7' rx='1.6' fill='%23fff' fill-opacity='.7'/%3E%3C/svg%3E");background-size:var(--st,14px) var(--st,14px)}
+.tile::after{content:"";position:absolute;inset:0;border-radius:9px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),inset 0 calc(var(--h)*-.12) 0 rgba(0,0,0,.2);
+ background:linear-gradient(rgba(255,255,255,.42),rgba(255,255,255,.08) 42%,rgba(255,255,255,0) 43%)}
+.legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:12px}
+.legend div{background:#252a35;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px;font-weight:600;color:var(--muted)}
+.legend b{color:var(--fg)}
+</style></head><body>
+<div class="wrap">
+<h1>Головний екран: без підкладок і з підкладками</h1>
+<p class="lead">Те саме розміщення, ті самі іконки й підписи. A — як зараз у грі (за твоїм скріном). B — під кожною кнопкою плитка стилю A (градієнт, studs, блік, темна обвідка) свого кольору, іконка трохи виходить за плитку, підпис залазить на низ плитки.</p>
+<h2>A <span class="tag">як зараз</span></h2>
+<div class="frame" id="fA"><div class="stage" id="sA"><div class="scene"></div><div class="hud" id="hA"></div></div></div>
+<h2>B <span class="tag">з підкладками</span></h2>
+<div class="frame" id="fB"><div class="stage" id="sB"><div class="scene"></div><div class="hud" id="hB"></div></div></div>
+<div class="legend">
+<div><b>Кольори плиток (B):</b> Shop — червона, Index — синя, Quests — помаранчева, Rebirth — рожева, x2 Money і Boss — без плитки. Кнопка «+» біля грошей на 20% менша (48 замість 60).</div>
+<div><b>Малі верхні кнопки (B):</b> Invite — зелена, Settings — сіра, Inventory — помаранчева, Feedback — рожева, Codes — жовта, Updates — синя.</div>
+<div><b>Не змінено:</b> лічильники діамантів, тікетів і ребітхів, Money і таймер боса — у них уже є свої плашки.</div>
+</div>
+</div>
+<script>
+var D=__DATA__;
+var T={red:["#ff8a98","#e0203e"],blue:["#86d4ff","#1d74de"],orange:["#ffc75e","#f07a12"],green:["#b8ff5c","#2fae2a"],purple:["#c592ff","#6a2ee0"],pink:["#ffa3e2","#de3aa6"],yellow:["#ffe970","#eeb000"],gray:["#f1f3f5","#9aa1aa"]};
+function el(t,c,p,css){var e=document.createElement(t);if(c)e.className=c;if(css)e.style.cssText=css;p.appendChild(e);return e}
+function img(p,k,x,y,h,css){var w=Math.round(h*D.asp[k]);var i=el("img","a",p,"left:"+x+"px;top:"+y+"px;width:"+w+"px;height:"+h+"px;"+(css||""));i.src=D.icons[k];return w}
+function label(p,cx,y,fs,text,color){var l=el("div","lab",p,"left:"+cx+"px;top:"+y+"px;font-size:"+fs+"px;--sw:"+(fs*0.22).toFixed(1)+"px"+(color?";color:"+color:""));l.textContent=text}
+function tile(p,x,y,s,th,r){var t=el("div","tile",p,"left:"+x+"px;top:"+y+"px;width:"+s+"px;height:"+s+"px;--h:"+s+"px;--c1:"+T[th][0]+";--c2:"+T[th][1]+";--st:"+Math.max(8,Math.round(s/6))+"px;border-radius:"+(r||Math.round(s*.16))+"px")}
+/* велика кнопка: без плитки — іконка + підпис; з плиткою — плитка s, іконка трохи виходить угору */
+function big(p,o,tiles){
+  var cx=o.x+o.s/2;
+  if(!tiles){img(p,o.k,cx-o.s*D.asp[o.k]/2,o.y,o.s);label(p,cx,o.y+o.s-o.fs*0.85,o.fs,o.t,o.lc);return}
+  var ts=Math.round(o.s*0.92),ty=o.y+o.s*0.04;
+  tile(p,cx-ts/2,ty,ts,o.th);
+  var ih=Math.round(ts*0.78),iw=ih*D.asp[o.k];if(iw>ts*0.86){ih=Math.round(ts*0.86/D.asp[o.k]);iw=ts*0.86}
+  img(p,o.k,cx-iw/2,ty+ts*0.44-ih/2,ih,"z-index:2;filter:drop-shadow(0 2px 0 rgba(0,0,0,.25))");
+  label(p,cx,ty+ts-o.fs*0.55,o.fs,o.t,o.lc);
+}
+function small(p,k,x,y,h,th,tiles){
+  if(!tiles){return img(p,k,x,y,h)}
+  var s=h+4;tile(p,x,y-2,s,th,9);var ih=h-6;img(p,k,x+s/2-ih*D.asp[k]/2,y-2+s/2-ih/2,ih,"z-index:2");return s;
+}
+function counter(p,y,k,v){
+  var pl=el("div","plate",p,"left:0;top:"+y+"px;width:200px;height:38px;--sw:4.6px");
+  var ih=26;img(pl,k,40-ih*D.asp[k]/2,6,ih);
+  var t=el("div","val",pl,"position:absolute;left:84px;top:8px;font-size:22px");t.textContent=v;
+}
+function build(h,tiles){
+  var W=1328;
+  /* кнопки Roblox */
+  var r1=el("div","rb",h,"left:12px;top:9px;width:31px;height:31px;border-radius:50%");
+  r1.innerHTML='<svg width="15" height="15" viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" rx="2" fill="#fff" transform="rotate(15 10 10)"/><rect x="8" y="8" width="4" height="4" fill="#121216" transform="rotate(15 10 10)"/></svg>';
+  var r2=el("div","rb",h,"left:49px;top:9px;width:68px;height:31px");
+  r2.innerHTML='<svg width="52" height="16" viewBox="0 0 52 16"><path d="M6 3h12M6 8h12M6 13h12" stroke="#fff" stroke-width="2"/><path d="M33 2h13v9h-7l-4 3v-3h-2z" fill="none" stroke="#fff" stroke-width="1.8"/></svg>';
+  /* малі верхні кнопки */
+  var x=128,G=tiles?10:12;
+  [["invite","green"],["settings","gray"],["inventory","orange"]].forEach(function(a){x+=small(h,a[0],x,9,32,a[1],tiles)+G});
+  var xr=W-10;
+  [["updates","blue"],["codes","yellow"],["feedback","pink"]].forEach(function(a){var w=tiles?36:Math.round(32*D.asp[a[0]]);xr-=w;small(h,a[0],xr,9,32,a[1],tiles);xr-=G});
+  /* лічильники */
+  counter(h,105,"diamond","0");counter(h,149,"ticket","0");counter(h,193,"c_rebirth","0");
+  /* Shop / Index / Quests */
+  big(h,{x:26,y:246,s:92,k:"shop",t:"Shop",fs:21,th:"red"},tiles);
+  big(h,{x:26,y:354,s:92,k:"index",t:"Index",fs:21,th:"blue"},tiles);
+  big(h,{x:26,y:462,s:92,k:"quests",t:"Quests",fs:21,th:"orange"},tiles);
+  /* x2 Money + ціна */
+  var mx=1030,my=146,ms=70;
+  big(h,{x:mx,y:my,s:ms,k:"multi",t:"x2 Money",fs:21,lc:"#c9ff3a",th:"green"},false);
+  var pr=el("div","a",h,"left:"+(mx+ms/2-22)+"px;top:114px;display:flex;align-items:center;gap:3px;--sw:4px");
+  var ri=el("img","",pr,"width:26px;height:26px");ri.src=D.icons.robux;
+  var pv=el("div","val",pr,"font-size:24px;color:#c9ff3a");pv.textContent="1";
+  /* Rebirth */
+  big(h,{x:1208,y:272,s:96,k:"rebirth",t:"Rebirth",fs:21,th:"pink"},tiles);
+  /* Money */
+  var tm=el("div","val a",h,"left:12px;top:618px;font-size:15px;padding:4px 70px 4px 12px;background:linear-gradient(90deg,rgba(18,22,30,.7),rgba(18,22,30,0));--sw:3px");
+  tm.innerHTML='TOTAL MULTI <span style="color:#3ad6ff">x1</span>';
+  var mp=el("div","plate",h,"left:12px;top:645px;width:236px;height:64px;padding-left:16px;--sw:6px;background:linear-gradient(90deg,rgba(18,22,30,.85),rgba(18,22,30,.6) 75%,rgba(18,22,30,0))");
+  var mv=el("div","val",mp,"font-size:44px;color:#3df060");mv.textContent="$10,000";
+  var PS=tiles?48:60;var plus=el("div","a",h,"left:248px;top:"+(677-PS/2)+"px;width:"+PS+"px;height:"+PS+"px;border:3px solid #14161a;background:linear-gradient(#7ff25c,#25b52a);display:grid;place-items:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)");
+  plus.innerHTML='<svg width="'+Math.round(PS*0.67)+'" height="'+Math.round(PS*0.67)+'" viewBox="0 0 26 26"><path d="M10.5 5h5v5.5H21v5h-5.5V21h-5v-5.5H5v-5h5.5z" fill="#fff" stroke="#14161a" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  /* Boss */
+  var bt=el("div","a",h,"left:1060px;top:643px;width:212px;height:53px;background:linear-gradient(270deg,rgba(18,22,30,.85),rgba(18,22,30,.45) 60%,rgba(18,22,30,0));color:#fff;font-weight:900;text-align:right;padding:9px 40px 0 0;font-size:11px;line-height:1.1;-webkit-text-stroke:2px #14161a;paint-order:stroke fill");
+  bt.innerHTML='NEXT BOSS<br><span style="font-size:22px;letter-spacing:2px;-webkit-text-stroke:4px #14161a">--:--</span>';
+  big(h,{x:1246,y:634,s:70,k:"boss",t:"Boss",fs:17,th:"purple"},false);
+}
+build(document.getElementById("hA"),false);
+build(document.getElementById("hB"),true);
+function fit(f,s){var k=f.clientWidth/1328;s.style.transform="scale("+k+")";f.style.height=(720*k)+"px"}
+function all(){fit(document.getElementById("fA"),document.getElementById("sA"));fit(document.getElementById("fB"),document.getElementById("sB"))}
+window.addEventListener("resize",all);all();
+if(window.ResizeObserver)new ResizeObserver(all).observe(document.getElementById("fA"));
+</script>
+</body></html>

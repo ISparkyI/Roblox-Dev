@@ -1,0 +1,449 @@
+<meta charset="utf-8">
+<title>Plot UI Mock</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#15171b; --panel:#1d2025; --line:#2c3037; --fg:#e8ebf0; --muted:#9aa2ad; --accent:#ffd34d; --lime:#c9ff3a; --ink:#14161a; --navy:#040435;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:Montserrat,system-ui,sans-serif;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-weight:900;font-size:24px;margin:0 0 6px;color:var(--accent);text-wrap:balance}
+h2{font-weight:800;font-size:18px;margin:38px 0 8px;color:var(--fg);text-wrap:balance}
+p.lead{color:var(--muted);font-size:13.5px;line-height:1.55;margin:0 0 14px;max-width:76ch;font-weight:600}
+p.lead b{color:var(--fg)}
+.note{color:var(--muted);font-size:12.5px;line-height:1.5;font-weight:600;max-width:84ch}
+.note b{color:var(--fg)}
+.ctrls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.ctrls button{font:800 13px Montserrat,sans-serif;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+.ctrls button:hover{border-color:#4a505a}
+.ctrls .on{border-color:var(--lime);color:var(--lime)}
+.ctrls .lbl{font-size:12px;color:var(--muted);font-weight:800;align-self:center;margin-left:6px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:12px}
+.cardNote{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.cardNote h3{margin:0 0 6px;font-size:13.5px;font-weight:900;color:var(--accent)}
+.cardNote p{margin:0;font-size:12.5px;line-height:1.5;color:var(--muted);font-weight:600}
+
+/* ===== StyleA ===== */
+.sa{position:absolute;border-style:solid;border-image-slice:14 14 40 14 fill}
+.sa .tile{position:absolute;pointer-events:none}
+.sa .txt{position:absolute;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:.3em;font-weight:900;color:#fff;white-space:nowrap}
+.sa.btn{cursor:pointer;transition:transform .1s}
+.sa.btn:hover{transform:scale(1.04)}
+.sa.btn:active{transform:scale(.92)}
+.stroke7{-webkit-text-stroke:14px var(--ink);paint-order:stroke fill}
+.stroke6{-webkit-text-stroke:12px var(--ink);paint-order:stroke fill}
+.s3{-webkit-text-stroke:6px var(--ink);paint-order:stroke fill}
+.s2{-webkit-text-stroke:4px var(--ink);paint-order:stroke fill}
+.lime{color:#d4ff3e}
+.outl{text-shadow:4.0px 0.0px 0 #14161a,3.7px 1.53px 0 #14161a,2.83px 2.83px 0 #14161a,1.53px 3.7px 0 #14161a,-0.0px 4.0px 0 #14161a,-1.53px 3.7px 0 #14161a,-2.83px 2.83px 0 #14161a,-3.7px 1.53px 0 #14161a,-4.0px -0.0px 0 #14161a,-3.7px -1.53px 0 #14161a,-2.83px -2.83px 0 #14161a,-1.53px -3.7px 0 #14161a,0.0px -4.0px 0 #14161a,1.53px -3.7px 0 #14161a,2.83px -2.83px 0 #14161a,3.7px -1.53px 0 #14161a,0 5px 0 #14161a}
+
+/* ===== табло 1600 × 1000 ===== */
+.boardBox{position:relative;width:calc(100% - 32px);aspect-ratio:1600/1000;overflow:hidden;box-shadow:0 0 0 10px #5b3f2c,0 0 0 16px #3a271a,0 18px 50px #0008;margin:32px 16px 30px}
+.board{position:absolute;left:0;top:0;width:1600px;height:1000px;transform-origin:0 0;background:#8e939a;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:pan-y}
+.board .studs{position:absolute;inset:0;background-image:var(--panelStuds);background-size:56px 56px}
+.board .edge{position:absolute;inset:0;border:5px solid var(--ink);pointer-events:none;z-index:9}
+.viewport{position:absolute;left:0;top:28px;width:1600px;height:860px;overflow:hidden}
+.row{position:absolute;left:0;top:0;height:860px;display:flex;gap:90px;padding:20px 150px;will-change:transform}
+.fadeL,.fadeR{position:absolute;top:0;height:1000px;width:150px;pointer-events:none;z-index:5}
+.fadeL{left:0;background:linear-gradient(90deg,rgba(40,44,50,.6),rgba(40,44,50,0))}
+.fadeR{right:0;background:linear-gradient(270deg,rgba(40,44,50,.6),rgba(40,44,50,0))}
+.track{position:absolute;left:300px;top:912px;width:1000px;height:46px;background:rgba(20,22,26,.55);box-shadow:inset 0 4px 0 rgba(0,0,0,.35);outline:5px solid var(--ink);z-index:6;cursor:pointer}
+.thumb{position:absolute;top:0;height:46px;cursor:grab}
+.arrow{position:absolute;top:902px;width:66px;height:66px;z-index:7;cursor:pointer}
+.arrow svg{width:100%;height:100%}
+.holder{position:relative;flex:0 0 500px;height:804px;transform:scale(.95);transition:transform .14s ease-out;transform-origin:50% 45%}
+.card{position:absolute;left:0;top:0;width:500px;height:790px;border:6px solid var(--ink);overflow:hidden}
+.cshadow{position:absolute;left:0;top:14px;width:500px;height:790px;background:rgba(0,0,0,.35)}
+.card .cst{position:absolute;left:10px;top:10px;right:10px;bottom:10px;opacity:.32;background-size:46px 46px}
+.card .bands{position:absolute;inset:0;background:linear-gradient(155deg,transparent 16%,rgba(255,255,255,.18) 17%,rgba(255,255,255,.18) 31%,transparent 32%,transparent 47%,rgba(255,255,255,.10) 48%,rgba(255,255,255,.10) 53%,transparent 54%,transparent 70%,rgba(255,255,255,.15) 71%,rgba(255,255,255,.15) 83%,transparent 84%)}
+.card .gloss{position:absolute;left:6px;top:6px;right:6px;height:284px;background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,0))}
+.card .rim{position:absolute;left:6px;top:6px;right:6px;bottom:6px;border:6px solid var(--rim);opacity:.75}
+.card .strip{position:absolute;left:0;right:0;bottom:0;height:23px}
+.card .icon{position:absolute;left:74px;top:64px;width:340px;height:340px}
+.card .title{position:absolute;left:0;right:0;top:426px;height:96px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;white-space:nowrap}
+.card .value{position:absolute;left:0;right:0;top:524px;height:70px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:50px;color:#fff;white-space:nowrap}
+.card .btnShadow{position:absolute;left:64px;top:642px;width:360px;height:100px;background:rgba(0,0,0,.3)}
+
+/* ===== сцена гри 1280 × 720 ===== */
+.gameBox{position:relative;width:100%;aspect-ratio:1280/720;overflow:hidden;border-radius:6px;margin:14px 0 8px;background:#1b1714}
+.stage{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;font-family:Montserrat,sans-serif;font-weight:900;user-select:none;-webkit-user-select:none;overflow:hidden}
+.stage .abs{position:absolute}
+.scene{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 30%,#55606c 0,#353d46 45%,#1c2026 100%)}
+.scene .floor{position:absolute;left:-200px;right:-200px;top:330px;height:700px;background:#7d8693;background-image:var(--floorStuds);background-size:46px 46px;transform:perspective(600px) rotateX(58deg);transform-origin:50% 0}
+.scene .fog{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.15),rgba(0,0,0,0) 40%,rgba(0,0,0,.35))}
+.hud{position:absolute;font-size:22px;color:#fff}
+.moneyHud{left:22px;bottom:22px;font-size:46px;color:#7dff3a}
+.hotbar{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:8px}
+.hslot{width:66px;height:66px;background:linear-gradient(#22262c,#15181c);box-shadow:0 0 0 3px var(--ink),inset 0 0 0 2px rgba(255,255,255,.06);position:relative}
+.hslot img{position:absolute;left:10px;top:8px;width:46px;height:46px;object-fit:contain}
+.hslot i{position:absolute;right:4px;bottom:0;font-style:normal;font-size:16px;color:#fff}
+
+/* кнопка Place Golems */
+.placeBtn{position:absolute;left:490px;top:470px;width:300px;height:80px;z-index:20;transition:opacity .2s, transform .2s}
+.placeBtn.hidden{opacity:0;transform:translateY(16px) scale(.9);pointer-events:none}
+.placeBtn .shine{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.placeBtn .shine::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.7) 40%,transparent 48%,transparent 51%,rgba(255,255,255,.45) 55%,transparent 59%);transform:translateX(-130%);animation:shine 4.6s ease-in-out infinite}
+@keyframes shine{0%{transform:translateX(-130%)}38%{transform:translateX(130%)}100%{transform:translateX(130%)}}
+.plotTag{position:absolute;left:520px;top:440px;width:240px;text-align:center;font-size:20px;color:#fff;z-index:20;transition:opacity .2s}
+
+/* вікно */
+.win{position:absolute;left:170px;top:84px;width:940px;height:560px;z-index:30;transition:opacity .16s, transform .16s;transform-origin:50% 50%}
+.win.closed{opacity:0;transform:scale(.92);pointer-events:none}
+.win .frame{position:absolute;inset:0;background:#3b4048;box-shadow:0 0 0 5px var(--ink),0 14px 0 rgba(0,0,0,.35)}
+.win .panel{position:absolute;left:14px;top:14px;right:14px;bottom:14px;background:#b8bdc4;background-image:var(--winStuds);background-size:40px 40px;box-shadow:0 0 0 4px var(--ink)}
+.win .title{position:absolute;left:30px;top:-48px;font-size:76px;line-height:1;letter-spacing:.01em;z-index:3}
+.win .title .bk{position:absolute;left:0;top:7px;color:var(--navy);-webkit-text-stroke:20px var(--navy);stroke-linejoin:round}
+.win .title .fr{position:relative;background:linear-gradient(180deg,#ffffff 0,#bdeaff 30%,#5fc2ff 55%,#2b86ee 80%,#2a6fe0 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:2px var(--navy)}
+.win .sub{position:absolute;left:390px;top:-4px;font-size:20px;color:#fff;z-index:3}
+.slotC{position:absolute;cursor:pointer;transition:transform .12s ease-out}
+.slotC:hover{transform:scale(1.025)}
+.slotC .bg{position:absolute;inset:0;background:linear-gradient(#22262c,#15181c)}
+.slotC .gl{position:absolute;left:4%;top:4%;width:92%;height:92%}
+.slotC img{position:absolute;object-fit:contain;pointer-events:none}
+.slotC .nm{position:absolute;left:7px;top:5px;right:4px;font-size:13px;color:#fff;white-space:nowrap;overflow:hidden}
+.slotC .rr{position:absolute;right:6px;bottom:4px;font-size:12px;white-space:nowrap}
+.slotC .st{position:absolute;left:6px;bottom:4px;font-size:11px;color:#dfe5ea;white-space:nowrap}
+.slotC .ring{position:absolute;inset:-1px;box-shadow:0 0 0 4px #c8ff6a,0 0 16px rgba(200,255,106,.55);pointer-events:none}
+.slotC .tag{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%) rotate(-8deg);padding:2px 7px;font-size:12px;color:#fff;background:#3aa6ff;box-shadow:0 0 0 3px var(--ink);white-space:nowrap;z-index:5}
+.slotC .tag.here{background:#5bd12e}
+.slotC.dim .bg,.slotC.dim img,.slotC.dim .gl{opacity:.45}
+.lockS{position:absolute;background:linear-gradient(#2b3038,#1b1f25);box-shadow:0 0 0 4px var(--ink),inset 0 0 0 2px rgba(255,255,255,.05);cursor:default}
+.lockS img{position:absolute;left:50%;top:44%;width:44%;transform:translate(-50%,-50%);opacity:.85}
+.lockS div{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:11px;color:#c9ced4}
+.emptyS{position:absolute;background:linear-gradient(#262a31,#191c21);box-shadow:0 0 0 4px var(--ink),inset 0 0 0 2px rgba(255,255,255,.08);}
+.emptyS::before{content:"";position:absolute;left:4%;top:4%;width:92%;height:92%;background:radial-gradient(circle,rgba(255,255,255,.16) 0,rgba(255,255,255,.06) 32%,transparent 62%)}
+.emptyS div{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:30px;color:rgba(255,255,255,.35)}
+.lbl2{position:absolute;font-size:22px;color:#fff;white-space:nowrap}
+.lbl3{position:absolute;font-size:15px;color:#fff;white-space:nowrap}
+.secBg{position:absolute;background:rgba(32,36,42,.55);box-shadow:inset 0 0 0 3px rgba(20,22,26,.6)}
+.scrollbar{position:absolute;width:10px;background:#20242a;box-shadow:0 0 0 3px var(--ink)}
+.scrollbar i{position:absolute;left:0;right:0;top:0;height:40%;background:linear-gradient(#c8ff6a,#7fc21e)}
+.toast{position:absolute;left:50%;top:600px;transform:translateX(-50%);font-size:20px;color:#ff6b6b;opacity:0;transition:opacity .2s;z-index:40;white-space:nowrap}
+.shake{animation:shk .28s}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.pop{animation:pop .3s ease-out}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+
+/* HP-бари */
+.hpRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.hpCell{position:relative;background:radial-gradient(110% 90% at 50% 35%,#55606c,#262c33);border-radius:10px;height:270px;overflow:hidden;cursor:pointer;min-width:0}
+.hpCell .ore{position:absolute;left:50%;top:86px;width:130px;transform:translateX(-50%);transition:transform .08s}
+.hpCell .cap{position:absolute;left:12px;top:10px;font-size:13px;font-weight:900;color:#fff}
+.hpCell .hint{position:absolute;left:12px;right:12px;bottom:8px;font-size:11px;font-weight:700;color:#c9ced4}
+.hpBar{position:absolute;left:50%;top:52px;transform:translateX(-50%);font-family:Montserrat,sans-serif;font-weight:900}
+.chip{position:absolute;width:8px;height:8px;pointer-events:none}
+</style>
+
+<div class="wrap">
+  <h1>Плот — макет UI: табло прокачки, розстановка големів, HP-бар руди</h1>
+  <p class="lead">Три частини для перенесення в гру. Стиль той самий, що в табла Forge і в INVENTORY: сіра підкладка зі studs, картки з іконками в стилі HUD-пака, кнопки «стиль A», слоти «C · Сяйво». Усе клікабельне.</p>
+
+  <h2>1. Табло прокачки плоту (ліворуч від SELL)</h2>
+  <p class="lead">Чотири картки, діють на <b>всі плоти</b>: <b>Plots</b> — купити наступний плот (1 → 6), <b>Ore Spawn</b> — руда з'являється частіше (5 с → 0,25 с), <b>Golem Slots</b> — більше майнерів на плоті (1 → 5), <b>Carrier Speed</b> — носій швидше (×1 → ×3). Влазить дві з половиною картки, решта — прокруткою: коліщатко, повзунок, стрілки або потягнути за картки.</p>
+  <div class="ctrls" id="boardCtrls">
+    <button data-st="start">Старт гри</button>
+    <button data-st="mid">Середина</button>
+    <button data-st="max">Усе MAX</button>
+    <button data-st="poor">Не вистачає грошей</button>
+  </div>
+  <div class="boardBox" id="boardBox">
+    <div class="board" id="board">
+      <div class="studs"></div>
+      <div class="viewport" id="vp"><div class="row" id="row"></div></div>
+      <div class="fadeL"></div><div class="fadeR"></div>
+      <div class="arrow" id="arL" style="left:214px"></div>
+      <div class="track" id="track"><div class="thumb" id="thumb"></div></div>
+      <div class="arrow" id="arR" style="left:1320px"></div>
+      <div class="edge"></div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="cardNote"><h3>Plots</h3><p>Значення: «Plot 1 › Plot 2» — скільки плотів відкрито і який відкриється. Ціна 150, 750, 3,750, 18,750, 93,750. На MAX — «MAX (6 plots)».</p></div>
+    <div class="cardNote"><h3>Ore Spawn</h3><p>«5.00s › 4.75s» — як часто на кожному плоті з'являється нова руда. 19 рівнів, ціна 150 × 1.5^(n−1). MAX — 0.25s.</p></div>
+    <div class="cardNote"><h3>Golem Slots</h3><p>«1 › 2» — скільки майнерів можна поставити на кожен плот. Ціна 400 × 5^(n−1), MAX — 5.</p></div>
+    <div class="cardNote"><h3>Carrier Speed</h3><p>«x1.00 › x1.25» — множник швидкості носія. 8 рівнів, ціна 250 × 2^(n−1), MAX — x3.</p></div>
+  </div>
+
+  <h2>2. Кнопка Place Golems і меню розстановки</h2>
+  <p class="lead">Коли гравець <b>стоїть на своєму відкритому плоті</b>, трохи нижче центру екрана з'являється кнопка <b>PLACE GOLEMS</b> (над нею — номер плоту). Вона відкриває урізаний інвентар: лише големи, згори — слоти цього плоту (майнери + 1 носій), знизу — твої големи. Клік по голему — він стає у вільний слот, клік по слоту — голем знімається. <b>Equip Best</b> безкоштовно ставить найсильніших на всі відкриті плоти.</p>
+  <div class="ctrls">
+    <button id="bStand" class="on">Гравець на плоті</button>
+    <button id="bOpen">Відкрити меню</button>
+    <span class="lbl">Golem Slots:</span>
+    <button data-sl="1">1</button><button data-sl="3" class="on">3</button><button data-sl="5">5</button>
+    <span class="lbl">Плот:</span>
+    <button data-pl="1" class="on">Plot 1</button><button data-pl="2">Plot 2</button>
+  </div>
+  <div class="gameBox" id="gameBox"><div class="stage" id="stage"></div></div>
+  <div class="grid2">
+    <div class="cardNote"><h3>Слоти плоту</h3><p>Майнерів стільки, скільки відкрила картка Golem Slots; решта до 5 — темні із замком і підписом «Golem Slots». Окремо праворуч — слот носія (лише 1). Порожній слот — «+».</p></div>
+    <div class="cardNote"><h3>Вкладки Miners / Carriers</h3><p>Як вкладки інвентаря: синя — вибрана. У сітці лише големи цього класу. Голем на цьому плоті — лаймова рамка і плашка ON PLOT, на іншому плоті — тьмяний і плашка PLOT N (клік переставить його сюди).</p></div>
+    <div class="cardNote"><h3>Equip Best і Auto Equip Best</h3><p>Equip Best — сильніші майнери (шкода / інтервал) і носії (місткість × швидкість) по черзі на плоти 1 → 6. Геймпас Auto Equip Best додає перемикач у Settings: сервер сам робить це після кожного нового голема.</p></div>
+  </div>
+
+  <h2>3. HP-бар руди — три варіанти</h2>
+  <p class="lead">Зараз у грі тимчасовий варіант A. Натисни на руду, щоб ударити. Обери варіант (або скажи, що змінити), і я поставлю його в гру.</p>
+  <div class="hpRow" id="hpRow"></div>
+</div>
+
+<script>
+const IMG = __ASSETS__;
+function studSVG(cell,s,fill,shade,edge,r,d){
+  const o=(cell-s)/2;
+  const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='${cell}' height='${cell}'><rect x='${o-d/2}' y='${o+d/2}' width='${s}' height='${s}' rx='${r}' fill='${shade}'/><rect x='${o+d/2}' y='${o-d/2}' width='${s}' height='${s}' rx='${r}' fill='${fill}' ${edge?`stroke='${edge}' stroke-width='2'`:''}/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+const R=document.documentElement.style;
+R.setProperty('--panelStuds',studSVG(56,34,'#979ca3','#6c7178','#aeb3b9',5,4));
+R.setProperty('--winStuds',studSVG(40,24,'#c3c8ce','#9aa0a7','#d3d7dc',3,3));
+R.setProperty('--floorStuds',studSVG(46,28,'#8d96a2','#646c77',null,4,3));
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+function darken(hex,k){const n=parseInt(hex.slice(1),16);const r=(n>>16)&255,g=(n>>8)&255,b=n&255;return `rgb(${r*(1-k)|0},${g*(1-k)|0},${b*(1-k)|0})`}
+
+// кнопка «стиль A»: 9-slice основа + тайл візерунка всередині грані
+function styleA(w,h,color,text,fs,extra,cls,half){
+  const k=h/200, base=IMG['base_'+color], tile=IMG['tile_'+color+(half?'_half':'')]||IMG['tile_'+color+'_half']||IMG['tile_gray'];
+  const faceH=(160-14)*k, cell=faceH/(half?3:4);
+  return `<div class="sa ${cls||''}" style="${extra||''}width:${w}px;height:${h}px;border-image-source:url(${base});border-width:${14*k}px ${14*k}px ${40*k}px ${14*k}px">
+    <div class="tile" style="left:0;top:0;right:0;height:${faceH}px;background:url(${tile});background-size:${cell*2}px ${cell*2}px;opacity:${color==='green'?.55:.7}"></div>
+    <div class="txt" style="top:${-14*k}px;height:${faceH+14*k}px;font-size:${fs}px">${text}</div></div>`;
+}
+
+/* ===================== 1. ТАБЛО ===================== */
+const THEMES={
+  plots:{grad:['#8ef05a','#43b62a','#237a16'],rim:'#d4ffb8',stud:'#a9f57e',shade:'#2f8a1c'},
+  spawn:{grad:['#6fc6ff','#2f8ee6','#1a5cb0'],rim:'#bfe6ff',stud:'#8fd2ff',shade:'#1b62b8'},
+  slots:{grad:['#ffb15c','#f07a1e','#b8500c'],rim:'#ffd2a3',stud:'#ffc890',shade:'#b3520f'},
+  carry:{grad:['#d59bff','#9a4cf0','#5f22b4'],rim:'#ecd4ff',stud:'#dcb4ff',shade:'#5c1fa8'},
+};
+function cardHTML(key,title,ts,value,btnText,btnColor){
+  const t=THEMES[key];
+  return `<div class="holder"><div class="cshadow"></div>
+   <div class="card" style="background:linear-gradient(180deg,${t.grad[0]},${t.grad[1]} 55%,${t.grad[2]});--rim:${t.rim}">
+    <div class="cst" style="background-image:${studSVG(46,27.6,t.stud,t.shade,null,5,4)}"></div>
+    <div class="bands"></div><div class="gloss"></div><div class="rim"></div>
+    <div class="strip" style="background:${darken(t.grad[2],.3)}"></div>
+    <img class="icon" alt="" src="${IMG['plot_'+key]}">
+    <div class="title stroke7" style="font-size:${ts}px">${title}</div>
+    <div class="value stroke6">${value}</div>
+    <div class="btnShadow"></div>${styleA(360,100,btnColor,`<span class="stroke6">${btnText}</span>`,56,'left:64px;top:634px;','btn')}
+   </div></div>`;
+}
+const CARDS={
+  plots:{max:6,price:l=>Math.floor(150*5**(l-1)),val:l=>`Plot ${l} <span class="lime">&nbsp;›&nbsp;Plot ${l+1}</span>`,maxv:'MAX (6 plots)'},
+  spawn:{max:20,price:l=>Math.floor(150*1.5**(l-1)),val:l=>`${(5-(l-1)*.25).toFixed(2)}s <span class="lime">&nbsp;›&nbsp;${(5-l*.25).toFixed(2)}s</span>`,maxv:'MAX (0.25s)'},
+  slots:{max:5,price:l=>Math.floor(400*5**(l-1)),val:l=>`${l} <span class="lime">&nbsp;›&nbsp;${l+1}</span>`,maxv:'MAX (5 golems)'},
+  carry:{max:9,price:l=>Math.floor(250*2**(l-1)),val:l=>`x${(1+(l-1)*.25).toFixed(2)} <span class="lime">&nbsp;›&nbsp;x${(1+l*.25).toFixed(2)}</span>`,maxv:'MAX (x3.00)'},
+};
+const TITLES={plots:['Plots',72],spawn:['Ore Spawn',66],slots:['Golem Slots',60],carry:['Carrier Speed',54]};
+let LV={plots:1,spawn:1,slots:1,carry:1}, money=2500;
+const row=document.getElementById('row');
+function renderCards(){
+  row.innerHTML=Object.keys(CARDS).map(k=>{
+    const c=CARDS[k], l=LV[k], mx=l>=c.max, p=c.price(l);
+    return cardHTML(k,TITLES[k][0],TITLES[k][1],mx?`<span class="lime">${c.maxv}</span>`:c.val(l),mx?'MAX':'$'+fmt(p),mx||money<p?'gray':'green');
+  }).join('');
+  row.querySelectorAll('.holder').forEach((h,i)=>{
+    const k=Object.keys(CARDS)[i];
+    h.addEventListener('pointermove',e=>{const r=h.getBoundingClientRect();h.style.transform=`scale(1) rotate(${((e.clientX-r.left)/r.width-.5)*6}deg)`});
+    h.addEventListener('pointerleave',()=>{h.style.transform='scale(.95)'});
+    h.querySelector('.sa').onclick=e=>{e.stopPropagation();const c=CARDS[k],l=LV[k];if(l>=c.max||money<c.price(l)){const b=e.currentTarget;b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}
+      money-=c.price(l);LV[k]++;renderCards()};
+  });
+}
+const board=document.getElementById('board'), bbox=document.getElementById('boardBox'), vp=document.getElementById('vp'), track=document.getElementById('track'), thumb=document.getElementById('thumb');
+function fitB(){board.style.transform=`scale(${bbox.clientWidth/1600})`}
+new ResizeObserver(fitB).observe(bbox); fitB();
+let x=0,tx=0;
+const maxX=()=>Math.max(0,row.scrollWidth-1600), clampT=()=>{tx=Math.max(0,Math.min(maxX(),tx))};
+function thumbLayout(){
+  const ratio=1600/Math.max(1600,row.scrollWidth), tw=Math.max(140,1000*ratio);
+  const u=maxX()?x/maxX():0; thumb.style.width=tw+'px'; thumb.style.left=(u*(1000-tw))+'px';
+  if(thumb._w!==tw){thumb._w=tw;thumb.innerHTML=styleA(tw,46,'green','',1,'left:0;top:0;');}
+}
+function tick(){x+=(tx-x)*.18;if(Math.abs(tx-x)<.3)x=tx;row.style.transform=`translateX(${-x}px)`;thumbLayout();requestAnimationFrame(tick)}
+board.addEventListener('wheel',e=>{e.preventDefault();tx+=(Math.abs(e.deltaY)>Math.abs(e.deltaX)?e.deltaY:e.deltaX)*1.2/(bbox.clientWidth/1600);clampT()},{passive:false});
+let drag=null;
+thumb.addEventListener('pointerdown',e=>{e.stopPropagation();drag={sx:e.clientX,st:tx};thumb.setPointerCapture(e.pointerId)});
+thumb.addEventListener('pointermove',e=>{if(!drag)return;const s=bbox.clientWidth/1600;tx=drag.st+(e.clientX-drag.sx)/s*maxX()/(1000-thumb.offsetWidth);clampT();x=tx});
+thumb.addEventListener('pointerup',()=>drag=null);
+track.addEventListener('pointerdown',e=>{if(e.target!==track)return;const r=track.getBoundingClientRect();tx=(e.clientX-r.left)/r.width*maxX();clampT()});
+let pan=null;
+vp.addEventListener('pointerdown',e=>{if(e.target.closest('.sa'))return;pan={sx:e.clientX,st:tx};vp.setPointerCapture(e.pointerId)});
+vp.addEventListener('pointermove',e=>{if(!pan)return;tx=pan.st-(e.clientX-pan.sx)/(bbox.clientWidth/1600);clampT()});
+vp.addEventListener('pointerup',()=>pan=null);
+function arrowSVG(dir){const p=dir<0?'M38 18 L24 31 L38 44':'M28 18 L42 31 L28 44';return `<svg viewBox="0 0 66 66"><rect x="5" y="9" width="56" height="52" fill="#000" opacity=".3"/><rect x="5" y="5" width="56" height="52" fill="#c3c8cf" stroke="#14161a" stroke-width="5"/><rect x="10" y="10" width="46" height="18" fill="#fff" opacity=".35"/><path d="${p}" fill="none" stroke="#14161a" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/><path d="${p}" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`}
+const arL=document.getElementById('arL'),arR=document.getElementById('arR');
+arL.innerHTML=arrowSVG(-1);arR.innerHTML=arrowSVG(1);arL.onclick=()=>{tx-=590;clampT()};arR.onclick=()=>{tx+=590;clampT()};
+const PRESETS={start:[{plots:1,spawn:1,slots:1,carry:1},2500],mid:[{plots:3,spawn:9,slots:3,carry:4},250000],max:[{plots:6,spawn:20,slots:5,carry:9},1e9],poor:[{plots:2,spawn:4,slots:2,carry:2},120]};
+document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{const p=PRESETS[b.dataset.st];LV={...p[0]};money=p[1];renderCards();document.querySelectorAll('[data-st]').forEach(o=>o.classList.toggle('on',o===b))});
+document.querySelector('[data-st="start"]').classList.add('on');
+renderCards();requestAnimationFrame(tick);
+
+/* ===================== 2. PLACE GOLEMS ===================== */
+const RAR={Common:'#9aa3ad',Rare:'#3aa6ff',Epic:'#c86bff',Legendary:'#ffc531'};
+const KIND={wood:['Wooden Golem','Common',5,1.4,2,8],stone:['Stone Golem','Common',8,1.4,3,9],iron:['Iron Golem','Rare',14,1.3,4,10],gold:['Gold Golem','Epic',22,1.2,5,11],crystal:['Crystal Golem','Legendary',35,1.1,6,12]};
+const G=[["stone","m"],["stone","m"],["wood","m"],["wood","c"],["wood","m"],["iron","m"],["iron","c"],["gold","m"],["crystal","m"],["stone","c"],["iron","m"],["wood","m"],["gold","m"]]
+  .map(([k,c],i)=>({id:i+1,kind:k,cls:c}));
+let slotsLvl=3, plot=1, tab='m', open=false, standing=true;
+let assign={1:{m:[8,6],c:7},2:{m:[11],c:null}}; // плот → майнери / носій
+const power=g=>{const s=KIND[g.kind];return g.cls==='m'?s[2]/s[3]:s[4]*s[5]};
+const where=id=>{for(const p in assign){if(assign[p].m.includes(id)||assign[p].c===id)return +p}return 0};
+const stage=document.getElementById('stage'), gbox=document.getElementById('gameBox');
+function fitS(){stage.style.transform=`scale(${gbox.clientWidth/1280})`}
+new ResizeObserver(fitS).observe(gbox); fitS();
+function el(p,cls,css,html){const d=document.createElement('div');if(cls)d.className=cls;if(css)d.style.cssText=css;if(html!=null)d.innerHTML=html;p.appendChild(d);return d}
+// сцена
+const scene=el(stage,'scene');el(scene,'floor');el(scene,'fog');
+el(stage,'abs s3','left:22px;top:612px;font-size:20px;color:#e6edf5','TOTAL MULTI <span style="color:#5ff2ff">x1</span>');
+el(stage,'abs','left:22px;top:640px;font-size:52px;color:#7dff3a;-webkit-text-stroke:10px #14161a;paint-order:stroke fill','$2,500');
+const hb=el(stage,'hotbar');
+[['ore_Coal','×25'],['ore_Copper','×12'],['ore_Iron','×6']].forEach(([k,n],i)=>{const s=el(hb,'hslot');el(s,'abs s2','left:5px;top:2px;font-size:14px;color:#c9ced4',String(i+1));const im=document.createElement('img');im.src=IMG[k];s.appendChild(im);el(s,'s2','',`<i class="s2">${n}</i>`)});
+// плот на «підлозі» — для настрою
+el(stage,'abs s3','left:470px;top:250px;width:340px;text-align:center;font-size:26px;color:#fff;opacity:.85','PLOT 1');
+// кнопка
+const tag=el(stage,'plotTag s3','','Plot 1');
+const pb=el(stage,'placeBtn');
+pb.innerHTML=styleA(300,80,'green',`<img src="${IMG.golem_stone}" style="width:44px;height:44px;margin-right:4px"><span class="outl">PLACE GOLEMS</span>`,28,'left:0;top:0;','btn')+'<div class="shine"></div>';
+pb.onclick=()=>setOpen(true);
+// вікно
+const win=el(stage,'win closed');
+el(win,'frame');const panel=el(win,'panel');
+const title=el(win,'title','','<span class="bk">PLOT 1</span><span class="fr">PLOT 1</span>');
+const xb=el(win,'abs','right:-26px;top:-30px;width:80px;height:80px;z-index:4');
+xb.innerHTML=styleA(80,80,'red',`<img src="${IMG.icon_x}" style="width:44px;height:44px">`,10,'left:0;top:0;','btn');xb.onclick=()=>setOpen(false);
+const toast=el(stage,'toast s3','');
+function say(t){toast.textContent=t;toast.style.opacity=1;clearTimeout(say._t);say._t=setTimeout(()=>toast.style.opacity=0,1400)}
+
+function slotC(p,x,y,S,g,o){
+  o=o||{};
+  const s=KIND[g.kind], tone=RAR[s[1]];
+  const d=el(p,'slotC'+(o.dim?' dim':''),`left:${x}px;top:${y}px;width:${S}px;height:${S}px;box-shadow:0 0 0 4px #14161a`);
+  el(d,'bg','',null);d.firstChild.style.boxShadow=`inset 0 0 0 2px ${tone}55`;
+  el(d,'gl',`background:radial-gradient(circle at 50% 50%,${tone}d0 0,${tone}66 30%,${tone}22 52%,transparent 70%)`);
+  const im=document.createElement('img');const pad=S*.17;im.src=IMG['golem_'+g.kind];im.style.cssText=`left:${pad}px;top:${pad*.95}px;width:${S-2*pad}px;height:${S-2*pad}px`;d.appendChild(im);
+  if(!o.mini){el(d,'nm s2','',s[0]);}
+  el(d,'st s2','',g.cls==='m'?`${s[2]} dmg · ${s[3]}s`:`${s[4]} ore · ${s[5]} sp`);
+  if(o.here){el(d,'ring');}
+  if(o.tag)el(d,'tag s2'+(o.here?' here':''),'',o.tag);
+  if(o.click)d.onclick=o.click;
+  return d;
+}
+function render(){
+  panel.innerHTML='';
+  title.innerHTML=`<span class="bk">PLOT ${plot}</span><span class="fr">PLOT ${plot}</span>`;
+  // ліва колонка: вкладки
+  const nM=G.filter(g=>g.cls==='m').length, nC=G.filter(g=>g.cls==='c').length, a=assign[plot]||{m:[],c:null};
+  [['m','Miners',`${a.m.length} / ${slotsLvl} placed`,IMG.golem_stone,56],['c','Carriers',`${a.c?1:0} / 1 placed`,IMG.forge_capacity_v2,150]].forEach(([k,t,sub,ic,y])=>{
+    const on=tab===k;const w=el(panel,'abs',`left:30px;top:${y}px;width:220px;height:84px;cursor:pointer`);
+    w.innerHTML=styleA(on?226:214,on?86:80,on?'blue':'gray',`<img src="${ic}" style="position:absolute;left:10px;top:4px;width:62px;height:62px"><span style="position:absolute;left:80px;top:6px;font-size:24px" class="s3">${t}</span><span style="position:absolute;left:82px;top:38px;font-size:14px;color:#fff" class="s2">${sub}</span>`,10,`left:${on?-6:0}px;top:${on?-3:0}px;`,'btn',true);
+    w.querySelector('.txt').style.justifyContent='flex-start';
+    w.onclick=()=>{tab=k;render()};
+  });
+  // Equip Best
+  const eb=el(panel,'abs','left:30px;top:388px;width:220px;height:84px');
+  eb.innerHTML=styleA(220,84,'green',`<span class="outl">EQUIP BEST</span>`,30,'left:0;top:0;','btn');
+  eb.onclick=equipBest;
+  el(panel,'lbl3 s2','left:34px;top:478px;font-size:12.5px;color:#eef2f6','Best golems on all plots · free');
+  // права частина: слоти плоту
+  el(panel,'secBg','left:270px;top:20px;width:630px;height:150px');
+  el(panel,'lbl2 s3','left:286px;top:26px',`Miners <span style="color:#d4ff3e">${a.m.length} / ${slotsLvl}</span>`);
+  el(panel,'lbl2 s3','left:774px;top:26px','Carrier');
+  const SX=286,SY=62,S=92,GAP=8;
+  for(let i=0;i<5;i++){
+    const x=SX+i*(S+GAP);
+    if(i>=slotsLvl){const d=el(panel,'lockS',`left:${x}px;top:${SY}px;width:${S}px;height:${S}px`);d.innerHTML=`<img src="${IMG.icon_lock}"><div class="s2">Golem Slots</div>`;continue}
+    const id=a.m[i];
+    if(id){const g=G.find(g=>g.id===id);slotC(panel,x,SY,S,g,{mini:true,click:()=>{a.m.splice(i,1);render()}});}
+    else{const d=el(panel,'emptyS',`left:${x}px;top:${SY}px;width:${S}px;height:${S}px`,'<div class="s2">+</div>');d.onclick=()=>{tab='m';render()}}
+  }
+  el(panel,'abs',`left:${SX+5*(S+GAP)-2}px;top:56px;width:4px;height:104px;background:#14161a;opacity:.5`);
+  const cx=SX+5*(S+GAP)+14+(130-S)/2-14;
+  if(a.c){const g=G.find(g=>g.id===a.c);slotC(panel,cx,SY,S,g,{mini:true,click:()=>{a.c=null;render()}})}
+  else{const d=el(panel,'emptyS',`left:${cx}px;top:${SY}px;width:${S}px;height:${S}px`,'<div class="s2">+</div>');d.onclick=()=>{tab='c';render()}}
+  // сітка големів
+  el(panel,'lbl2 s3','left:286px;top:184px',tab==='m'?'Your miners':'Your carriers');
+  el(panel,'lbl3 s2','left:670px;top:190px;width:230px;text-align:right;color:#eef2f6',(tab==='m'?nM:nC)+' golems · strongest first');
+  const list=G.filter(g=>g.cls===tab).sort((a,b)=>power(b)-power(a)||a.id-b.id);
+  const gb=el(panel,'abs','left:276px;top:218px;width:610px;height:282px;overflow:hidden');
+  const GS=104,GG=16;
+  list.forEach((g,i)=>{
+    const c=i%5, r=(i/5)|0, w=where(g.id);
+    slotC(gb,10+c*(GS+GG),10+r*(GS+GG+4),GS,g,{here:w===plot,dim:w&&w!==plot,tag:w===plot?'ON PLOT':w?`PLOT ${w}`:'',click:()=>place(g)});
+  });
+  const sb=el(panel,'scrollbar','left:892px;top:224px;height:270px');el(sb,'','',null).style.cssText='position:absolute;left:0;right:0;top:0;height:'+(list.length>10?55:100)+'%;background:linear-gradient(#c8ff6a,#7fc21e)';
+  el(panel,'lbl3 s2','left:286px;top:500px;color:#eef2f6;font-size:13px','Tap a golem to place it · tap a slot to take it off');
+}
+function place(g){
+  const a=assign[plot]||(assign[plot]={m:[],c:null});
+  const w=where(g.id);
+  if(w===plot){ // знімаємо
+    if(g.cls==='m')a.m=a.m.filter(i=>i!==g.id);else a.c=null;render();return}
+  if(g.cls==='m'&&a.m.length>=slotsLvl){say('All miner slots are full');const r=panel.querySelector('.secBg');r.classList.remove('shake');void r.offsetWidth;r.classList.add('shake');return}
+  if(w){const o=assign[w];o.m=o.m.filter(i=>i!==g.id);if(o.c===g.id)o.c=null}
+  if(g.cls==='m')a.m.push(g.id);else a.c=g.id;
+  render();
+  const sl=[...panel.querySelectorAll('.slotC')];const t=g.cls==='m'?sl[a.m.length-1]:sl[sl.length-1-0];
+}
+function equipBest(){
+  const ms=G.filter(g=>g.cls==='m').sort((a,b)=>power(b)-power(a)||a.id-b.id), cs=G.filter(g=>g.cls==='c').sort((a,b)=>power(b)-power(a)||a.id-b.id);
+  assign={};let mi=0,ci=0;
+  for(let p=1;p<=2;p++){assign[p]={m:ms.slice(mi,mi+slotsLvl).map(g=>g.id),c:cs[ci]?cs[ci].id:null};mi+=slotsLvl;ci++}
+  render();panel.querySelectorAll('.slotC').forEach((s,i)=>{if(i<6){s.classList.add('pop')}});
+  say('');toast.style.color='#d4ff3e';say('Best golems placed on Plot 1 – 2');setTimeout(()=>toast.style.color='',1500);
+}
+function setOpen(v){open=v;win.classList.toggle('closed',!v);pb.classList.toggle('hidden',v||!standing);tag.style.opacity=(v||!standing)?0:1;document.getElementById('bOpen').classList.toggle('on',v);if(v)render()}
+document.getElementById('bOpen').onclick=()=>setOpen(!open);
+document.getElementById('bStand').onclick=e=>{standing=!standing;e.target.classList.toggle('on',standing);if(!standing)setOpen(false);else setOpen(open)};
+document.querySelectorAll('[data-sl]').forEach(b=>b.onclick=()=>{slotsLvl=+b.dataset.sl;for(const p in assign)assign[p].m=assign[p].m.slice(0,slotsLvl);document.querySelectorAll('[data-sl]').forEach(o=>o.classList.toggle('on',o===b));render()});
+document.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{plot=+b.dataset.pl;tag.textContent='Plot '+plot;document.querySelectorAll('[data-pl]').forEach(o=>o.classList.toggle('on',o===b));render()});
+addEventListener('keydown',e=>{if(e.key==='Escape')setOpen(false)});
+setOpen(false);render();
+
+/* ===================== 3. HP-БАРИ ===================== */
+const HP_VARIANTS=[
+  {k:'A',name:'A · Пігулка (зараз у грі)',hint:'темна пігулка, заливка зелена → жовта → червона, число по центру'},
+  {k:'B',name:'B · Квадратна «стиль A»',hint:'квадратна, чорнильна рамка, studs на заливці, колір руди, сердечко-кристал ліворуч'},
+  {k:'C',name:'C · Сегменти',hint:'по одному сегменту на удар голема (або блоки по 10%), без числа'},
+];
+const ORES=[{k:'Coal',hp:5,col:'#6d737c',hi:'#9aa3ad'},{k:'Copper',hp:15,col:'#e0743c',hi:'#ffb27a'},{k:'Iron',hp:30,col:'#d9b08a',hi:'#f2d6b8'}];
+function hpHTML(v,o,hp){
+  const k=Math.max(0,hp/o.hp);
+  if(v==='A'){
+    const c=k>.5?'#7dff3a':k>.25?'#ffd23a':'#ff5c4d';
+    return `<div style="position:relative;width:170px;height:28px;background:#1d2233;border-radius:14px;box-shadow:0 0 0 2.5px #040435">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:${k*100}%;border-radius:14px;background:linear-gradient(${c},${c} 50%,${darken(c,.25)});transition:width .18s"></div>
+      <div class="s2" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff">${hp} / ${o.hp}</div></div>`;
+  }
+  if(v==='B'){
+    return `<div style="position:relative;width:190px;height:34px">
+      <div style="position:absolute;left:22px;top:4px;width:168px;height:28px;background:#262a31;box-shadow:0 0 0 4px #14161a,0 5px 0 4px rgba(0,0,0,.3)">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${k*100}%;background:${o.col};background-image:${studSVG(14,8,o.hi,darken(o.col,.25),null,2,2)};background-size:14px 14px;transition:width .18s"></div>
+        <div style="position:absolute;left:0;right:0;top:0;height:9px;background:rgba(255,255,255,.25)"></div>
+        <div class="s2" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:15px;color:#fff">${hp}</div>
+      </div>
+      <svg width="38" height="38" viewBox="0 0 38 38" style="position:absolute;left:0;top:-1px"><path d="M19 3 L33 15 L19 35 L5 15Z" fill="#14161a" stroke="#14161a" stroke-width="6" stroke-linejoin="round"/><path d="M19 3 L33 15 L19 35 L5 15Z" fill="${o.col}"/><path d="M19 3 L33 15 L19 15Z" fill="${darken(o.col,.25)}"/><path d="M11 13 L17 7 L14 15Z" fill="#fff"/></svg></div>`;
+  }
+  const n=o.hp<=10?o.hp:10, filled=Math.ceil(k*n);
+  let segs='';for(let i=0;i<n;i++)segs+=`<div style="flex:1;background:${i<filled?'linear-gradient(#b9ff6a,#5bd12e)':'#2a2f36'};box-shadow:inset 0 3px 0 rgba(255,255,255,${i<filled?.35:.04})"></div>`;
+  return `<div style="display:flex;gap:3px;width:180px;height:20px;padding:3px;background:#14161a;box-shadow:0 4px 0 rgba(0,0,0,.3)">${segs}</div>`;
+}
+const hpRow=document.getElementById('hpRow');
+HP_VARIANTS.forEach((v,vi)=>{
+  const o=ORES[(vi+1)%3]; let hp=o.hp;
+  const c=el(hpRow,'hpCell');
+  el(c,'cap',null,v.name);el(c,'hint',null,v.hint+' · клік — удар');
+  const bar=el(c,'hpBar');const ore=document.createElement('img');ore.className='ore';ore.src=IMG['ore_'+o.k];c.appendChild(ore);
+  const draw=()=>bar.innerHTML=hpHTML(v.k,o,hp);draw();
+  c.onclick=e=>{
+    hp=Math.max(0,hp-(o.hp>=30?6:o.hp>=15?5:2));draw();
+    ore.animate([{transform:'translateX(-50%) rotate(0)'},{transform:'translateX(calc(-50% - 5px)) rotate(-4deg)'},{transform:'translateX(calc(-50% + 4px)) rotate(3deg)'},{transform:'translateX(-50%) rotate(0)'}],{duration:220});
+    for(let i=0;i<6;i++){const ch=el(c,'chip',`left:${c.clientWidth/2}px;top:150px;background:${i%2?o.col:'#8a929c'};box-shadow:0 0 0 2px #14161a`);const a=Math.random()*Math.PI*2,d=40+Math.random()*40;ch.animate([{transform:'translate(0,0)',opacity:1},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d-30}px)`,opacity:0}],{duration:500}).onfinish=()=>ch.remove()}
+    if(hp<=0){ore.animate([{transform:'translateX(-50%) scale(1)'},{transform:'translateX(-50%) scale(0)'}],{duration:300,fill:'forwards'});setTimeout(()=>{hp=o.hp;draw();ore.animate([{transform:'translateX(-50%) scale(0) translateY(40px)'},{transform:'translateX(-50%) scale(1.15)'},{transform:'translateX(-50%) scale(1)'}],{duration:450,fill:'forwards'})},700)}
+  };
+});
+</script>

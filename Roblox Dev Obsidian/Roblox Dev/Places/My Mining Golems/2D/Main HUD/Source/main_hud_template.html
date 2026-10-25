@@ -1,0 +1,154 @@
+<title>Main HUD Mock</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;800;900&display=swap">
+<style>
+/* layout: two scaled game frames (PC 1280x720, phone 844x390) stacked; HUD built with Style A tiles and pack icons */
+:root{--bg:#f3f5f8;--fg:#15202e;--muted:#5d6b7e;--line:#d8dee8;--surface:#fff;--accent:#2f6bff;
+  --f-body:'Rubik','Segoe UI',sans-serif;--f-hud:'Montserrat','Arial Black',sans-serif}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f1520;--fg:#e8eef8;--muted:#93a1b6;--line:#2a3647;--surface:#18212f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1520;--fg:#e8eef8;--muted:#93a1b6;--line:#2a3647;--surface:#18212f;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5;
+ padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1200px;margin:0 auto}
+h1{font-family:var(--f-hud);font-weight:900;font-size:24px;margin:0 0 4px}
+h2{font-family:var(--f-hud);font-weight:800;font-size:17px;margin:30px 0 8px}
+.lead{color:var(--muted);margin:0 0 6px;max-width:75ch}
+.frame{position:relative;width:100%;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.stage{position:absolute;left:0;top:0;transform-origin:0 0;overflow:hidden}
+.scene{position:absolute;inset:0;background:
+  radial-gradient(ellipse at 50% 40%,rgba(255,196,120,.16),transparent 60%),
+  repeating-linear-gradient(90deg,rgba(0,0,0,.10) 0 2px,transparent 2px 120px),
+  repeating-linear-gradient(0deg,rgba(0,0,0,.10) 0 2px,transparent 2px 96px),
+  linear-gradient(#3b2f2a,#5a4538 55%,#3a2e27)}
+.scene::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.45))}
+.hud{position:absolute;inset:0;font-family:var(--f-hud)}
+.abs{position:absolute}
+.tw{position:absolute;display:flex;flex-direction:column;align-items:center}
+.tw img{display:block;pointer-events:none}
+.lab{position:relative;z-index:2;font-weight:900;color:#fff;text-align:center;line-height:1;white-space:nowrap;-webkit-text-stroke:var(--sw) #14161a;paint-order:stroke fill;letter-spacing:.01em}
+.badge{position:absolute;z-index:3;background:linear-gradient(#ffe066,#ffb21a);border:3px solid #14161a;color:#14161a;font-weight:900;line-height:1;padding:3px 7px}
+.plate{position:absolute;display:flex;align-items:center;background:linear-gradient(90deg,rgba(12,14,18,.86),rgba(12,14,18,.62) 62%,rgba(12,14,18,0))}
+.plate img{flex:none}
+.val{font-weight:900;color:#fff;-webkit-text-stroke:var(--sw) #14161a;paint-order:stroke fill;line-height:1}
+.tm{position:absolute;font-weight:900;color:#e7f0ff;background:linear-gradient(90deg,rgba(12,14,18,.5),rgba(12,14,18,.28) 65%,rgba(12,14,18,0));white-space:nowrap;-webkit-text-stroke:var(--sw) #14161a;paint-order:stroke fill}
+.plus{position:relative;flex:none;background:linear-gradient(#8bf24a,#35b52a);border:2px solid #14161a;display:grid;place-items:center;transform-origin:50% 50%;transition:transform .12s}
+.plus:hover{transform:scale(1.1)}.plus:active{transform:scale(.92)}
+.plus svg{display:block}
+.pr{position:absolute;display:flex;align-items:center;gap:2px}
+.pv{display:block;line-height:1;transform:translateY(.04em)}
+.bt{position:absolute;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;font-weight:900;color:#e7f0ff;text-align:right;white-space:nowrap;-webkit-text-stroke:var(--sw) #14161a;paint-order:stroke fill;background:linear-gradient(270deg,rgba(12,14,18,.86),rgba(12,14,18,.5) 55%,rgba(12,14,18,0))}
+.rb{position:absolute;border-radius:50%;background:rgba(18,18,22,.62);display:grid;place-items:center}
+.rb svg{display:block}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500}
+.cr{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin:8px 0 14px}
+.cc{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 12px;border-radius:8px;background:linear-gradient(#4a3a30,#34281f);color:#fff;font-size:12px;min-width:104px}
+.cc img{display:block}
+.cc .sm{display:flex;align-items:center;gap:8px}
+.ch{width:100%;font-family:var(--f-hud);font-weight:800;font-size:14px;margin:6px 0 -2px}
+.cr{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 14px}
+.cc{display:flex;flex-direction:column;align-items:center;padding:12px;border-radius:8px;background:linear-gradient(#4a3a30,#34281f);color:#fff;font-size:12px;text-align:center}
+.cc img{display:block}
+.cr{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 14px}
+.cc{display:flex;flex-direction:column;align-items:center;padding:12px;border-radius:8px;background:linear-gradient(#4a3a30,#34281f);color:#fff;font-size:12px;text-align:center;gap:10px}
+.cc img{display:block}
+.tblwrap{overflow-x:auto}
+code{font-size:12px;overflow-wrap:anywhere}
+</style>
+<div class="wrap">
+<h1>Головний екран із паком іконок</h1>
+<p class="lead">Чернетка HUD: іконки Free Icon Pack без підкладок, великий підпис під кожною. У гру не перенесено.</p>
+<h2>ПК, 1280 × 720</h2>
+<div class="frame" id="fp"><div class="stage" id="sp" style="width:1280px;height:720px"><div class="scene"></div><div class="hud" id="hp"></div></div></div>
+<h2>Телефон, 844 × 390 (той самий HUD, масштаб підлаштовано під екран)</h2>
+<div class="frame" id="fm"><div class="stage" id="sm" style="width:1558px;height:720px"><div class="scene"></div><div class="hud" id="hm"></div></div></div>
+<h2>Які значки взято</h2>
+<div class="tblwrap"><table id="map"><thead><tr><th>Елемент</th><th>Значок у паку</th></tr></thead><tbody></tbody></table></div>
+</div>
+<script>
+var D=__DATA__;
+function el(tag,cls,parent,css){var e=document.createElement(tag);if(cls)e.className=cls;if(css)e.style.cssText=css;if(parent)parent.appendChild(e);return e}
+/* icon + big label under it, overlapping the icon bottom. o: x,y,size,icon,label,fs,badge */
+function ico(h,o){
+  var iw=o.fit?Math.round(o.size*D.asp[o.icon]):o.size;
+  var w=el("div","tw",h,"left:"+o.x+"px;top:"+o.y+"px;width:"+iw+"px;--sw:"+((o.fs||16)*0.22).toFixed(2)+"px");
+  var im=el("img","",w,"width:"+iw+"px;height:"+o.size+"px");im.src=D.icons[o.icon];
+  if(o.badge){var b=el("div","badge",w,"right:-"+o.size*0.08+"px;top:"+o.size*0.02+"px;font-size:"+Math.round(o.fs*1.1)+"px");b.textContent=o.badge}
+  if(o.label){var l=el("div","lab",w,"font-size:"+o.fs+"px;margin-top:-"+Math.round(o.fs*0.85)+"px"+(o.lc?";color:"+o.lc:""));l.textContent=o.label}
+}
+/* Robux price: icon + number on one centre line, centred horizontally at cx, centre line at cy */
+function price(h,cx,cy,val){
+  var fs=28,ic=32;
+  var p=el("div","pr",h,"left:"+cx+"px;top:"+(cy-ic/2)+"px;height:"+ic+"px;transform:translateX(-50%);--sw:"+(fs*0.2)+"px");
+  var ri=el("img","",p,"width:"+ic+"px;height:"+ic+"px");ri.src=D.icons.robux;
+  var pv=el("div","val pv",p,"font-size:"+fs+"px;color:#c9ff3a");pv.textContent=val;
+}
+function counter(h,o){
+  var p=el("div","plate",h,"left:"+o.x+"px;top:"+o.y+"px;width:210px;height:38px;padding-left:30px;gap:10px;--sw:4.8px");
+  /* same icon height for every counter, centred in a fixed slot, never taller than the plate */
+  var k="c_"+o.icon,ih=30,iw=Math.round(ih*D.asp[k]);
+  var slot=el("div","",p,"width:44px;height:38px;display:flex;align-items:center;justify-content:center;flex:none");
+  var im=el("img","",slot,"width:"+iw+"px;height:"+ih+"px");im.src=D.icons[k];
+  var v=el("div","val",p,"font-size:24px");v.textContent=o.val;
+}
+function money(h,x,y){
+  var tm=el("div","tm",h,"left:"+x+"px;top:"+y+"px;font-size:12px;padding:3px 40px 3px 12px;--sw:2.4px");
+  tm.textContent="TOTAL MULTI ×2";
+  var p=el("div","plate",h,"left:"+x+"px;top:"+(y+22)+"px;width:300px;height:54px;padding-left:14px;gap:10px;--sw:5px");
+  var v=el("div","val",p,"font-size:36px;color:#c9ff3a");v.textContent="$1,250,430";
+  var b=el("div","plus",p,"width:26px;height:26px;margin-left:2px");
+  b.innerHTML='<svg width="26" height="26" viewBox="0 0 26 26"><path d="M10.5 6h5v4.5H20v5h-4.5V20h-5v-4.5H6v-5h4.5z" fill="#fff" stroke="#14161a" stroke-width="1.6" stroke-linejoin="round" transform="translate(0 0)"/></svg>';
+}
+function roblox(h,x,y,s){
+  var m=el("div","rb",h,"left:"+x+"px;top:"+y+"px;width:"+s+"px;height:"+s+"px");
+  m.innerHTML='<svg width="'+s*0.5+'" height="'+s*0.5+'" viewBox="0 0 20 20"><rect x="2" y="4" width="16" height="2.4" fill="#fff"/><rect x="2" y="9" width="16" height="2.4" fill="#fff"/><rect x="2" y="14" width="16" height="2.4" fill="#fff"/></svg>';
+  var c=el("div","rb",h,"left:"+(x+s*1.15)+"px;top:"+y+"px;width:"+s+"px;height:"+s+"px");
+  c.innerHTML='<svg width="'+s*0.55+'" height="'+s*0.55+'" viewBox="0 0 20 20"><path d="M3 3h14v10H9l-4 4v-4H3z" fill="#fff"/></svg>';
+}
+/* one HUD for every screen: design height 720, width W follows the screen; edges anchored (inset = safe area in design px) */
+function build(h,W,inset){
+  var L=inset,R=W-inset,S=40,FS=16;h.dataset.w=W;
+  roblox(h,L-4,8,40);
+  /* small top icons: no labels, all the same HEIGHT (40, like the Roblox chat circle), width follows the drawing; wide gaps */
+  var G=18,x=L+100;
+  ["invite","settings","inventory"].forEach(function(k){
+    var w=Math.round(S*D.asp[k]);ico(h,{x:x,y:8,size:S,icon:k,fit:1});x+=w+G});
+  counter(h,{x:L-16,y:104,icon:"diamond",val:"1,250"});
+  counter(h,{x:L-16,y:148,icon:"ticket",val:"12"});
+  counter(h,{x:L-16,y:192,icon:"rebirth",val:"3"});
+  [["shop","Shop",242],["index","Index",366],["quests","Quests",490]].forEach(function(a){
+    ico(h,{x:L+4,y:a[2],size:104,icon:a[0],label:a[1],fs:26})});
+  money(h,L-16,620);
+  var xr=R;
+  ["updates","codes","feedback"].forEach(function(k){
+    var w=Math.round(S*D.asp[k]);xr-=w;ico(h,{x:xr,y:8,size:S,icon:k,fit:1});xr-=G});
+  /* x2 Money: moved off the right column, into the free area to the left */
+  var mx=R-280,my=135,ms=86;
+  ico(h,{x:mx,y:my,size:ms,icon:"multi",label:"x2 Money",fs:24,lc:"#c9ff3a"});
+  price(h,mx+ms/2,my-9,"8");
+  ico(h,{x:R-112,y:290,size:112,icon:"rebirth",label:"Rebirth",fs:25});
+  /* boss: smaller (about the Money plate), same centre line as the Money plate (y 669); fade right -> left, opaque edge under the icon centre */
+  var bs=72,bx=R-bs,cy=669,edge=bx+bs/2;
+  var t=el("div","bt",h,"left:"+(edge-250)+"px;top:"+(cy-27)+"px;width:250px;height:54px;padding-right:"+(bs/2+10)+"px;--sw:2.4px;font-size:12px;line-height:1.1");
+  t.innerHTML='NEXT BOSS<span style="font-size:32px;color:#fff;line-height:1;-webkit-text-stroke:5px #14161a;paint-order:stroke fill">12:34</span>';
+  ico(h,{x:bx,y:cy-bs/2,size:bs,icon:"boss",label:"Boss",fs:18});
+}
+var DH=720;
+/* PC */
+build(document.getElementById("hp"),1280,16);
+/* phone: 844x390 real px, scale 390/720; safe inset 44 real px */
+var PK=390/720;
+var PW=Math.round(844/PK);
+document.getElementById("sm").style.width=PW+"px";
+document.getElementById("sm").style.height=DH+"px";
+build(document.getElementById("hm"),PW,Math.round(44/PK));
+function fit(frame,stage,w,h){var k=frame.clientWidth/w;stage.style.transform="scale("+k+")";frame.style.height=(h*k)+"px"}
+function all(){fit(document.getElementById("fp"),document.getElementById("sp"),1280,720);fit(document.getElementById("fm"),document.getElementById("sm"),PW,DH)}
+window.addEventListener("resize",all);all();
+if(window.ResizeObserver){new ResizeObserver(all).observe(document.getElementById("fp"))}
+var rows=[["Shop","shop"],["Index","index"],["Quests","quests"],["Rebirth","rebirth"],["Діаманти","diamond"],["Тікети","ticket"],["Ребітхи (лічильник)","rebirth"],["Boss","boss"],["Multi ×2 (іконка)","multi"],["Ціна множника (Robux)","robux"],["Invite","invite"],["Settings","settings"],["Inventory","inventory"],["Feedback","feedback"],["Codes","codes"],["Updates","updates"]];
+var tb=document.querySelector("#map tbody");
+rows.forEach(function(r){var tr=document.createElement("tr");tr.innerHTML="<td>"+r[0]+"</td><td><code>"+D.files[r[1]].replace(/ 256px\.png$/,"")+"</code></td>";tb.appendChild(tr)});
+</script>

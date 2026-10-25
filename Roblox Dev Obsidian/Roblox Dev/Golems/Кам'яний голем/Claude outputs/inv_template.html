@@ -1,0 +1,238 @@
+<meta charset="utf-8">
+<title>Inventory Mock</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+@font-face{font-family:"MontserratMock";font-weight:800;src:url(data:font/woff2;base64,__F800__) format("woff2")}
+@font-face{font-family:"MontserratMock";font-weight:900;src:url(data:font/woff2;base64,__F900__) format("woff2")}
+:root{--bg:#15171b;--fg:#e9edf1;--mut:#9aa3ad;--card:#1e2126;--line:#343a42;--acc:#c3f04a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px;min-height:100vh}
+.top{max-width:1280px;margin:0 auto 10px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.top h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.02em}
+.top p{margin:2px 0 0;color:var(--mut);font-size:12.5px;max-width:70ch}
+.ctl{display:flex;gap:8px;flex-wrap:wrap}
+.ctl button{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+.ctl button:hover{border-color:var(--acc)}
+#fit{margin:0 auto;position:relative;overflow:hidden;background:#1b1714}
+#stage{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;font-family:"MontserratMock","Montserrat",system-ui,sans-serif;font-weight:900;user-select:none;-webkit-user-select:none;touch-action:none}
+#stage div,#stage img{position:absolute}
+#stage .t{white-space:nowrap;color:#fff;paint-order:stroke fill;-webkit-text-stroke-color:#14161a;stroke-linejoin:round;pointer-events:none}
+#stage .sa{border-style:solid;cursor:pointer;transition:transform .1s ease-out}
+#stage .sa.nc{cursor:default}
+#stage .sa .face{overflow:hidden}
+#stage .sa .tile{background-repeat:repeat}
+#stage .shine{inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.8) 40%,transparent 48%,transparent 51%,rgba(255,255,255,.55) 55%,transparent 59%);transform:translateX(-130%);animation:shine 4.6s ease-in-out infinite;pointer-events:none}
+@keyframes shine{0%{transform:translateX(-130%)}38%{transform:translateX(130%)}100%{transform:translateX(130%)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+.note{max-width:1280px;margin:12px auto 0;color:var(--mut);font-size:12.5px;display:grid;gap:4px}
+.note b{color:var(--fg)}
+</style>
+<div class="top">
+  <div><h1>INVENTORY · інвентар і хотбар у стилі слотів «C · Сяйво»</h1><p>Рюкзак угорі ліворуч (або клавіша B) відкриває інвентар. Збоку вкладки Golems / Ores·Bars / Potions з власними іконками. Клік по предмету — внизу картка з кнопками Hold і To Hotbar. Хотбар унизу: 1–9 або клік — взяти в руку, ще раз — прибрати назад. Порожній слот — лише сяйво в центрі.</p></div>
+  <div class="ctl"><button id="b-take">+ Забрати злитки (як з Forge)</button><button id="b-ore">+ Руда від големів</button><button id="b-reset">Скинути</button></div>
+</div>
+<div id="fit"><div id="stage"></div></div>
+<div class="note">
+  <div><b>Хотбар:</b> руда, злитки й зілля, які гравець забирає, самі додаються в перший вільний слот хотбара (з «поп»-анімацією). Більше 9 видів — решта лише в інвентарі; «To Hotbar» ставить предмет у вибраний або перший вільний слот.</div>
+  <div><b>У руці:</b> вибраний слот піднімається з лаймовою рамкою, над хотбаром — плашка «Coal ×25 · in hand». Повторне натискання — предмет кладеться назад (наступна таска: модель у руці персонажа).</div>
+  <div><b>Іконки вкладок</b> — власні в стилі пака: голова кам'яного голема, руда з мідними кристалами + золотий злиток, колба із зіллям. Іконки големів і зіль у слотах — варіанти тих самих (колір матеріалу / зілля).</div>
+</div>
+<script>
+__HELPERS__
+function raw(p,x,y,w,txt,sz,col,sw,al,wt){return T(p,{x,cy:y,w,size:sz,text:txt,color:col,sw,align:al||"left",weight:wt})}
+const FILLS={lime:"linear-gradient(#eaff9a,#c3f04a 50%,#8ccc22)"};
+const fmt=n=>Math.round(n).toLocaleString("en-US");
+// ===== тло «гри» =====
+box(stage,0,0,W,H,"radial-gradient(120% 90% at 50% 35%,#4a3d30 0,#2a221c 55%,#16120f 100%)",0);
+box(stage,0,430,W,290,"linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.35))",0);
+box(stage,0,430,W,290,studSvg,0,{backgroundSize:"34px 34px",opacity:.13,transform:"perspective(500px) rotateX(55deg)",transformOrigin:"50% 0"});
+// ===== дані =====
+const ORES=[{k:"Coal",price:8,tone:"#6d737c"},{k:"Copper",price:20,tone:"#e0743c"},{k:"Iron",price:50,tone:"#d9b08a"}];
+const RAR={Common:"#9aa3ad",Rare:"#3aa6ff",Epic:"#c86bff",Legendary:"#ffc531"};
+let items=[];
+function reset(){
+  items=[];
+  ORES.forEach((o,i)=>items.push({id:"Ore_"+o.k,tab:"ores",name:o.k,sub:"Ore · $"+o.price+" each",n:[25,12,6][i],icon:A["ore_"+o.k],tone:o.tone}));
+  ORES.forEach((o,i)=>items.push({id:"Bars_"+o.k,tab:"ores",name:o.k+" Bar",sub:"Bar · $"+(o.price*1.5)+" each",n:[7,0,2][i],icon:A["bar_"+o.k],tone:o.tone}));
+  [["Luck Potion","green","+25% roll luck · 5 min",2],["Speed Potion","blue","Golems mine 2× faster · 5 min",1],["Money Potion","gold","×2 Money · 10 min",3],["Strength Potion","red","+50% damage to ore · 5 min",1]]
+    .forEach(([nm,c,d,n])=>items.push({id:"Pot_"+c,tab:"potions",name:nm,sub:d,n,icon:A["potion_"+c],tone:{green:"#7ef05a",blue:"#5cc8ff",gold:"#ffd23a",red:"#ff5c6e"}[c]}));
+  [["Stone Golem","stone","Common"],["Stone Golem","stone","Common"],["Wooden Golem","wood","Common"],["Wooden Golem","wood","Common"],["Wooden Golem","wood","Common"],["Iron Golem","iron","Rare"],["Iron Golem","iron","Rare"],["Gold Golem","gold","Epic"],["Crystal Golem","crystal","Legendary"],["Stone Golem","stone","Common"],["Iron Golem","iron","Rare"],["Wooden Golem","wood","Common"],["Gold Golem","gold","Epic"]]
+    .forEach(([nm,k,r],i)=>items.push({id:"G"+i,tab:"golems",name:nm,sub:r+" · mines "+({stone:"1.0",wood:"0.8",iron:"1.6",gold:"2.4",crystal:"4.0"})[k]+" ore/s",rar:r,n:1,golem:true,icon:A["golem_"+k],tone:RAR[r]}));
+  hotbar=Array(9).fill(null);held=-1;
+  items.filter(it=>it.tab==="ores"&&it.n>0).forEach(it=>autoHotbar(it,false));autoHotbar(get("Pot_green"),false); // на старті: руда, злитки й одне зілля; 7–9 порожні
+  selId=null;
+}
+let hotbar=Array(9).fill(null),held=-1,selId=null,tab="ores",invOpen=false;
+const get=id=>items.find(it=>it.id===id);
+function autoHotbar(it,anim){if(hotbar.includes(it.id))return -1;const i=hotbar.indexOf(null);if(i<0)return -1;hotbar[i]=it.id;if(anim)setTimeout(()=>popHot(i),20);return i}
+// ===== слот «C · Сяйво» (DOM) =====
+function slotC(p,x,y,S,it,o){
+  o=o||{};
+  const wrap=box(p,x,y,S,S,"transparent",o.z||1);
+  const root=box(wrap,0,0,S,S,"transparent",1,{transition:"transform .12s ease-out",transformOrigin:"50% 60%",cursor:o.click?"pointer":"default"});
+  box(root,0,Math.round(S*.04),S,S,"rgba(0,0,0,.3)",0);
+  const tone=it?it.tone:"#ffffff";
+  box(root,0,0,S,S,"linear-gradient(#22262c,#15181c)",1,{boxShadow:`0 0 0 ${S>100?4:3}px ${INK}, inset 0 0 0 ${S>100?3:2}px ${it?tone+"55":"rgba(255,255,255,.06)"}`});
+  // сяйво: справжнє радіальне (у грі — коло з плавною прозорістю); порожній слот — ледь помітне біле в центрі
+  const g=it&&!it.empty?`radial-gradient(circle at 50% 50%, ${tone}d0 0, ${tone}66 30%, ${tone}22 52%, transparent 70%)`:"radial-gradient(circle at 50% 50%, rgba(255,255,255,.16) 0, rgba(255,255,255,.06) 32%, transparent 62%)";
+  const glow=box(root,S*.04,S*.04,S*.92,S*.92,g,2);
+  let img=null,cnt=null,name=null;
+  if(it){
+    const pad=S*(o.mini?.14:.16);
+    img=mk(root,{left:px(pad),top:px(pad*(o.mini?.8:.75)),width:px(S-2*pad),height:px(S-2*pad),objectFit:"contain",zIndex:3,pointerEvents:"none"},"","img");img.src=it.icon;img.draggable=false;
+    if(!it.golem)cnt=T(root,{x:0,cy:S-(o.mini?14:17),w:S-8,size:o.mini?19:22,align:"right",text:"×"+fmt(it.n),sw:2.6,z:5});
+    if(!o.mini)name=T(root,{x:7,cy:16,w:S-10,size:it.name.length>13?13:14,align:"left",text:it.name,sw:2.2,z:5,weight:800});
+    if(it.golem&&!o.mini)T(root,{x:0,cy:S-14,w:S-8,size:13,align:"right",text:it.rar,sw:2,z:5,color:RAR[it.rar],weight:800});
+  }
+  const ring=box(root,-5,-5,S+10,S+10,"transparent",6,{boxShadow:"0 0 0 4px #c8ff6a, 0 0 16px rgba(200,255,106,.55)",pointerEvents:"none",opacity:0,transition:"opacity .12s"});
+  // наведення: ×1,025 і нахил до 1,5° (як у вікні Sell)
+  if(o.click){
+    let hov=false,down=false,rot=0;const ap=()=>{root.style.transform=`translateY(${o.lift&&o.lift()?-8:0}px) scale(${down?.96:hov?1.025:1}) rotate(${hov?rot:0}deg)`};
+    root.addEventListener("pointerenter",()=>{hov=true;ap()});
+    root.addEventListener("pointermove",e=>{const r=root.getBoundingClientRect();rot=Math.max(-1,Math.min(1,(e.clientX-(r.left+r.width/2))/(r.width/2)))*1.5;ap()});
+    root.addEventListener("pointerleave",()=>{hov=false;down=false;ap()});
+    root.addEventListener("pointerdown",()=>{down=true;ap()});
+    root.addEventListener("pointerup",()=>{down=false;ap()});
+    root.addEventListener("click",e=>o.click(e));
+    root.__ap=ap;
+  }
+  return {wrap,root,ring,img,cnt,glow};
+}
+// ===== HUD: малі кнопки вгорі ліворуч (Invite, Settings, Inventory) =====
+box(stage,8,8,40,40,"rgba(20,22,26,.55)",2,{borderRadius:"10px"});box(stage,56,8,40,40,"rgba(20,22,26,.55)",2,{borderRadius:"10px"});
+[["invite",100],["settings",158],["inventory",216]].forEach(([k,x])=>{
+  const im=mk(stage,{left:px(x),top:"8px",height:"40px",width:"48px",objectFit:"contain",zIndex:3,cursor:k==="inventory"?"pointer":"default",transition:"transform .1s"},"","img");im.src=A["hud_"+k];im.draggable=false;
+  if(k==="inventory"){im.addEventListener("pointerenter",()=>im.style.transform="scale(1.1)");im.addEventListener("pointerleave",()=>im.style.transform="");im.addEventListener("click",()=>invOpen?closeInv():openInv());
+    const hint=T(stage,{x:x-30,cy:62,w:110,size:13,align:"center",text:"Inventory (B)",sw:2,z:3,weight:800});hint.style.opacity=.85;}
+});
+// ===== хотбар =====
+const HS=74,HG=8,HX=(W-(9*HS+8*HG))/2,HY=H-HS-16;
+let hot=[];
+const heldPill=box(stage,0,HY-48,10,40,"transparent",13);
+const heldBg=sa(heldPill,{x:0,y:0,w:320,h:42,color:"green",half:true,rows:3,text:"",size:20,z:1});heldPill.style.opacity=0;heldPill.style.transition="opacity .15s, transform .15s";
+function buildHotbar(){
+  hot.forEach(h=>h.wrap.remove());hot=[];
+  for(let i=0;i<9;i++){
+    const it=hotbar[i]?get(hotbar[i]):null;
+    const s=slotC(stage,HX+i*(HS+HG),HY,HS,it&&it.n>0?it:null,{mini:true,z:12,click:()=>toggleHeld(i),lift:()=>held===i});
+    T(s.root,{x:6,cy:13,w:30,size:15,align:"left",text:String(i+1),sw:2.2,z:7,color:"#c9ced4"});
+    hot.push(s);
+  }
+  refreshHot();
+}
+function refreshHot(){
+  hot.forEach((s,i)=>{s.ring.style.opacity=held===i?1:0;s.root.__ap&&s.root.__ap()});
+  const it=held>=0&&hotbar[held]?get(hotbar[held]):null;
+  if(it){const txt=`${it.name}${it.golem?"":" ×"+fmt(it.n)} · in hand`;heldBg.setText(txt);heldPill.style.left=px(W/2-160);heldPill.style.opacity=1;heldPill.style.transform="translateY(0)";}
+  else{heldPill.style.opacity=0;heldPill.style.transform="translateY(6px)"}
+}
+function toggleHeld(i){
+  if(!hotbar[i]){hot[i].root.animate([{transform:"translateX(-6px)"},{transform:"translateX(6px)"},{transform:"translateX(0)"}],{duration:180});return}
+  held=held===i?-1:i;refreshHot();if(invOpen)renderInfo();
+}
+function popHot(i){const s=hot[i];if(!s)return;s.root.animate([{transform:"scale(.6)"},{transform:"scale(1.15)",offset:.6},{transform:"scale(1)"}],{duration:320,easing:"ease-out"});
+  s.glow.animate([{opacity:.3},{opacity:1}],{duration:400})}
+addEventListener("keydown",e=>{
+  if(e.key>="1"&&e.key<="9")toggleHeld(+e.key-1);
+  else if(e.key==="b"||e.key==="B"||e.key==="и"||e.key==="И")invOpen?closeInv():openInv();
+  else if(e.key==="Escape"&&invOpen)closeInv();
+});
+// ===== вікно інвентаря =====
+const IW=980,IH=528,IX=(W-IW)/2,IY=56;
+const dimAll=box(stage,0,0,W,H,"rgba(10,11,13,.45)",10);dimAll.style.display="none";dimAll.addEventListener("click",()=>closeInv());
+const pop=box(stage,0,0,W,H,"transparent",11);pop.style.display="none";pop.style.pointerEvents="none";
+const wf=windowFrame(pop,IX,IY,IW,IH,1,14);wf.root.style.pointerEvents="auto";
+const C=wf.content;
+// заголовок INVENTORY (синій перелив) і X
+(function(){const mkT=(x,cy,col,sw)=>T(pop,{x,cy,w:620,size:96,text:"INVENTORY",color:col,sw,fs:.71});
+  const sh=mkT(IX+32,IY-8+7,"#14161a",9);sh.style.zIndex=3;const b=mkT(IX+32,IY-8,"#14161a",8);b.style.zIndex=4;
+  const g=mkT(IX+32,IY-8,"#fff",0);g.style.zIndex=5;
+  g.style.background="linear-gradient(90deg,#e6f6ff,#7fd0ff,#1c7fd8,#7fd0ff,#e6f6ff,#7fd0ff,#1c7fd8,#7fd0ff,#e6f6ff)";g.style.backgroundSize="520px 100%";g.style.webkitBackgroundClip="text";g.style.backgroundClip="text";g.style.color="transparent";g.style.webkitTextFillColor="transparent";
+  g.animate([{backgroundPosition:"0 0"},{backgroundPosition:"520px 0"}],{duration:4000,iterations:Infinity});
+  const x=sa(pop,{x:IX+IW-70,y:IY-34,w:84,h:84,color:"red",icon:A.icon_x,iconPad:-.05,shadowDy:8,z:6,clickable:true,onClick:closeInv});x.root.style.pointerEvents="auto";
+})();
+// вкладки збоку
+const TABS=[["golems","Golems",A.tab_golems],["ores","Ores / Bars",A.tab_orebars],["potions","Potions",A.tab_potions]];
+const TX=40,TW=222,TH=92;let tabBtns={};
+TABS.forEach(([k,label,ic],i)=>{
+  const y=66+i*(TH+14);
+  const hold=box(C,TX,y,TW,TH+8,"transparent",4);hold.style.transition="transform .15s";
+  const b=sa(hold,{x:0,y:0,w:TW,h:TH,color:"gray",shadowDy:7,z:1,clickable:true,onClick:()=>setTab(k)});
+  const im=mk(hold,{left:"8px",top:"2px",width:"74px",height:"74px",objectFit:"contain",zIndex:4,pointerEvents:"none",filter:"drop-shadow(0 2px 0 rgba(0,0,0,.25))"},"","img");im.src=ic;im.draggable=false;
+  const t=T(hold,{x:86,cy:32,w:132,size:label.length>8?21:25,align:"left",text:label,sw:2.6,z:5});
+  const c=T(hold,{x:86,cy:58,w:132,size:15,align:"left",text:"",sw:2,z:5,weight:800,color:"#e9edf1"});
+  tabBtns[k]={hold,b,c,im};
+});
+// заголовок вмісту
+const hdr=T(C,{x:290,cy:86,w:400,size:32,align:"left",text:"",sw:3.2,z:3});
+const cap=T(C,{x:640,cy:86,w:296,size:18,align:"right",text:"",sw:2,z:3,weight:800,color:"#e9edf1"});
+// сітка (гортається по вертикалі)
+const GX=290,GY=110,GW=630,GH=270,GS=114,GG=12,GCOLS=5,GP=8; // GP — поле всередині (рамка вибраного й бейдж не обрізаються)
+const gvp=box(C,GX,GY,GW,GH,"transparent",2,{overflow:"hidden"});
+const gstrip=box(gvp,0,0,GW,10,"transparent",1);
+const vsb=box(C,GX+GW+6,GY+GP,10,GH-2*GP,"linear-gradient(90deg,#1a1d22,#353b44)",3,{boxShadow:"0 0 0 3px "+INK});
+const vth=box(vsb,0,0,10,60,FILLS.lime,1);
+let gscroll=0,gH=0,gslots=[];
+const gmax=()=>Math.max(0,gH-GH);
+function setG(v){gscroll=Math.max(0,Math.min(gmax(),v));gstrip.style.transform=`translateY(${-gscroll}px)`;const th=Math.max(40,(GH-2*GP)*GH/Math.max(GH,gH));vth.style.height=px(th);vth.style.top=px(gmax()>0?gscroll/gmax()*(GH-2*GP-th):0);vsb.style.display=gmax()>0?"":"none"}
+gvp.addEventListener("wheel",e=>{if(gmax()<=0)return;e.preventDefault();setG(gscroll+e.deltaY/(window.__s||1))},{passive:false});
+// картка вибраного предмета внизу
+const info=box(C,290,392,646,100,"linear-gradient(rgba(53,59,67,.55),rgba(27,30,35,.6))",3,{boxShadow:"0 0 0 3px "+INK});
+const infoIcon=mk(info,{left:"14px",top:"7px",width:"86px",height:"86px",objectFit:"contain",zIndex:2},"","img");
+const infoName=T(info,{x:112,cy:32,w:300,size:28,align:"left",text:"",sw:3,z:2});
+const infoSub=T(info,{x:112,cy:64,w:300,size:16,align:"left",text:"",sw:1.8,z:2,weight:800,color:"#e9edf1"});
+const infoHint=T(info,{x:0,cy:50,w:646,size:20,align:"center",text:"Tap an item to see it here",sw:2,z:2,weight:800,color:"#c9ced4"});
+const bHold=sa(info,{x:384,y:12,w:132,h:72,color:"green",text:"Hold",size:23,shadowDy:6,z:3,clickable:true,shine:true,onClick:()=>doHold()});
+const bPin=sa(info,{x:526,y:12,w:108,h:72,color:"blue",enabledColor:"blue",text:"Hotbar",size:22,shadowDy:6,z:3,clickable:true,onClick:()=>doPin()});
+function renderGrid(){
+  gslots.forEach(s=>s.wrap.remove());gslots=[];
+  const list=items.filter(it=>it.tab===tab&&it.n>0);
+  const total=Math.max(list.length+ (tab==="golems"?2:4),GCOLS*2);
+  const rows=Math.ceil(total/GCOLS);gH=rows*(GS+GG)-GG+2*GP+8;gstrip.style.height=px(gH);
+  for(let i=0;i<rows*GCOLS;i++){
+    const it=list[i]||null,x=(i%GCOLS)*(GS+GG)+GP,y=Math.floor(i/GCOLS)*(GS+GG)+GP+4;
+    const s=slotC(gstrip,x,y,GS,it,{click:it?()=>{selId=it.id;renderGrid();renderInfo()}:null});
+    if(it){s.ring.style.opacity=selId===it.id?1:0;
+      const hi=hotbar.indexOf(it.id);if(hi>=0){const bd=sa(s.root,{x:GS-30,y:-10,w:34,h:30,color:"blue",half:true,rows:3,text:String(hi+1),size:17,z:7});bd.root.title="in hotbar"}}
+    gslots.push(s);
+  }
+  setG(gscroll);
+  const cnt=list.reduce((a,it)=>a+(it.golem?1:0),0);
+  hdr.innerHTML=TABS.find(t=>t[0]===tab)[1];
+  cap.innerHTML=tab==="golems"?`${cnt} / 40 golems`:tab==="ores"?`${list.length} kinds · ${fmt(list.reduce((a,it)=>a+it.n,0))} items`:`${list.length} kinds`;
+}
+function renderInfo(){
+  const it=selId?get(selId):null;
+  const show=!!(it&&it.n>0);
+  [infoIcon,infoName,infoSub,bHold.root,bPin.root,bHold.shadow,bPin.shadow].forEach(e=>e&&(e.style.display=show?"":"none"));infoHint.style.display=show?"none":"";
+  if(!show)return;
+  infoIcon.src=it.icon;infoName.innerHTML=it.name+(it.golem?"":` <span style="color:#c9ced4;font-size:22px">×${fmt(it.n)}</span>`);infoSub.innerHTML=it.sub;
+  const hi=hotbar.indexOf(it.id),inHand=hi>=0&&held===hi;
+  bHold.setText(inHand?"Put Away":"Hold");bHold.setColor(inHand?"red":"green");
+  bPin.setText(hi>=0?"Unpin":"Hotbar");
+}
+function doHold(){const it=get(selId);if(!it)return;let hi=hotbar.indexOf(it.id);
+  if(hi>=0&&held===hi){held=-1}else{if(hi<0){hi=autoHotbar(it,true);if(hi<0){hi=held>=0?held:0;hotbar[hi]=it.id}buildHotbar();popHot(hi)}held=hi}
+  refreshHot();renderGrid();renderInfo()}
+function doPin(){const it=get(selId);if(!it)return;const hi=hotbar.indexOf(it.id);
+  if(hi>=0){hotbar[hi]=null;if(held===hi)held=-1}else{const i=autoHotbar(it,false);if(i<0){bPin.shake();return}}
+  buildHotbar();const n=hotbar.indexOf(it.id);if(n>=0)popHot(n);renderGrid();renderInfo()}
+function setTab(k){tab=k;gscroll=0;selId=null;
+  Object.entries(tabBtns).forEach(([kk,t])=>{const on=kk===k;t.b.setColor(on?"blue":"gray");t.hold.style.transform=on?"translateX(10px)":"";});
+  Object.entries(tabBtns).forEach(([kk,t])=>{const l=items.filter(it=>it.tab===kk&&it.n>0);t.c.innerHTML=kk==="golems"?l.length+" golems":fmt(l.reduce((a,it)=>a+it.n,0))+" items"});
+  renderGrid();renderInfo();
+  gstrip.animate([{opacity:0,transform:`translateY(${-gscroll+10}px)`},{opacity:1,transform:`translateY(${-gscroll}px)`}],{duration:180,easing:"ease-out"});
+}
+function openInv(){invOpen=true;dimAll.style.display="";pop.style.display="";setTab(tab);
+  wf.root.animate([{transform:"scale(.85)",opacity:0},{transform:"scale(1.05)",opacity:1,offset:.6},{transform:"scale(1)"}],{duration:250,easing:"ease-out"});
+  pop.animate([{opacity:0},{opacity:1}],{duration:120});}
+function closeInv(){if(!invOpen)return;invOpen=false;const a=pop.animate([{opacity:1},{opacity:0}],{duration:120});a.onfinish=()=>{pop.style.display="none";dimAll.style.display="none"}}
+// ===== кнопки демо =====
+document.getElementById("b-take").onclick=()=>{const it=get("Bars_Copper");it.n+=4;const i=autoHotbar(it,false);buildHotbar();if(i>=0)popHot(i);else{const k=hotbar.indexOf(it.id);if(k>=0)popHot(k)}if(invOpen)setTab(tab)};
+document.getElementById("b-ore").onclick=()=>{const it=get("Ore_Coal");it.n+=10;buildHotbar();const k=hotbar.indexOf(it.id);if(k>=0)popHot(k);if(invOpen)setTab(tab)};
+document.getElementById("b-reset").onclick=()=>{reset();buildHotbar();if(invOpen)setTab(tab)};
+document.fonts.load("900 26px MontserratMock").then(()=>document.fonts.load("800 22px MontserratMock")).catch(()=>{}).finally(()=>{
+  fitStage();reset();buildHotbar();openInv();window.__ready=true;
+});
+</script>

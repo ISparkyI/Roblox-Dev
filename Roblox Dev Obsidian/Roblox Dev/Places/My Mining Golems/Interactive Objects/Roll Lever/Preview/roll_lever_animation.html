@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lever Preview</title>
+<style>
+  :root{
+    --bg:#1b1e24; --panel:#252a33; --text:#e8ebf0; --muted:#9aa3b2; --accent:#f2b84b; --line:#343a46;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;padding:16px;max-width:1400px;margin:0 auto}
+  @media (max-width:900px){.wrap{grid-template-columns:1fr}}
+  .stage{position:relative;background:#0f1115;border-radius:12px;overflow:hidden;aspect-ratio:16/10;min-height:320px}
+  #c{width:100%;height:100%;display:block;cursor:grab}
+  #c:active{cursor:grabbing}
+  .prompt{position:absolute;transform:translate(-50%,-100%);display:flex;align-items:center;gap:10px;
+    background:rgba(25,27,29,.62);border-radius:10px;padding:8px 14px 8px 8px;pointer-events:auto;cursor:pointer;
+    font-family:"Gotham","Montserrat",system-ui,sans-serif;transition:opacity .15s, transform .15s;user-select:none}
+  .prompt.hidden{opacity:0;pointer-events:none;transform:translate(-50%,-90%)}
+  .key{position:relative;width:38px;height:38px;border-radius:50%;background:#fff;color:#111;font-weight:800;font-size:18px;
+    display:flex;align-items:center;justify-content:center;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+  .key.down{transform:scale(.86)}
+  .ring{position:absolute;inset:-4px;border-radius:50%;border:3px solid rgba(255,255,255,.0)}
+  .ptext{display:flex;flex-direction:column;line-height:1.1}
+  .ptext .obj{font-size:12px;color:#c9ccd1}
+  .ptext .act{font-size:17px;font-weight:700;color:#fff}
+  .hud{position:absolute;left:12px;bottom:12px;display:flex;gap:8px;flex-wrap:wrap}
+  .btn{background:#2f3540;color:var(--text);border:1px solid #3d4452;border-radius:8px;padding:7px 12px;font:600 13px system-ui;cursor:pointer}
+  .btn:hover{background:#384050}
+  .btn.on{background:var(--accent);color:#1b1e24;border-color:var(--accent)}
+  .hint{position:absolute;right:12px;top:10px;color:var(--muted);font-size:12px;text-align:right}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--panel);border-radius:12px;padding:14px}
+  h1{font-size:18px;margin:0 0 4px}
+  h2{font-size:14px;margin:0 0 8px;color:var(--accent)}
+  p{margin:6px 0;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  td,th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  tr.active td{background:rgba(242,184,75,.14)}
+  #graph{width:100%;height:120px;display:block;background:#1f232b;border-radius:8px}
+  pre{background:#14171c;border-radius:8px;padding:10px;overflow:auto;font-size:11.5px;color:#cfd6e2;margin:0;max-height:300px}
+  .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <div class="stage" id="stage">
+      <canvas id="c"></canvas>
+      <div class="prompt hidden" id="prompt">
+        <div class="key" id="key">E<div class="ring" id="ring"></div></div>
+        <div class="ptext"><span class="obj">Roll Lever</span><span class="act">Roll</span></div>
+      </div>
+      <div class="hint">Перетягуй мишкою — обертати камеру · колесо — зум</div>
+      <div class="hud">
+        <button class="btn" id="walk">Підійти до важеля</button>
+        <button class="btn" id="slow">Повільно ×0.25</button>
+        <button class="btn" id="loop">Повтор</button>
+        <button class="btn" id="side">Вид збоку</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h2>Кут палиці в часі (+ — до гравця, − — від гравця)</h2>
+      <canvas id="graph"></canvas>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <h1>Важіль ролу</h1>
+      <p>Підійди до важеля — з'явиться стандартна підказка Roblox <b>[E] Roll</b>. Натисни <b>E</b> (або клікни підказку): палиця відтягується до гравця, потім з прискоренням вистрілює вперед, б'ється в упор і пружно повертається вгору.</p>
+      <p>Поки йде анімація, підказка вимкнена (рол без кулдауну, але тільки після завершення анімації).</p>
+    </div>
+    <div class="card">
+      <h2>Будова (у стадах)</h2>
+      <table>
+        <tr><td><span class="sw" style="background:#4f5459"></span>Цоколь</td><td>6 × 1.5 × 4.5, темний камінь</td></tr>
+        <tr><td><span class="sw" style="background:#6e7378"></span>Корпус</td><td>4.5 × 2.5 × 3, з прорізом зверху 1 × 3</td></tr>
+        <tr><td><span class="sw" style="background:#3d4248"></span>Вісь</td><td>0.8 × 0.8 × 5.4, кронштейни 0.8 × 2 × 1.6 з боків</td></tr>
+        <tr><td><span class="sw" style="background:#8a5a32"></span>Палиця</td><td>0.8 × 6 × 0.8, дерево, 2 металеві кільця</td></tr>
+        <tr><td><span class="sw" style="background:#d63a2f"></span>Ручка</td><td>1.8 × 1.8 × 1.8, червона, світиться при ударі</td></tr>
+        <tr><td>Упор</td><td>гумова подушка спереду корпусу — сюди б'є палиця</td></tr>
+      </table>
+      <p>Ставиться на плиту <code>lever</code> (7 × 5). Висота до верху ручки ≈ 10.5 — трохи вище гравця.</p>
+    </div>
+    <div class="card">
+      <h2>Ключові кадри</h2>
+      <table id="kf">
+        <tr><th>Фаза</th><th>Час</th><th>Кут</th><th>Easing</th></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Як зробити в Roblox (схема)</h2>
+      <pre id="code"></pre>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+// ---------- keyframes ----------
+const KF=[
+  {name:"Спокій",          t0:0.00,t1:0.00,a0:0,  a1:0,   ease:"—",           f:t=>t},
+  {name:"Відтяг до себе",  t0:0.00,t1:0.28,a0:0,  a1:28,  ease:"Sine InOut",  f:t=>-(Math.cos(Math.PI*t)-1)/2},
+  {name:"Напруга",         t0:0.28,t1:0.36,a0:28, a1:31,  ease:"Linear + тремтіння", f:t=>t},
+  {name:"Постріл вперед",  t0:0.36,t1:0.50,a0:31, a1:-72, ease:"Cubic In (прискорення)", f:t=>t*t*t},
+  {name:"Удар і відскок",  t0:0.50,t1:0.58,a0:-72,a1:-63, ease:"Quad Out",    f:t=>1-(1-t)*(1-t)},
+  {name:"Осідання",        t0:0.58,t1:0.70,a0:-63,a1:-68, ease:"Quad InOut",  f:t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2},
+  {name:"Пауза",           t0:0.70,t1:0.85,a0:-68,a1:-68, ease:"—",           f:t=>t},
+  {name:"Повернення вгору",t0:0.85,t1:1.45,a0:-68,a1:0,   ease:"Back Out (перескок ~+6°)", f:t=>{const c1=1.9,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)}},
+];
+const TOTAL=1.45, HIT=0.50;
+const kfTable=document.getElementById('kf');
+KF.slice(1).forEach((k,i)=>{
+  const tr=document.createElement('tr');tr.dataset.i=i+1;
+  tr.innerHTML=`<td>${k.name}</td><td>${k.t0.toFixed(2)}–${k.t1.toFixed(2)} с</td><td>${k.a0}° → ${k.a1}°</td><td>${k.ease}</td>`;
+  kfTable.appendChild(tr);
+});
+function angleAt(t){
+  if(t<=0) return 0;
+  for(let i=1;i<KF.length;i++){const k=KF[i]; if(t<=k.t1){
+    const u=(t-k.t0)/(k.t1-k.t0||1); let a=k.a0+(k.a1-k.a0)*k.f(Math.min(1,Math.max(0,u)));
+    if(i===2) a+=Math.sin(t*180)*0.9; // tension shake
+    return a;}}
+  return 0;
+}
+function phaseAt(t){for(let i=1;i<KF.length;i++){if(t<=KF[i].t1) return i;} return 0;}
+
+document.getElementById('code').textContent=
+`-- Lever (Model)
+--   Base, Housing, Bumper ......... Anchored = true
+--   Hinge  (невидима, Anchored) .... точка обертання на осі
+--   Stick, Rings, Knob ............ Anchored = false,
+--                                   WeldConstraint до Hinge
+--   Hinge/ProximityPrompt:
+--     ActionText = "Roll", ObjectText = "Roll Lever"
+--     KeyboardKeyCode = E, HoldDuration = 0
+--     MaxActivationDistance = 10, RequiresLineOfSight = false
+
+local TS = game:GetService("TweenService")
+local hinge  = script.Parent.Hinge
+local prompt = hinge.ProximityPrompt
+local rest   = hinge.CFrame   -- палиця дивиться вгору
+
+-- + кут = верх палиці до гравця (гравець стоїть з боку LookVector)
+local function at(deg) return rest * CFrame.Angles(math.rad(-deg), 0, 0) end
+local function step(deg, t, style, dir)
+  local tw = TS:Create(hinge, TweenInfo.new(t, style, dir), {CFrame = at(deg)})
+  tw:Play(); tw.Completed:Wait()
+end
+
+prompt.Triggered:Connect(function(player)
+  prompt.Enabled = false
+  step( 28, 0.28, Enum.EasingStyle.Sine,  Enum.EasingDirection.InOut) -- відтяг
+  step( 31, 0.08, Enum.EasingStyle.Linear,Enum.EasingDirection.Out)   -- напруга
+  step(-72, 0.14, Enum.EasingStyle.Cubic, Enum.EasingDirection.In)    -- постріл
+  -- ТУТ подія ролу: сервер вирішує результат, стартує анімація слотів
+  step(-63, 0.08, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)   -- відскок
+  step(-68, 0.12, Enum.EasingStyle.Quad,  Enum.EasingDirection.InOut) -- осідання
+  task.wait(0.15)
+  step(  0, 0.60, Enum.EasingStyle.Back,  Enum.EasingDirection.Out)   -- назад
+  -- prompt.Enabled = true вмикаємо, коли закінчилась анімація ролу
+end)`;
+
+// ---------- three.js scene ----------
+const canvas=document.getElementById('c'), stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x232833); scene.fog=new THREE.Fog(0x232833,60,140);
+const camera=new THREE.PerspectiveCamera(45,1,0.1,400);
+
+scene.add(new THREE.HemisphereLight(0xdfe8ff,0x3a3128,0.55));
+const sun=new THREE.DirectionalLight(0xfff1d8,0.85); sun.position.set(14,26,18); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); Object.assign(sun.shadow.camera,{left:-25,right:25,top:25,bottom:-25,near:1,far:80}); scene.add(sun);
+const warm=new THREE.PointLight(0xffc27a,0.6,40); warm.position.set(-6,12,6); scene.add(warm);
+
+// studs texture (1 tile = 1 stud)
+function studTex(){
+  const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');
+  g.fillStyle='#ffffff';g.fillRect(0,0,64,64);
+  g.fillStyle='rgba(0,0,0,0.10)';g.beginPath();g.arc(34,36,17,0,7);g.fill();
+  g.fillStyle='rgba(255,255,255,0.9)';g.beginPath();g.arc(30,30,16,0,7);g.fill();
+  g.strokeStyle='rgba(0,0,0,0.16)';g.lineWidth=3;g.beginPath();g.arc(32,32,16,0.2,2.6);g.stroke();
+  g.strokeStyle='rgba(0,0,0,0.05)';g.lineWidth=2;g.strokeRect(0,0,64,64);
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=8;return t;
+}
+const STUD=studTex();
+function checkerTex(){
+  const c=document.createElement('canvas');c.width=c.height=512;const g=c.getContext('2d');
+  for(let i=0;i<8;i++)for(let j=0;j<8;j++){g.fillStyle=((i+j)%2)?'#ffffff':'#e6e6e6';g.fillRect(i*64,j*64,64,64);}
+  for(let i=0;i<64;i++)for(let j=0;j<64;j++){const x=i*8+4,y=j*8+4;
+    g.fillStyle='rgba(0,0,0,0.13)';g.fillRect(x-2,y-2,5,5);g.fillStyle='rgba(255,255,255,0.35)';g.fillRect(x-2,y-2,4,1);}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=8;return t;
+}
+function box(w,h,d,color,opts={}){
+  const geo=new THREE.BoxGeometry(w,h,d); const uv=geo.attributes.uv;
+  const dims=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];
+  for(let f=0;f<6;f++)for(let v=0;v<4;v++){const i=f*4+v;uv.setXY(i,uv.getX(i)*dims[f][0],uv.getY(i)*dims[f][1]);}
+  const mat=new THREE.MeshLambertMaterial({color,map:opts.noStuds?null:STUD,emissive:opts.emissive||0x000000});
+  const m=new THREE.Mesh(geo,mat);m.castShadow=true;m.receiveShadow=true;return m;
+}
+
+// floor (niche floor: checker studs)
+const ft=checkerTex(); ft.repeat.set(60/64*8,60/64*8);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.MeshLambertMaterial({color:0x71675a,map:ft}));
+floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+// lever plate (7 x 5) from the prefab
+const plate=box(7,1,5,0x535353);plate.position.set(0,0.5,0);scene.add(plate);
+
+// ---------- lever ----------
+const lever=new THREE.Group(); lever.position.y=1; scene.add(lever);
+const base=box(6,1.5,4.5,0x4f5459); base.position.y=0.75; lever.add(base);
+const housing=box(4.5,2.5,3,0x6e7378); housing.position.y=1.5+1.25; lever.add(housing);
+// slot (dark inset on top)
+const slot=box(1.1,0.25,3.1,0x24282d,{noStuds:true}); slot.position.y=4.0+0.12; lever.add(slot);
+// bumper in front (away from the player = -z)
+const bump=box(3.2,1.2,0.9,0x2b2b2b,{noStuds:true}); bump.position.set(0,3.4,-1.95); lever.add(bump);
+// brackets + axle
+for(const s of [-1,1]){const br=box(0.8,2.2,1.6,0x3d4248); br.position.set(s*2.65,4.0+1.0,0); lever.add(br);}
+const axle=box(5.6,0.8,0.8,0x3d4248,{noStuds:true}); axle.position.set(0,5.4,0); lever.add(axle);
+// pivot group (rotates around X)
+const pivot=new THREE.Group(); pivot.position.set(0,5.4,0); lever.add(pivot);
+const stick=box(0.8,6,0.8,0x8a5a32); stick.position.y=3.0; pivot.add(stick);
+for(const y of [1.2,4.6]){const r=box(1.05,0.4,1.05,0x5b5f64,{noStuds:true}); r.position.y=y; pivot.add(r);}
+const knobMat=new THREE.MeshLambertMaterial({color:0xd63a2f,map:STUD,emissive:0x000000});
+const knob=new THREE.Mesh(new THREE.BoxGeometry(1.8,1.8,1.8),knobMat);
+{const uv=knob.geometry.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*1.8,uv.getY(i)*1.8);}
+knob.castShadow=true; knob.position.y=6.6; pivot.add(knob);
+const knobLight=new THREE.PointLight(0xff6a3d,0,14); knobLight.position.y=6.6; pivot.add(knobLight);
+
+// sparks
+const sparks=[]; const sparkGeo=new THREE.BoxGeometry(0.35,0.35,0.35);
+function burst(){
+  const p=new THREE.Vector3(); bump.getWorldPosition(p); p.z-=0.4;
+  for(let i=0;i<22;i++){const m=new THREE.Mesh(sparkGeo,new THREE.MeshBasicMaterial({color:i%3?0xffd36b:0xffffff}));
+    m.position.copy(p).add(new THREE.Vector3((Math.random()-.5)*2,Math.random()*1,(Math.random()-.5)));
+    m.userData.v=new THREE.Vector3((Math.random()-.5)*9,3+Math.random()*7,-2-Math.random()*6); m.userData.life=0.6+Math.random()*0.3;
+    scene.add(m); sparks.push(m);}
+}
+
+// ---------- player (blocky) ----------
+const player=new THREE.Group(); scene.add(player);
+const torso=box(2,2,1,0x3b7dd8); torso.position.y=3; player.add(torso);
+const head=box(1.2,1.2,1.2,0xf2c94c,{noStuds:true}); head.position.y=4.65; player.add(head);
+const legs=[],arms=[];
+for(const s of [-1,1]){const l=box(1,2,1,0x2f3542); l.position.set(s*0.5,1,0); player.add(l); legs.push(l);
+  const a=new THREE.Group(); a.position.set(s*1.5,3.9,0); const am=box(1,2,1,0xf2c94c,{noStuds:true}); am.position.y=-0.9; a.add(am); player.add(a); arms.push(a);}
+let pz=22, targetZ=22; player.position.set(0,0,pz); player.rotation.y=Math.PI; // faces -z (towards lever)
+
+// ---------- camera orbit ----------
+let yaw=1.15, pitch=0.28, dist=32, target=new THREE.Vector3(0,4,4);
+let drag=null;
+canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointermove',e=>{if(!drag)return;yaw-=(e.clientX-drag.x)*0.006;pitch=Math.min(1.2,Math.max(0.05,pitch+(e.clientY-drag.y)*0.005));drag={x:e.clientX,y:e.clientY};});
+canvas.addEventListener('pointerup',()=>drag=null);
+canvas.addEventListener('wheel',e=>{e.preventDefault();dist=Math.min(80,Math.max(12,dist*(e.deltaY>0?1.08:0.93)));},{passive:false});
+function updCam(shake){
+  camera.position.set(target.x+dist*Math.sin(yaw)*Math.cos(pitch),target.y+dist*Math.sin(pitch),target.z+dist*Math.cos(yaw)*Math.cos(pitch));
+  camera.lookAt(target); if(shake){camera.position.x+=(Math.random()-.5)*shake;camera.position.y+=(Math.random()-.5)*shake;}
+}
+
+// ---------- prompt ----------
+const promptEl=document.getElementById('prompt'), keyEl=document.getElementById('key');
+let playing=false, t=0, speed=1, loop=false, hitDone=false;
+function near(){return Math.abs(player.position.z-6.5)<3.5;}
+function trigger(){
+  if(playing||!near())return;
+  keyEl.classList.add('down'); setTimeout(()=>keyEl.classList.remove('down'),120);
+  playing=true; t=0; hitDone=false;
+}
+promptEl.addEventListener('click',trigger);
+window.addEventListener('keydown',e=>{if(e.key==='e'||e.key==='E'||e.code==='KeyE')trigger();});
+
+const walkBtn=document.getElementById('walk');
+walkBtn.onclick=()=>{targetZ = targetZ>10 ? 6.5 : 22; walkBtn.textContent = targetZ>10 ? 'Підійти до важеля' : 'Відійти';};
+const slowBtn=document.getElementById('slow');
+slowBtn.onclick=()=>{speed=speed===1?0.25:1;slowBtn.classList.toggle('on',speed!==1);};
+const loopBtn=document.getElementById('loop');
+loopBtn.onclick=()=>{loop=!loop;loopBtn.classList.toggle('on',loop); if(loop&&near()&&!playing)trigger();};
+document.getElementById('side').onclick=()=>{yaw=Math.PI/2;pitch=0.12;dist=30;};
+
+// ---------- graph ----------
+const gc=document.getElementById('graph'), gx=gc.getContext('2d');
+function drawGraph(){
+  const w=gc.clientWidth,h=gc.clientHeight,dpr=Math.min(2,window.devicePixelRatio||1);
+  if(gc.width!==w*dpr){gc.width=w*dpr;gc.height=h*dpr;}
+  gx.setTransform(dpr,0,0,dpr,0,0); gx.clearRect(0,0,w,h);
+  const X=s=>8+s/TOTAL*(w-16), Y=a=>h/2-a/80*(h/2-10);
+  gx.strokeStyle='#343a46';gx.lineWidth=1;gx.beginPath();gx.moveTo(8,Y(0));gx.lineTo(w-8,Y(0));gx.stroke();
+  gx.fillStyle='#9aa3b2';gx.font='10px system-ui';gx.fillText('+30°',w-34,Y(30)+3);gx.fillText('−70°',w-34,Y(-70)+3);
+  gx.strokeStyle='rgba(255,211,107,.5)';gx.setLineDash([3,3]);gx.beginPath();gx.moveTo(X(HIT),6);gx.lineTo(X(HIT),h-6);gx.stroke();gx.setLineDash([]);
+  gx.fillStyle='#f2b84b';gx.fillText('удар / старт ролу',X(HIT)+4,14);
+  gx.strokeStyle='#e8ebf0';gx.lineWidth=2;gx.beginPath();
+  for(let i=0;i<=300;i++){const s=i/300*TOTAL;const a=angleAt(s);i?gx.lineTo(X(s),Y(a)):gx.moveTo(X(s),Y(a));}
+  gx.stroke();
+  if(playing){gx.fillStyle='#f2b84b';gx.beginPath();gx.arc(X(t),Y(angleAt(t)),4,0,7);gx.fill();}
+}
+
+// ---------- loop ----------
+function resize(){const r=stage.getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix();}
+window.addEventListener('resize',resize); resize();
+let last=performance.now(), walkPhase=0;
+const tmp=new THREE.Vector3();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  // walk
+  const dz=targetZ-player.position.z;
+  if(Math.abs(dz)>0.05){player.position.z+=Math.sign(dz)*Math.min(Math.abs(dz),12*dt);walkPhase+=dt*10;
+    player.rotation.y = dz<0?Math.PI:0;}
+  else {walkPhase*=0.8; player.rotation.y=Math.PI;}
+  legs[0].rotation.x=Math.sin(walkPhase)*0.6; legs[1].rotation.x=-Math.sin(walkPhase)*0.6;
+  // animation
+  let shake=0, a=0, prevPhase=0;
+  if(playing){
+    t+=dt*speed;
+    if(!hitDone && t>=HIT){hitDone=true;burst();}
+    if(t>=TOTAL){playing=false;t=0; if(loop) setTimeout(()=>{if(loop)trigger();},450);}
+    a=angleAt(t);
+    const since=t-HIT; if(since>0&&since<0.25){shake=(0.25-since)*1.6; knobLight.intensity=(0.25-since)*12;} else knobLight.intensity=0;
+    knobMat.emissive.setRGB(knobLight.intensity/6,knobLight.intensity/14,0);
+    lever.position.y=1-(since>0&&since<0.12?Math.sin(since/0.12*Math.PI)*0.12:0);
+    // player arm follows the pull
+    arms[1].rotation.x= near()? -Math.max(0,Math.min(1.6,0.9+a/45)) : 0;
+  } else { arms[1].rotation.x*=0.85; }
+  pivot.rotation.x=THREE.MathUtils.degToRad(a);
+  // table highlight
+  const ph=playing?phaseAt(t):0;
+  kfTable.querySelectorAll('tr[data-i]').forEach(r=>r.classList.toggle('active',+r.dataset.i===ph));
+  // sparks
+  for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];s.userData.life-=dt*speed;s.userData.v.y-=25*dt*speed;
+    s.position.addScaledVector(s.userData.v,dt*speed);s.rotation.x+=dt*8;s.scale.setScalar(Math.max(0,s.userData.life/0.8));
+    if(s.userData.life<=0||s.position.y<0.2){scene.remove(s);sparks.splice(i,1);}}
+  // prompt position (above the knob at rest)
+  tmp.set(0,13,0.5).project(camera);
+  const r=stage.getBoundingClientRect();
+  promptEl.style.left=((tmp.x+1)/2*r.width)+'px'; promptEl.style.top=((1-tmp.y)/2*r.height)+'px';
+  promptEl.classList.toggle('hidden',!(near()&&!playing&&Math.abs(dz)<0.1));
+  updCam(shake);
+  renderer.render(scene,camera);
+  drawGraph();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

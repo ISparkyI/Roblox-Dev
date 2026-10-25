@@ -1,0 +1,237 @@
+{
+  "main": {
+    "id": "e1ec4addecc4ffdc",
+    "type": "split",
+    "children": [
+      {
+        "id": "910c344af99daff1",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "9145cbfbb8086d07",
+            "type": "leaf",
+            "pinned": true,
+            "state": {
+              "type": "graph",
+              "state": {},
+              "pinned": true,
+              "icon": "lucide-git-fork",
+              "title": "Граф"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "c210e46191c238ef",
+    "type": "split",
+    "children": [
+      {
+        "id": "9efadd22a93ba2d7",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4a9905eeb89d59a8",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Файловий менеджер"
+            }
+          },
+          {
+            "id": "8cfe7732e42ba129",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Пошук"
+            }
+          },
+          {
+            "id": "8e8a7883877708f4",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-bookmark",
+              "title": "Закладки"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "fe74d8921249cec4",
+    "type": "split",
+    "children": [
+      {
+        "id": "153eb823f2da8817",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "0087620d9d940614",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Зворотні посилання"
+            }
+          },
+          {
+            "id": "ba18add5f5d168b2",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Вихідні посилання"
+            }
+          },
+          {
+            "id": "526a78d476920836",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Мітки"
+            }
+          },
+          {
+            "id": "829dc210a96b1cdd",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Всі властивості"
+            }
+          },
+          {
+            "id": "ae4f288de4680eb1",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Вміст"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Відкрити провідник файлів": false,
+      "graph:Граф": false,
+      "canvas:Створити нове полотно": false,
+      "daily-notes:Сьогоднішня нотатка": false,
+      "templates:Вставити шаблон": false,
+      "command-palette:Відкрити меню команд": false,
+      "bases:Створити нову базу": false
+    }
+  },
+  "active": "9145cbfbb8086d07",
+  "lastOpenFiles": [
+    "Golems/Кам'яний голем/Claude outputs/hud_tiles_game.jpg",
+    "Places/My Mining Golems/2D/Main HUD/Source/hud_tiles_template.html",
+    "Places/My Mining Golems/2D/Main HUD/Source/gen_hud_tiles.py",
+    "Places/My Mining Golems/2D/Main HUD/Preview/hud_tiles_mock.png",
+    "Places/My Mining Golems/2D/Main HUD/Preview/hud_tiles_mock.html",
+    "Places/My Mining Golems/2D/Main HUD/Preview/hud_tiles_game.jpg",
+    "Places/My Mining Golems/Interactive Objects/Plots/Plots.md",
+    "Places/My Mining Golems/Interactive Objects/Cave Entrance/Cave Entrance.md",
+    "Places/My Mining Golems/Interactive Objects/Roll Upgrades Screen/Roll Upgrades Screen.md",
+    "Places/My Mining Golems/Interactive Objects/Interactive Objects.md",
+    "Places/My Mining Golems/GDD/GDD - Interface.md",
+    "Golems/Кам'яний голем/Claude outputs/hud_tiles_mock.html",
+    "Golems/Кам'яний голем/Claude outputs/hud_tiles_template.html",
+    "Golems/Кам'яний голем/Claude outputs/gen_hud_tiles.py",
+    "Golems/Кам'яний голем/Claude outputs/layout2_preview.png",
+    "33.md",
+    "61.md",
+    "Places/My Mining Golems/3D Models/Ores/Coal Ore/Coal Ore.md",
+    "Places/My Mining Golems/GDD/GDD - Ores and Bars.md",
+    "Places/My Mining Golems/GDD/My Mining Golems - GDD.md",
+    "Places/My Mining Golems/Locations/Main Cave/Main Cave.md",
+    "Places/My Mining Golems/Locations/Main Cave",
+    "Places/My Mining Golems/GDD/GDD - Studio Scene.md",
+    "Places/My Mining Golems/GDD/GDD - Roll.md",
+    "Places/My Mining Golems/GDD/GDD - Quests and Index.md",
+    "Places/My Mining Golems/GDD/GDD - Plots.md",
+    "Places/My Mining Golems/GDD/GDD - Mutation Machine.md",
+    "Places/My Mining Golems/GDD/GDD - Monetization.md",
+    "Places/My Mining Golems/GDD/GDD - Marketplace.md",
+    "Places/My Mining Golems/GDD/GDD - Maps.md",
+    "Places/My Mining Golems/GDD/GDD - Leaderboards.md",
+    "Places/My Mining Golems/GDD/GDD - Golems.md",
+    "Places/My Mining Golems/GDD/GDD - Diamonds Shop.md",
+    "Places/My Mining Golems/GDD/GDD - Data Saving.md",
+    "Places/My Mining Golems/GDD/GDD - Currencies and Rebirths.md",
+    "Places/My Mining Golems/GDD/GDD - Boss Events.md",
+    "Places/My Mining Golems/3D Models/Ores/Iron Ore/Preview/iron_ore_veins_game.jpg",
+    "Places/My Mining Golems/3D Models/Ores/Copper Ore/Preview/copper_ore_game.jpg",
+    "Places/My Mining Golems/3D Models/Ores/Copper Ore/Preview",
+    "Places/My Mining Golems/3D Models/Ores/Copper Ore",
+    "Places/My Mining Golems/3D Models/Ores/Coal Ore/Preview/coal_ore_game.jpg",
+    "Places/My Mining Golems/3D Models/Ores/Coal Ore/Preview",
+    "Places/My Mining Golems/3D Models/Instruments/Carrier Crate/Preview/carrier_crate_game.jpg",
+    "Places/My Mining Golems/3D Models/Bars/Preview/chunks_bars_game.jpg",
+    "Places/My Mining Golems/Locations/Niche Stage 1/Preview/niche_stage1_v2.jpg",
+    "Places/My Mining Golems/Interactive Objects/Sell Shop/Preview/sell_window_v4.jpg",
+    "Без назви.canvas",
+    "Без назви 1.canvas"
+  ]
+}

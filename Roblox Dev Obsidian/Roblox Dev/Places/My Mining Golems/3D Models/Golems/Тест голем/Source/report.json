@@ -1,0 +1,36 @@
+{
+  "boxes": 58,
+  "leaves": 16,
+  "triangles": 952,
+  "segments": 15,
+  "colors": 9,
+  "zfight_fixed": 62,
+  "zfight_remaining": 0,
+  "tilted_blocks_check_by_eye": [
+    "Brow_L",
+    "Brow_R",
+    "LeafTop",
+    "LeafSide_L",
+    "LeafSide_R",
+    "LeafBack",
+    "LeafTemple_L",
+    "ShoulderLeaf_L",
+    "ShoulderLeaf_R",
+    "HeadBackLeaf",
+    "BackLeaf",
+    "NapeLeaf",
+    "ForearmLeaf_L",
+    "ForearmLeaf_R",
+    "KneeLeaf_L",
+    "KneeLeaf_R",
+    "ShinLeaf_R",
+    "FootLeaf_L"
+  ],
+  "size_xyz": [
+    4.098,
+    5.241,
+    1.95
+  ],
+  "min_y_after_shift": 0.0,
+  "glb": "TestGolem.glb"
+}

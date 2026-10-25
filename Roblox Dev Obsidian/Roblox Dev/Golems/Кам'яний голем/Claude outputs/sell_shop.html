@@ -1,0 +1,793 @@
+<title>Sell Shop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap">
+<style>
+:root{--bg:#16181c;--panel:#20242b;--panel2:#262b33;--fg:#e9edf1;--mut:#9aa4af;--line:#323843;--acc:#5fe36a;--gold:#f2c14b;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 "Montserrat",system-ui,-apple-system,"Segoe UI",sans-serif;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px}
+.wrap{max-width:1500px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px}
+@media (max-width:980px){.wrap{grid-template-columns:minmax(0,1fr)}}
+.stage{position:relative;background:#0e1013;border-radius:10px;overflow:hidden;aspect-ratio:16/10;min-height:300px;border:1px solid var(--line)}
+#c{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#c:active{cursor:grabbing}
+.tag{position:absolute;left:0;top:0;transform:translate(-50%,-100%);pointer-events:none;white-space:nowrap;z-index:3}
+.bb{display:flex;align-items:center;gap:.18em;font:900 64px/1 "Montserrat",system-ui,sans-serif}
+.bb .t{position:relative;letter-spacing:.01em}
+.bb .t::before{content:attr(data-t);position:absolute;inset:0;-webkit-text-stroke:9px #0b3a14;color:#0b3a14;transform:translateY(5px);z-index:-1}
+.bb .t span{background:linear-gradient(#d9ff7a,#7ae04a 48%,#22a838);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:0}
+.bb .t::after{content:attr(data-t);position:absolute;inset:0;-webkit-text-stroke:9px #0b3a14;color:transparent;z-index:-1}
+.bb svg{width:.95em;height:.95em;filter:drop-shadow(0 4px 0 #0b3a14)}
+.pop{font:900 26px/1 "Montserrat",system-ui;color:#c8ff6a;-webkit-text-stroke:5px #0b3a14;paint-order:stroke fill;opacity:0}
+.ding{font:900 20px/1 "Montserrat",system-ui;color:#ffe27a;-webkit-text-stroke:4px #5a3a00;paint-order:stroke fill;opacity:0}
+.hud{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:6px;flex-wrap:wrap;z-index:5}
+.btn{background:rgba(32,36,43,.92);color:var(--fg);border:1px solid #3a414d;border-radius:7px;padding:7px 11px;font:700 12.5px "Montserrat",system-ui;cursor:pointer}
+.btn:hover{border-color:var(--acc)}
+.btn.on{background:var(--acc);color:#0e1a0f;border-color:var(--acc)}
+.btn:disabled{opacity:.4;cursor:default;border-color:#3a414d}
+.cams{position:absolute;right:10px;top:10px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;z-index:5;max-width:70%}
+.state{position:absolute;left:10px;top:10px;z-index:5;font:700 12px "Montserrat",system-ui;color:var(--mut);background:rgba(14,16,19,.7);padding:5px 9px;border-radius:6px}
+.state b{color:var(--acc)}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+h1{font:900 19px/1.25 "Montserrat",system-ui;margin:0 0 6px;text-wrap:balance}
+h1 em{font-style:normal;color:var(--acc)}
+h2{font:800 12px/1.3 "Montserrat",system-ui;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin:0 0 8px}
+p{margin:6px 0;color:#c9d0d8}
+.mut{color:var(--mut);font-size:12.5px}
+ul{margin:6px 0 0;padding-left:18px;color:#c9d0d8}
+li{margin:3px 0}
+li b{color:var(--fg)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12.5px;color:#c9d0d8}
+.kv span:nth-child(odd){color:var(--mut)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,.4)}
+</style>
+
+<div class="wrap">
+  <div class="stage" id="stage">
+    <canvas id="c"></canvas>
+    <div class="state" id="stateLbl">Стан: <b>Idle — рахує монети</b></div>
+    <div class="cams">
+      <button class="btn on" data-cam="overview">Загальний вид</button>
+      <button class="btn" data-cam="golem">Голем</button>
+      <button class="btn" data-cam="counter">Прилавок</button>
+      <button class="btn" data-cam="player">Очима гравця</button>
+      <button class="btn" data-cam="niche">У ніші</button>
+    </div>
+    <div class="tag" id="bb"><div class="bb"><div class="t" data-t="SELL"><span>SELL</span></div></div></div>
+    <div class="tag pop" id="pop">+$90</div>
+    <div class="tag ding" id="ding">DING!</div>
+    <div class="hud">
+      <button class="btn" id="bEnter">Гравець заходить у коло</button>
+      <button class="btn" id="bSell" disabled>Продати руду</button>
+      <button class="btn" id="bLeave" disabled>Гравець виходить</button>
+      <button class="btn" id="bSlow">Повільно ×0.3</button>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <h1><em>SELL</em> — лавка скупщика Наґґета</h1>
+      <p class="mut">Етап 1 · лівий передній кут ніші · веб-макет для погодження (у грі ще нічого не змінено)</p>
+    </div>
+    <div class="card">
+      <h2>Історія місця</h2>
+      <p>Наґґета вирізали з тієї самої породи, що й коваля, але різець натрапив на <b>золоту жилу</b>, і вона стала його серцем — вона жевріє в грудях під жилеткою. Відтоді він не може пройти повз монету.</p>
+      <p>Лавку він збив з того, що лишилось від старої шахти: шахтарські <b>ваги для руди</b>, <b>вагонетка</b>, куди він зсипає скуплене, і латаний зелено-кремовий брезент. Платить завжди <b>неохоче</b>: кожну монету спершу кусає, розглядає крізь монокль і ховає до кишені, а ключ від сейфа носить на поясі.</p>
+    </div>
+    <div class="card">
+      <h2>Голем-продавець</h2>
+      <ul>
+        <li><b>Дворф:</b> ½ коваля (≈9,5 стада, з циліндром ≈11,8), короткі ноги, широкий, з пузом.</li>
+        <li><b>Жадібність видно одразу:</b> циліндр з золотою стрічкою й монетою за нею, монокль на ланцюжку, хитро примружені очі, золотий зуб, персні на кулаках, зелена жилетка з золотими гудзиками, ключ від сейфа на поясі.</li>
+        <li><b>Мідна борода</b> з двома косами в золотих кільцях — з тієї ж руди, яку він скуповує.</li>
+        <li>Той самий камінь і studs, що в коваля (<span class="sw" style="background:#8b96a3"></span>8b96a3 / <span class="sw" style="background:#66717e"></span>66717e); замість бірюзового кристала — золотий самородок.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Предмети й навіщо вони</h2>
+      <ul>
+        <li><b>Ваги</b> — на них падає руда гравця, шалька опускається, голем зважує.</li>
+        <li><b>Стоси монет</b> — з них він неохоче відраховує плату.</li>
+        <li><b>Дзвоник</b> — дзенькає, коли гравець заходить у коло.</li>
+        <li><b>Рахівниця</b> — у спокої він перекидає кісточки.</li>
+        <li><b>Вагонетка</b> — сюди летить куплена руда, купа росте.</li>
+        <li><b>Сейф і мішки</b> — його скарб; на них він озирається.</li>
+        <li><b>Дошка цін</b> крейдою — у грі це SurfaceGui, що бере <b>справжні ціни й руду поточного етапу</b> з конфігу (зараз етап 1: Coal $8 · Copper $20 · Iron $50) і оновлюється при переході на новий етап.</li>
+        <li><b>NO REFUNDS</b> на стовпі — характер господаря.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Анімації</h2>
+      <ul>
+        <li><b>Спокій:</b> бере монету, кусає, дивиться крізь монокль, ховає в кишеню, плескає пузо, клацає рахівницею, підозріло озирається, потирає руки.</li>
+        <li><b>Гравець у колі:</b> дзенькає в дзвоник, нахиляється до прилавка, широко шкіриться (золотий зуб), потирає руки, стежить очима за гравцем.</li>
+        <li><b>Продаж:</b> руда на вагах → зважує крізь монокль, в очах <b>$</b> → неохоче штовхає монети (тремтить, відсмикує руку) → монети летять гравцю → згрібає руду у вагонетку → витирає лоба.</li>
+        <li><b>Гравець пішов:</b> піднімає циліндр.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Розміри в ніші (стади)</h2>
+      <div class="kv">
+        <span>Лавка</span><span>22 × 12, навіс до 15,6; спиною до лівої стіни</span>
+        <span>Коло</span><span>радіус 8,64 (як у Forge), зелене неонове</span>
+        <span>Центр кола</span><span>≈ (−38; −31) у координатах ніші</span>
+        <span>Напис</span><span>SELL + пачка грошей, над колом</span>
+      </div>
+      <p class="mut">Ящики й гравій з цього кута перед будівництвом переїдуть у ServerStorage/NicheBackup.</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const T = THREE;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v)), lerp=(a,b,t)=>a+(b-a)*t;
+const ss=t=>{t=clamp(t,0,1);return t*t*(3-2*t)};
+const canvas=document.getElementById('c'), stage=document.getElementById('stage');
+
+// ---------- renderer ----------
+const renderer=new T.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=T.PCFSoftShadowMap;
+renderer.outputEncoding=T.sRGBEncoding; renderer.toneMapping=T.ACESFilmicToneMapping; renderer.toneMappingExposure=1.08;
+const scene=new T.Scene();
+scene.background=new T.Color(0x23262c); scene.fog=new T.Fog(0x23262c,70,170);
+const camera=new T.PerspectiveCamera(42,16/10,0.1,400);
+
+scene.add(new T.HemisphereLight(0xdfe8ff,0x5a4636,0.85));
+const sun=new T.DirectionalLight(0xfff1dc,1.25); sun.position.set(26,46,34); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); const sc=sun.shadow.camera; sc.left=-34;sc.right=34;sc.top=34;sc.bottom=-34;sc.near=1;sc.far=140; sun.shadow.bias=-0.0006; sun.shadow.normalBias=0.03;
+scene.add(sun);
+const fill=new T.DirectionalLight(0xb8d0ff,0.35); fill.position.set(-30,20,-10); scene.add(fill);
+const lampLight=new T.PointLight(0xffb45a,1.1,22,2); scene.add(lampLight);
+const heartLight=new T.PointLight(0xffc640,0.6,6,2); scene.add(heartLight);
+
+// ---------- textures ----------
+function studTexture(){
+  const c=document.createElement('canvas'); c.width=c.height=64; const g=c.getContext('2d');
+  g.fillStyle='#ececec'; g.fillRect(0,0,64,64);
+  g.fillStyle='#d2d2d2'; g.fillRect(10,10,44,44);
+  g.fillStyle='#ffffff'; g.fillRect(12,12,40,40);
+  g.fillStyle='#f6f6f6'; g.fillRect(16,16,34,34);
+  g.fillStyle='#dadada'; g.fillRect(16,48,36,4); g.fillRect(48,16,4,36);
+  g.fillStyle='#e2e2e2'; g.fillRect(0,0,64,1); g.fillRect(0,0,1,64);
+  const t=new T.CanvasTexture(c); t.wrapS=t.wrapT=T.RepeatWrapping; t.encoding=T.sRGBEncoding; t.anisotropy=4; return t;
+}
+const STUD=studTexture();
+function canvasTex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new T.CanvasTexture(c);t.encoding=T.sRGBEncoding;t.anisotropy=4;return t;}
+
+// ---------- materials ----------
+const MC={};
+function col(hex){return new T.Color('#'+hex).convertSRGBToLinear();}
+function mat(hex,o={}){
+  const key=hex+'|'+JSON.stringify(o); if(MC[key]) return MC[key];
+  let m;
+  if(o.neon){ m=new T.MeshBasicMaterial({color:col(hex),transparent:!!o.op,opacity:o.op??1,depthWrite:!o.op}); }
+  else m=new T.MeshStandardMaterial({color:col(hex),roughness:o.rough??0.78,metalness:o.metal??0,map:o.plain?null:STUD,
+    transparent:!!o.op,opacity:o.op??1,emissive:o.glow?col(o.glow):new T.Color(0),emissiveIntensity:o.gi??1});
+  if(o.op) m.depthWrite=false;
+  MC[key]=m; return m;
+}
+const GOLD={metal:.55,rough:.32}, BRASS={metal:.5,rough:.38};
+// box with UVs scaled to studs (stud = tile size in studs)
+function box(w,h,d,hex,o={}){
+  const g=new T.BoxGeometry(w,h,d); const uv=g.attributes.uv; const s=o.stud??1;
+  const dims=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];
+  for(let f=0;f<6;f++)for(let v=0;v<4;v++){const i=f*4+v;uv.setXY(i,uv.getX(i)*dims[f][0]/s,uv.getY(i)*dims[f][1]/s);}
+  const m=new T.Mesh(g,mat(hex,o)); m.castShadow=o.cast??true; m.receiveShadow=true; return m;
+}
+function cyl(r,h,hex,o={}){
+  const g=new T.CylinderGeometry(o.r2??r,r,h,o.seg??20); const m=new T.Mesh(g,mat(hex,{...o,plain:o.plain??true}));
+  m.castShadow=o.cast??true; m.receiveShadow=true; return m;
+}
+function at(m,x,y,z,parent,rx=0,ry=0,rz=0){m.position.set(x,y,z);m.rotation.set(rx,ry,rz);(parent||scene).add(m);return m;}
+function grp(parent,x=0,y=0,z=0){const g=new T.Group();g.position.set(x,y,z);(parent||scene).add(g);return g;}
+
+// =====================================================================
+// ENVIRONMENT (кут ніші)
+// =====================================================================
+const RING_R=8.64, ringC=new T.Vector3(0,0.05,18.2);
+const env=grp(scene);
+at(box(160,1,140,'7a5c45',{stud:1}),0,-0.5,30,env);
+// задня стіна (ліва стіна ніші) і камені біля неї
+at(box(160,44,4,'6f7680',{stud:1}),0,22,-10.5,env);
+[[-16,2.6,-7.6,6,5.4,4,'6a7079'],[14,2,-7.4,5,4,3.6,'737a83'],[-28,3.5,-7.5,7,7,4,'666d76'],[24,3,-7,6,6,4,'6e757e'],[30,1.4,-5.5,3,2.8,3,'7c838c']].forEach(r=>{
+  const b=at(box(r[3],r[4],r[5],r[6]),r[0],r[2]<0?r[4]/2:r[4]/2,r[2],env,0,0.3*Math.sin(r[0]),0); });
+// моховий наріст на стіні
+at(box(7,1.2,3.4,'5a8f3c'),-16,5.6,-7.4,env); at(box(5,1,3,'6a9e45'),-28,7.3,-7.3,env);
+// колона (Supports/Post) і балка
+at(box(3.6,38,3.6,'5c463a'),-15.5,19,-7.2,env);
+at(box(3.6,3.6,40,'664e42'),-15.5,28,-26,env);
+// ліана
+for(let i=0;i<6;i++) at(box(0.6,1.6,0.6,'467a2e'),-13.4,26-i*1.5,-6.2+((i%2)*0.3),env,0,0,(i%2?0.2:-0.2));
+// гравій
+for(let i=0;i<18;i++){const a=i*2.39,r=12+((i*37)%14); const x=Math.cos(a)*r*1.3, z=Math.sin(a)*r*0.6+16; if(Math.hypot(x-ringC.x,z-ringC.z)<RING_R+1.5) continue; at(box(0.45,0.3,0.45,i%3?'6e6a64':'5a4a3c'),x,0.15,z,env,0,a,0);}
+// сусідня панель Time Skip (силует, світла рамка)
+const tsk=grp(env,24,0,-2); at(box(1.2,18,1.2,'5c463a'),0,9,-6,tsk); at(box(1.2,18,1.2,'5c463a'),0,9,6,tsk);
+at(box(0.8,13,11,'d9b98a'),0,10,0,tsk); at(box(1,1,12.4,'4a4d52'),0,16.8,0,tsk); at(box(1,1,12.4,'4a4d52'),0,3.4,0,tsk);
+tsk.rotation.y=-0.08;
+
+// =====================================================================
+// STALL (лавка)
+// =====================================================================
+const stall=grp(scene);
+const W='735848', W2='5c463a', W3='6b5040', W4='8a6a50', W5='664e42', WD='4e3122';
+// настил
+at(box(22,0.5,12,W),0,0.25,0,stall);
+at(box(22.4,0.6,0.6,W2),0,0.3,6.1,stall); at(box(22.4,0.6,0.6,W2),0,0.3,-6.1,stall);
+at(box(0.6,0.6,12.4,W2),11.1,0.3,0,stall); at(box(0.6,0.6,12.4,W2),-11.1,0.3,0,stall);
+// стовпи
+[[10.5,5.2,13.2],[-10.5,5.2,13.2],[10.5,-5.4,15.6],[-10.5,-5.4,15.6]].forEach(p=>{at(box(1.1,p[2],1.1,W3),p[0],p[2]/2,p[1],stall);
+  at(box(1.5,0.5,1.5,W2),p[0],0.75,p[1],stall);});
+// поперечки
+at(box(22,0.9,0.9,W2),0,12.7,5.2,stall); at(box(22,0.9,0.9,W2),0,15.1,-5.4,stall);
+at(box(0.9,0.9,11,W2),10.5,14,0,stall,0.22,0,0); at(box(0.9,0.9,11,W2),-10.5,14,0,stall,0.22,0,0);
+// задня стінка з дощок
+for(let i=0;i<10;i++) at(box(2.05,11,0.5,i%2?W5:'5f4a3d'),-9.25+i*2.06,6,-5.75,stall);
+at(box(21,0.6,0.7,W2),0,11.2,-5.5,stall); at(box(21,0.6,0.7,W2),0,1.3,-5.5,stall);
+// полиці
+const shelfY=[5.4,8.2];
+shelfY.forEach(y=>{at(box(8.4,0.35,1.7,W4),5.6,y,-4.65,stall); at(box(0.35,0.9,0.35,WD),2.2,y-0.6,-4.2,stall); at(box(0.35,0.9,0.35,WD),9.0,y-0.6,-4.2,stall);});
+// навіс: смуги брезенту
+const canopy=grp(stall,0,15.95,-6.4); const SLOPE=Math.atan2(15.95-13.3,13.8);
+canopy.rotation.x=SLOPE;
+const NS=8, SW=23.2/NS;
+for(let i=0;i<NS;i++){const c=i%2?'efe2c0':'3e9a4a'; at(box(SW,0.3,14.2,c),-11.6+SW*(i+0.5),0,7.1,canopy);}
+// фестони (блочні «зубці») вздовж переднього краю
+const val=grp(stall,0,13.25,7.55);
+for(let i=0;i<NS;i++){const c=i%2?'efe2c0':'3e9a4a', x=-11.6+SW*(i+0.5);
+  at(box(SW,1.1,0.3,c),x,-0.55,0,val); at(box(SW*0.62,0.55,0.3,c),x,-1.35,0,val); at(box(SW*0.26,0.4,0.3,c),x,-1.8,0,val);}
+for(let s of [-1,1]){const sv=grp(stall,s*11.75,0,0); // бічні фестони
+  for(let i=0;i<4;i++){const z=-5+i*3.4, y=15.95-(z+6.4)*Math.tan(SLOPE); at(box(0.3,1.1,3.4,i%2?'efe2c0':'3e9a4a'),0,y-0.7,z+1.6,sv);} }
+// вивіска на передньому краї навісу: дошка з монетою
+const plaque=grp(stall,0,13.2,7.75);
+at(box(0.5,2.6,0.5,WD),-2.9,1.0,-0.2,plaque); at(box(0.5,2.6,0.5,WD),2.9,1.0,-0.2,plaque);
+at(box(6.4,2.7,0.45,W4),0,1.65,0,plaque); at(box(6.8,0.35,0.6,WD),0,3.05,0,plaque); at(box(6.8,0.35,0.6,WD),0,0.3,0,plaque);
+const coinBig=grp(plaque,0,1.68,0.32);
+at(cyl(1.05,0.3,'f2c14b',{...GOLD,seg:24}),0,0,0,coinBig,Math.PI/2,0,0);
+at(cyl(0.75,0.32,'d9a520',{...GOLD,seg:24}),0,0,0.01,coinBig,Math.PI/2,0,0);
+const dSign=canvasTex(64,64,(g,w,h)=>{g.font='900 54px Arial Black, Arial';g.textAlign='center';g.textBaseline='middle';g.fillStyle='#8a5a10';g.fillText('$',w/2,h/2+3);});
+at(new T.Mesh(new T.PlaneGeometry(1.1,1.1),new T.MeshBasicMaterial({map:dSign,transparent:true})),0,0,0.19,coinBig);
+// прилавок
+const CT=4.6; // висота верху прилавка
+at(box(17.4,0.45,3.0,W4),0,CT-0.22,3.9,stall); at(box(17.6,0.25,0.35,WD),0,CT-0.1,5.45,stall);
+for(let i=0;i<9;i++) at(box(1.9,CT-0.95,0.4,i%2?'7a5233':W),-7.6+i*1.9,0.5+(CT-0.95)/2,5.05,stall);
+at(box(17.2,0.5,0.55,WD),0,1.0,5.15,stall); at(box(17.2,0.4,0.55,WD),0,CT-0.6,5.15,stall);
+at(box(0.45,CT-0.5,2.6,W5),-8.5,0.5+(CT-0.5)/2,3.8,stall); at(box(0.45,CT-0.5,2.6,W5),8.5,0.5+(CT-0.5)/2,3.8,stall);
+// табличка NO REFUNDS
+const noRef=canvasTex(256,96,(g,w,h)=>{g.fillStyle='#8a6a50';g.fillRect(0,0,w,h);g.fillStyle='#6b5040';for(let y=0;y<h;y+=24)g.fillRect(0,y,w,3);
+  g.font='900 34px Montserrat, Arial Black, sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineWidth=6;g.strokeStyle='#2a1a10';g.strokeText('NO REFUNDS',w/2,h/2+2);g.fillStyle='#ff5a4a';g.fillText('NO REFUNDS',w/2,h/2+2);});
+const nr=new T.Mesh(new T.PlaneGeometry(3.2,1.2),new T.MeshStandardMaterial({map:noRef,roughness:.9})); at(nr,10.5,8.4,5.81,stall,0,0,-0.08);
+at(box(0.25,0.25,0.3,'a3adb8',{plain:true}),9.3,8.85,5.85,stall); at(box(0.25,0.25,0.3,'a3adb8',{plain:true}),11.7,8.75,5.85,stall);
+// дошка цін (крейда)
+const chalk=canvasTex(512,400,(g,w,h)=>{g.fillStyle='#2b3a33';g.fillRect(0,0,w,h);
+  for(let i=0;i<300;i++){g.fillStyle='rgba(255,255,255,'+(Math.random()*0.04)+')';g.fillRect(Math.random()*w,Math.random()*h,8+Math.random()*30,2);}
+  g.textBaseline='middle';g.fillStyle='#f4f1e6';g.font='900 52px Montserrat, Arial Black, sans-serif';g.textAlign='center';g.fillText('PRICES',w/2,58);
+  g.fillRect(150,92,212,4);
+  const rows=[['Coal','$8','#d9dde2'],['Copper','$20','#f0a070'],['Iron','$50','#f3c69a']];
+  rows.forEach((r,i)=>{const y=150+i*72;g.font='800 42px Montserrat, Arial, sans-serif';g.textAlign='left';g.fillStyle=r[2];g.fillText(r[0],60,y);
+    g.textAlign='right';g.fillStyle='#c8ff6a';g.fillText(r[1],452,y);g.fillStyle='rgba(244,241,230,.5)';for(let x=230;x<350;x+=18)g.fillRect(x,y+8,8,3);});
+  g.font='700 30px Montserrat, Arial, sans-serif';g.textAlign='center';g.fillStyle='#ffe27a';g.fillText('Bars  ×1.5',w/2,372);});
+const cb=grp(stall,-6.2,8.2,-5.35);
+at(box(5.3,4.3,0.3,WD),0,0,0,cb); const cbf=new T.Mesh(new T.PlaneGeometry(4.7,3.7),new T.MeshStandardMaterial({map:chalk,roughness:.95})); at(cbf,0,0,0.17,cb);
+at(box(0.5,0.5,0.3,'f4f1e6',{plain:true}),1.8,-2.3,0.2,cb);
+// ліхтар
+const lamp=grp(stall,-7.2,12.2,5.2);
+at(box(0.15,1,0.15,'3a3d42'),0,-0.4,0,lamp); at(box(1.1,0.3,1.1,'3a3d42'),0,-1,0,lamp);
+const lg=at(box(0.8,1.1,0.8,'ffcf7a',{neon:true,op:.85}),0,-1.7,0,lamp); at(box(1.1,0.3,1.1,'3a3d42'),0,-2.35,0,lamp);
+lampLight.position.set(-7.2,9.6,6.2);
+// сейф
+const safe=grp(stall,6.4,0.5,-3.5); safe.rotation.y=-0.25;
+at(box(3.4,2.9,2.6,'4a4d52'),0,1.45,0,safe);
+for(const sx of [-1,1])for(const sz of [-1,1]) at(box(0.42,2.9,0.42,'d9a520',GOLD),sx*1.62,1.45,sz*1.22,safe); // золоті ребра на кутах
+at(box(3.6,0.35,2.8,'3a3d42'),0,3.075,0,safe); // кришка зверху, без перетину з корпусом
+at(cyl(0.45,0.2,'d9a520',{...GOLD}),0.2,1.6,1.4,safe,Math.PI/2,0,0); at(box(0.15,0.55,0.12,'1d1612',{plain:true}),0.2,1.6,1.52,safe);
+at(box(0.9,0.2,0.2,'a3adb8',{plain:true}),-0.9,1.6,1.4,safe);
+// мішки з грошима
+const sack=canvasTex(128,128,(g,w,h)=>{g.fillStyle='#c9a46a';g.fillRect(0,0,w,h);g.strokeStyle='rgba(90,60,30,.25)';for(let i=0;i<h;i+=6){g.beginPath();g.moveTo(0,i);g.lineTo(w,i);g.stroke();}
+  g.font='900 70px Montserrat, Arial Black, sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillStyle='#2f7a3a';g.fillText('$',w/2,h/2+6);});
+function moneySack(parent,x,y,z,s=1,ry=0){const sg=grp(parent,x,y,z);sg.rotation.y=ry;sg.scale.setScalar(s);
+  const sm=new T.MeshStandardMaterial({map:sack,roughness:.95});
+  const b=new T.Mesh(new T.BoxGeometry(1.6,1.6,1.4),sm);b.position.y=0.8;b.castShadow=true;sg.add(b);
+  at(box(1.1,0.35,1.0,'b8935c',{plain:true}),0,1.75,0,sg); at(box(0.7,0.45,0.6,'c9a46a',{plain:true}),0,2.1,0,sg);
+  at(box(0.8,0.18,0.7,'7a3a1a',{plain:true}),0,1.95,0,sg); return sg;}
+moneySack(stall,7.2,3.75,-3.6,0.9,0.4); moneySack(stall,8.7,0.5,-1.2,1.1,-0.3); moneySack(stall,4.0,0.5,-4.2,0.85,0.2);
+moneySack(stall,7.7,shelfY[1]+0.18,-4.6,0.7,0.1); moneySack(stall,3.4,shelfY[1]+0.18,-4.6,0.65,-0.2);
+// банки зі зразками руди на полиці
+function jar(parent,x,y,z,ore){const j=grp(parent,x,y,z);
+  at(box(1.1,1.3,1.1,'cfe6ee',{plain:true,op:.32,rough:.1}),0,0.65,0,j); at(box(0.8,0.25,0.8,'3d2a1d'),0,1.42,0,j);
+  for(let i=0;i<4;i++) at(box(0.4,0.4,0.4,ore),((i%2)-0.5)*0.4,0.25+(i>>1)*0.38,((i*7)%3-1)*0.2,j,0,i,0); return j;}
+jar(stall,4.4,shelfY[0]+0.18,-4.6,'2b2e33'); jar(stall,5.9,shelfY[0]+0.18,-4.6,'c8643a'); jar(stall,7.4,shelfY[0]+0.18,-4.6,'d08a55');
+at(box(1,0.6,1,'f2c14b',GOLD),5.6,shelfY[1]+0.48,-4.6,stall); at(box(0.8,0.5,0.8,'f2c14b',GOLD),5.6,shelfY[1]+0.95,-4.6,stall);
+// стоси монет
+const coinMatH='f2c14b';
+const stacks=[];
+function coinStack(x,z,n){const g=grp(stall,x,CT,z);const coins=[];for(let i=0;i<n;i++){const c=at(cyl(0.34,0.12,coinMatH,{...GOLD,seg:16}),((i*13)%3-1)*0.03,0.06+i*0.12,((i*7)%3-1)*0.03,g);coins.push(c);}stacks.push({g,coins,n});return g;}
+coinStack(1.9,3.3,9); coinStack(2.6,3.75,6); coinStack(1.55,4.25,4);
+for(let i=0;i<4;i++) at(cyl(0.34,0.12,coinMatH,{...GOLD,seg:16}),0.6+i*0.55,CT+0.06,4.85-(i%2)*0.3,stall,0,0,(i%2)*0.08);
+// дзвоник
+const bell=grp(stall,3.65,CT,3.15);
+at(cyl(0.55,0.15,'3d2a1d',{seg:16}),0,0.08,0,bell);
+const bellDome=grp(bell,0,0.15,0); at(new T.Mesh(new T.SphereGeometry(0.5,16,10,0,Math.PI*2,0,Math.PI/2),mat('f2c14b',{...GOLD,plain:true})),0,0,0,bellDome);
+at(cyl(0.1,0.25,'d9a520',{...GOLD}),0,0.6,0,bellDome); at(new T.Mesh(new T.SphereGeometry(0.14,10,8),mat('d9a520',{...GOLD,plain:true})),0,0.75,0,bellDome);
+bellDome.children.forEach(m=>m.castShadow=true);
+// рахівниця
+const abac=grp(stall,-2.3,CT,3.55);
+at(box(2.6,0.25,0.5,W2),0,0.12,0,abac); at(box(2.6,0.25,0.5,W2),0,1.75,0,abac);
+at(box(0.25,1.85,0.5,W2),-1.3,0.95,0,abac); at(box(0.25,1.85,0.5,W2),1.3,0.95,0,abac);
+const beads=[]; const beadCols=['c8643a','2f7a3a','d9a520'];
+for(let r=0;r<3;r++){const y=0.5+r*0.45; at(box(2.4,0.06,0.06,'a3adb8',{plain:true}),0,y,0,abac);
+  for(let b=0;b<5;b++){const m=at(box(0.32,0.32,0.32,beadCols[r]),-0.95+b*0.34,y,0,abac);beads.push({m,r,b,base:-0.95+b*0.34});}}
+// книга-гросбух і перо
+const book=grp(stall,6.6,CT,3.7); book.rotation.y=-0.35;
+at(box(1.4,0.18,1.8,'2f4a7a'),-0.72,0.1,0,book,0,0,0.06); at(box(1.4,0.18,1.8,'2f4a7a'),0.72,0.1,0,book,0,0,-0.06);
+const pg=canvasTex(128,128,(g,w,h)=>{g.fillStyle='#f4ecd6';g.fillRect(0,0,w,h);g.fillStyle='#8a7a5a';for(let y=16;y<h;y+=14)g.fillRect(10,y,w-20,2);g.fillStyle='#2f7a3a';g.font='900 26px Arial';g.fillText('$$$',70,40);});
+const pm=new T.Mesh(new T.BoxGeometry(2.5,0.1,1.6),new T.MeshStandardMaterial({map:pg,roughness:.9})); at(pm,0,0.24,0,book);
+at(box(0.5,0.5,0.5,'1d1612',{plain:true}),1.6,0.25,-0.6,book); at(box(0.08,1.6,0.08,'f4f1e6',{plain:true}),1.7,1.0,-0.6,book,0.25,0,-0.3);
+at(box(0.3,0.9,0.05,'f4f1e6',{plain:true}),1.95,1.6,-0.4,book,0.25,0,-0.3);
+// ваги (ланцюжки від краю шальки сходяться до гачка на кінці коромисла)
+const scale=grp(stall,-6.6,CT,3.7);
+const SB=1.7; // половина коромисла
+at(box(1.5,0.35,1.0,'b8892a',BRASS),0,0.18,0,scale); at(box(0.3,2.8,0.3,'b8892a',BRASS),0,1.6,0,scale);
+at(cyl(0.22,0.3,'f2c14b',{...GOLD}),0,3.05,0,scale);
+const beam=grp(scale,0,3.0,0); at(box(2*SB+0.3,0.2,0.22,'d9a520',BRASS),0,0,0,beam);
+const pans=[];
+for(const s of [-1,1]){ const p=grp(scale,s*SB,3.0,0);
+  at(box(0.16,0.16,0.16,'f2c14b',{...GOLD,plain:true}),0,-0.05,0,p); // гачок
+  const PR=0.62, DROP=1.55;
+  for(const a of [0,1,2]){const ang=a*2.094+0.5; const bx=Math.cos(ang)*PR, bz=Math.sin(ang)*PR;
+    const len=Math.hypot(bx,DROP,bz); const ch=new T.Mesh(new T.BoxGeometry(0.05,len,0.05),mat('a3adb8',{plain:true}));
+    ch.position.set(bx/2,-DROP/2,bz/2); ch.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),new T.Vector3(-bx,DROP,-bz).normalize()); p.add(ch);}
+  const dish=at(cyl(0.7,0.14,'d9a520',{...BRASS,r2:0.74,seg:20}),0,-1.62,0,p); pans.push({g:p,s,dish}); }
+const scaleLoad=grp(scene); // руда на шальці (світові координати)
+// =====================================================================
+// MINE CART (вагонетка з купленою рудою)
+// =====================================================================
+const cart=grp(scene,-14.2,0,1.6); cart.rotation.y=0.35;
+for(const z of [-1.1,1.1]) at(box(9,0.3,0.4,'4a4d52'),0,0.15,z,cart);
+for(let i=0;i<5;i++) at(box(0.5,0.25,3.2,W2),-3.6+i*1.8,0.12,0,cart);
+for(const x of [-1.3,1.3])for(const z of [-1.25,1.25]){const wh=at(cyl(0.65,0.35,'2f3236',{seg:16}),x,0.75,z,cart,Math.PI/2,0,0);}
+at(box(4.2,0.35,2.6,'3a3d42'),0,1.0,0,cart);
+at(box(4.2,1.9,0.3,'4a4d52'),0,2.1,1.3,cart); at(box(4.2,1.9,0.3,'4a4d52'),0,2.1,-1.3,cart);
+at(box(0.3,1.9,2.6,'4a4d52'),2.1,2.1,0,cart); at(box(0.3,1.9,2.6,'4a4d52'),-2.1,2.1,0,cart);
+at(box(4.5,0.3,0.4,'8a5a3a'),0,3.1,1.3,cart); at(box(4.5,0.3,0.4,'8a5a3a'),0,3.1,-1.3,cart);
+at(box(0.4,0.3,2.9,'8a5a3a'),2.1,3.1,0,cart); at(box(0.4,0.3,2.9,'8a5a3a'),-2.1,3.1,0,cart);
+const ORE=['2b2e33','c8643a','d08a55'];
+const heap=[]; // шматки руди в купі
+for(let i=0;i<34;i++){const lay=Math.floor(i/10); const a=i*2.4; const r=(lay===0?1.3:lay===1?1.0:lay===2?0.6:0.2)*((i%3)*0.25+0.7);
+  const m=at(box(0.62,0.55,0.62,ORE[i%3]),Math.cos(a)*r*1.35,1.5+lay*0.48+((i*7)%5)*0.04,Math.sin(a)*r*0.8,cart,a,a*1.3,0); m.visible=i<16; heap.push(m);}
+let heapCount=16;
+
+// =====================================================================
+// RING (зелене коло) + напис
+// =====================================================================
+const ring=grp(scene,ringC.x,ringC.y,ringC.z);
+const NSEG=36; for(let i=0;i<NSEG;i++){const a=i/NSEG*Math.PI*2; const seg=at(box(0.6,0.26,2*RING_R*Math.sin(Math.PI/NSEG)+0.06,'5cff7a',{neon:true}),Math.cos(a)*RING_R,0.13,Math.sin(a)*RING_R,ring,0,-a,0); seg.castShadow=false;}
+const glow=at(new T.Mesh(new T.CircleGeometry(RING_R+0.6,48),mat('3ee86a',{neon:true,op:.14})),0,0.08,0,ring,-Math.PI/2,0,0);
+const glow2=at(new T.Mesh(new T.RingGeometry(RING_R-0.9,RING_R+0.9,64),mat('7cff8e',{neon:true,op:.22})),0,0.1,0,ring,-Math.PI/2,0,0);
+const signAnchor=new T.Vector3(ringC.x-1.5,12.6,ringC.z-3);
+
+// =====================================================================
+// PLAYER (блоковий аватар для масштабу, 5 стадів)
+// =====================================================================
+const player=grp(scene,15,0,31);
+const pl={};
+pl.legL=grp(player,-0.5,2,0); at(box(0.95,2,0.95,'2a6b3a',{stud:.5}),0,-1,0,pl.legL);
+pl.legR=grp(player,0.5,2,0); at(box(0.95,2,0.95,'2a6b3a',{stud:.5}),0,-1,0,pl.legR);
+at(box(2,2,1,'2f6fd0',{stud:.5}),0,3,0,player);
+pl.armL=grp(player,-1.5,3.9,0); at(box(0.95,2,0.95,'f2cf6a',{stud:.5}),0,-0.9,0,pl.armL);
+pl.armR=grp(player,1.5,3.9,0); at(box(0.95,2,0.95,'f2cf6a',{stud:.5}),0,-0.9,0,pl.armR);
+at(box(1.2,1.1,1.1,'f2cf6a',{stud:.5}),0,4.6,0,player); at(box(0.2,0.2,0.05,'1c2836',{plain:true}),-0.25,4.7,0.56,player); at(box(0.2,0.2,0.05,'1c2836',{plain:true}),0.25,4.7,0.56,player);
+// руда в руках гравця
+const carry=grp(player,0,3.2,0.9); for(let i=0;i<3;i++) at(box(0.55,0.5,0.55,ORE[i]),(i-1)*0.5,0,0,carry,i,i,0);
+
+// =====================================================================
+// GOLEM «Наґґет»
+// =====================================================================
+const STONE='8b96a3', PLATE='66717e', LIGHT='a3adb8', NOSE='9aa3ad';
+const BEARD='c8643a', BEARD2='a8502c', VEST='2f7a3a', VEST2='245f2d', HAT='1f3d2a', GOLDC='f2c14b';
+const G={root:grp(stall,0,1.3,0.5)}; const gs={stud:.5};
+const R=G.root;
+// підставка-ящик (дворф не дістає до прилавка)
+const crate=grp(stall,0,0.5,0.4); at(box(4.6,0.8,3.6,'7a5233'),0,0.4,0,crate); at(box(4.8,0.22,0.25,WD),0,0.7,1.75,crate); at(box(4.8,0.22,0.25,WD),0,0.12,1.75,crate); at(box(0.25,0.8,0.25,WD),-2.25,0.4,1.75,crate); at(box(0.25,0.8,0.25,WD),2.25,0.4,1.75,crate);
+// ноги (статичні) і ступні
+for(const s of [-1,1]){
+  at(box(1.6,0.6,2.1,PLATE,gs),s*1.0,0.3,0.25,R); at(box(1.2,0.45,0.7,PLATE,gs),s*1.0,0.25,1.3,R);
+  at(box(1.25,1.1,1.25,STONE,gs),s*1.0,1.15,0,R); at(box(1.2,0.5,0.4,PLATE,gs),s*1.0,1.3,0.66,R);
+  at(box(1.45,0.85,1.45,STONE,gs),s*1.0,2.1,0,R);
+}
+at(box(3.9,0.85,2.5,STONE,gs),0,2.75,0,R);
+// корпус (повертається від таза)
+G.spine=grp(R,0,3.1,0);
+const SP=G.spine;
+at(box(4.7,2.5,3.5,STONE,gs),0,1.2,0.15,SP);            // пузо
+at(box(4.2,0.9,3.0,STONE,gs),0,2.4,0.3,SP);              // верх пуза (округлення)
+at(box(4.9,1.7,3.1,STONE,gs),0,3.25,0,SP);               // груди
+at(box(3.2,1.2,0.4,PLATE,gs),0,3.4,-1.65,SP);            // спинна плита
+// пояс з пряжкою і ключем
+at(box(4.85,0.6,3.65,'3d2a1d',gs),0,0.35,0.15,SP);
+at(box(1.0,0.75,0.25,GOLDC,{...GOLD,plain:true}),0,0.35,2.02,SP); at(box(0.5,0.35,0.28,'3d2a1d',{plain:true}),0,0.35,2.04,SP);
+const keyG=grp(SP,1.9,0.1,1.75); at(cyl(0.25,0.08,GOLDC,{...GOLD}),0,0,0,keyG,Math.PI/2,0,0); at(box(0.12,0.9,0.1,GOLDC,{...GOLD,plain:true}),0,-0.6,0,keyG);
+at(box(0.3,0.12,0.1,GOLDC,{...GOLD,plain:true}),0.15,-0.95,0,keyG); at(box(0.25,0.12,0.1,GOLDC,{...GOLD,plain:true}),0.13,-0.75,0,keyG);
+// серце-самородок
+const heart=at(box(0.78,0.86,0.45,'ffc640',{glow:'ff9a1a',gi:0.75,plain:true,metal:.3,rough:.4}),0,1.15,2.0,SP,0,0,0.78);
+at(box(0.24,0.24,0.1,'fff6c8',{neon:true}),-0.12,1.28,2.24,SP);
+// жилетка: розстебнуті поли спереду + боки + спина
+for(const s of [-1,1]){
+  at(box(0.95,3.0,0.22,VEST,gs),s*2.0,2.25,1.93,SP);
+  at(box(0.22,3.0,3.3,VEST,gs),s*2.45,2.25,0.15,SP);
+  at(box(0.7,0.8,0.12,VEST2,gs),s*2.0,1.45,2.1,SP); // кишеня
+  for(let b=0;b<2;b++) at(box(0.26,0.26,0.1,GOLDC,{...GOLD,plain:true}),s*1.66,2.45+b*0.8,2.08,SP);
+}
+at(box(4.9,3.0,0.22,VEST,gs),0,2.25,-1.62,SP);
+// ланцюжок годинника
+for(let i=0;i<4;i++) at(box(0.12,0.12,0.12,GOLDC,{...GOLD,plain:true}),-1.66-i*0.16,2.0-Math.sin(i/3*Math.PI)*0.3,2.1,SP);
+// плечі
+for(const s of [-1,1]){ at(box(1.7,0.85,2.0,PLATE,gs),s*2.85,3.75,0,SP); at(box(1.0,0.35,1.2,STONE,gs),s*2.85,4.3,0,SP); }
+// руки: плече → лікоть → кисть (IK)
+function arm(s){
+  const sh=grp(SP,s*2.95,3.55,0); const a={sh,s};
+  at(box(1.25,2.1,1.35,STONE,gs),0,-0.95,0,sh);
+  a.el=grp(sh,0,-2.0,0);
+  at(box(1.45,1.9,1.5,STONE,gs),0,-0.85,0,a.el); at(box(0.25,1.2,1.1,PLATE,gs),s*0.78,-0.7,0,a.el);
+  a.hand=grp(a.el,0,-1.8,0);
+  at(box(1.6,1.25,1.6,STONE,gs),0,-0.55,0,a.hand); at(box(1.4,0.45,0.35,PLATE,gs),0,-0.35,0.75,a.hand);
+  at(box(0.5,0.25,0.4,GOLDC,{...GOLD,plain:true}),-0.35,-0.35,0.95,a.hand); // перстень
+  if(s>0) at(box(0.42,0.5,0.4,'5fe36a',{glow:'1a8a2a',gi:.5,plain:true,metal:.2,rough:.3}),-0.35,-0.05,0.98,a.hand); // смарагд на персні
+  a.L1=2.0; a.L2=1.8+0.55; return a;
+}
+G.A=arm(1); G.B=arm(-1);
+// голова (великa, дворфська)
+G.head=grp(SP,0,4.1,0.2);
+const H=G.head;
+at(box(3.1,2.4,2.7,STONE,gs),0,1.2,0,H);
+at(box(2.7,0.45,2.3,PLATE,gs),0,2.5,-0.1,H);
+at(box(0.3,0.85,0.75,STONE,gs),-1.68,1.25,-0.1,H); at(box(0.3,0.85,0.75,STONE,gs),1.68,1.25,-0.1,H); // вуха
+// ніс-картопля
+at(box(0.85,0.78,0.75,NOSE,gs),0,1.08,1.68,H); at(box(0.6,0.3,0.5,NOSE,gs),0,0.72,1.72,H);
+// очі
+G.eyes=[];
+for(const s of [-1,1]){
+  const e=grp(H,s*0.76,1.62,1.36);
+  at(box(0.82,0.7,0.1,'f1f5f8',{plain:true}),0,0,0,e);
+  const pupil=at(box(0.38,0.44,0.1,'1c2836',{plain:true}),0,-0.03,0.04,e);
+  const dollar=new T.Mesh(new T.PlaneGeometry(0.62,0.66),null); dollar.position.set(0,-0.02,0.1); dollar.visible=false; e.add(dollar);
+  const lid=at(box(0.92,0.42,0.16,PLATE,{plain:true}),0,0.29,0.06,e); // верхня повіка
+  at(box(0.92,0.2,0.14,STONE,{plain:true}),0,-0.36,0.05,e);
+  const brow=at(box(1.05,0.32,0.4,BEARD2,{plain:true}),0,0.52,0.14,e);
+  G.eyes.push({s,e,pupil,dollar,lid,brow});
+}
+const dollarTex=canvasTex(64,64,(g,w,h)=>{g.clearRect(0,0,w,h);g.font='900 56px Arial Black, Arial';g.textAlign='center';g.textBaseline='middle';g.lineWidth=7;g.strokeStyle='#1d4a10';g.strokeText('$',w/2,h/2+3);g.fillStyle='#8cff4a';g.fillText('$',w/2,h/2+3);});
+const dollarMat=new T.MeshBasicMaterial({map:dollarTex,transparent:true}); G.eyes.forEach(e=>e.dollar.material=dollarMat);
+// монокль на оці з боку руки A, з ланцюжком до жилетки
+const mono=grp(H,0.76,1.62,1.52);
+at(new T.Mesh(new T.TorusGeometry(0.5,0.08,8,24),mat(GOLDC,{...GOLD,plain:true})),0,0,0,mono);
+at(new T.Mesh(new T.CircleGeometry(0.47,24),new T.MeshStandardMaterial({color:col('cfeaff'),transparent:true,opacity:.28,roughness:.05,metalness:.2})),0,0,0.01,mono);
+for(let i=0;i<7;i++) at(box(0.08,0.08,0.08,GOLDC,{...GOLD,plain:true}),0.5+i*0.05,-0.45-i*0.32,-0.04-i*0.08,mono);
+// рот (між вусами й бородою): темна щілина, кутики, золотий зуб
+const mouth=grp(H,0,0.3,1.37);
+G.mouth={g:mouth};
+G.mouth.dark=at(box(1.25,0.3,0.12,'1c2836',{plain:true}),0,0,0,mouth);
+G.mouth.tooth=at(box(0.26,0.22,0.1,'ffd23a',{...GOLD,plain:true}),0.26,0.03,0.05,mouth);
+G.mouth.tooth2=at(box(0.24,0.2,0.1,'f1f5f8',{plain:true}),-0.16,0.04,0.05,mouth);
+G.mouth.cL=at(box(0.32,0.22,0.12,'1c2836',{plain:true}),-0.72,0.05,0,mouth); G.mouth.cR=at(box(0.32,0.22,0.12,'1c2836',{plain:true}),0.72,0.05,0,mouth);
+// вуса з закрученими вгору кінцями
+const must=[];
+for(const s of [-1,1]){ const m=grp(H,s*0.12,0.58,1.55); at(box(1.0,0.34,0.42,BEARD,gs),s*0.5,0,0,m); at(box(0.34,0.5,0.4,BEARD,gs),s*1.05,0.22,0,m); at(box(0.24,0.24,0.34,BEARD2,gs),s*1.07,0.52,0,m); m.rotation.z=s*0.14; must.push(m);}
+// борода (мідь): одна велика маса під ротом до грудей + дві коси з золотими кільцями; бакенбарди врівень з головою
+const beard=grp(H,0,0,0); G.beard=beard;
+at(box(3.15,0.6,0.8,BEARD,gs),0,-0.12,1.05,beard);
+at(box(2.9,1.2,1.1,BEARD,gs),0,-0.85,1.6,beard);
+at(box(2.4,0.85,0.9,BEARD2,gs),0,-1.8,1.95,beard);
+at(box(1.2,0.55,0.8,BEARD,gs),0,-2.45,2.1,beard);
+for(const s of [-1,1]){
+  at(box(0.28,1.5,1.5,BEARD,gs),s*1.62,0.75,0.35,beard);
+  at(box(0.5,0.9,0.5,BEARD2,gs),s*1.0,-2.2,2.1,beard); at(box(0.62,0.28,0.62,GOLDC,{...GOLD,plain:true}),s*1.0,-2.75,2.1,beard); at(box(0.38,0.38,0.38,BEARD,gs),s*1.0,-3.05,2.1,beard); }
+// циліндр
+G.hat=grp(H,0,2.6,-0.1); const HT=G.hat; HT.rotation.z=-0.1;
+at(box(3.7,0.25,3.2,HAT,gs),0,0.1,0,HT); at(box(2.5,2.2,2.2,HAT,gs),0,1.3,0,HT); at(box(2.6,0.22,2.3,'16301f',gs),0,2.43,0,HT);
+at(box(2.56,0.42,2.26,GOLDC,{...GOLD,plain:true}),0,0.5,0,HT);
+const hatCoin=at(cyl(0.44,0.12,GOLDC,{...GOLD,seg:18}),0.75,1.0,1.16,HT,Math.PI/2-0.1,0,0.25);
+G.hatCoin=hatCoin;
+// монета в руці (для анімацій)
+R.traverse(o=>{if(o.isMesh) o.receiveShadow=false;});
+G.coin=at(cyl(0.42,0.14,GOLDC,{...GOLD,seg:18}),-0.15,-0.55,0.98,G.A.hand,Math.PI/2,0,0); G.coin.visible=false; // монета між пальцями, перед кулаком
+G.coins3=grp(G.A.hand,0,-1.42,0.55); for(let i=0;i<3;i++) at(cyl(0.34,0.12,GOLDC,{...GOLD,seg:16}),0,i*0.12,0,G.coins3); G.coins3.visible=false;
+
+// ---------- IK (2 кістки) ----------
+const _v=new T.Vector3(),_q=new T.Quaternion(),_q2=new T.Quaternion(),DOWN=new T.Vector3(0,-1,0);
+function solveArm(a,targetLocal,pole){
+  // targetLocal — у координатах root голема
+  const T0=R.localToWorld(targetLocal.clone());
+  a.sh.rotation.set(0,0,0); a.sh.updateMatrixWorld(true);
+  const S=new T.Vector3(); a.sh.getWorldPosition(S);
+  const d=T0.clone().sub(S); let len=d.length(); const L1=a.L1,L2=a.L2; len=clamp(len,0.3,L1+L2-0.02);
+  const dir=d.clone().normalize();
+  const cosA=clamp((L1*L1+len*len-L2*L2)/(2*L1*len),-1,1); const ang=Math.acos(cosA);
+  const P=R.localToWorld(pole.clone()).sub(S); const pn=P.sub(dir.clone().multiplyScalar(P.dot(dir))).normalize();
+  const E=S.clone().add(dir.clone().multiplyScalar(Math.cos(ang)*L1)).add(pn.multiplyScalar(Math.sin(ang)*L1));
+  const Tc=S.clone().add(dir.clone().multiplyScalar(len));
+  // плече
+  const pq=new T.Quaternion(); a.sh.parent.getWorldQuaternion(pq);
+  const wq=new T.Quaternion().setFromUnitVectors(DOWN,E.clone().sub(S).normalize());
+  a.sh.quaternion.copy(pq.clone().invert().multiply(wq)); a.sh.updateMatrixWorld(true);
+  const sq=new T.Quaternion(); a.sh.getWorldQuaternion(sq);
+  const wq2=new T.Quaternion().setFromUnitVectors(DOWN,Tc.clone().sub(E).normalize());
+  a.el.quaternion.copy(sq.clone().invert().multiply(wq2));
+}
+
+// ---------- пози ----------
+const Wd=(x,y,z)=>[x,y-0.8,z-0.2]; // світові (відносно прилавка) → локальні після підставки
+const REST_A=Wd(2.05,4.75,2.6), REST_B=Wd(-2.05,4.75,2.6);
+const BASE={lean:0.04,twist:0,hy:0,hp:0.04,hr:0,A:REST_A,B:REST_B,rub:0,tap:0,hat:0,brow:0.5,mOpen:0.1,mWide:1,mCurve:0.4,lid:0.25,ex:0,ey:-0.2,dollar:0,trem:0,bounce:0};
+function K(t,o){return [t,o];}
+function track(keys){const out=[];let cur={...BASE};for(const [t,o] of keys){cur={...cur,...o};out.push([t,{...cur}]);}return out;}
+function samp(tr,t){
+  if(t<=tr[0][0]) return {...tr[0][1]};
+  for(let i=0;i<tr.length-1;i++){const [t0,a]=tr[i],[t1,b]=tr[i+1]; if(t<=t1){const k=ss((t-t0)/Math.max(1e-6,t1-t0)); return mix(a,b,k);}}
+  return {...tr[tr.length-1][1]};
+}
+function mix(a,b,k){const o={};for(const key in a){const va=a[key],vb=b[key]; if(Array.isArray(va)) o[key]=[lerp(va[0],vb[0],k),lerp(va[1],vb[1],k),lerp(va[2],vb[2],k)]; else o[key]=lerp(va,vb,k);} return o;}
+
+// ---- спокій: просто стоїть, дихає, трохи водить головою (цикл 4 с) ----
+const REST=track([K(0,{}),K(2,{hp:0.1,hy:0.06}),K(4,{})]);
+// ---- особливі анімації спокою (між ними 3–5 с спокою) ----
+// монета: бере зі стосу, кусає, дивиться крізь монокль, ховає в кишеню, плескає пузо
+const COIN=track([
+  K(0,{}),
+  K(0.7,{A:Wd(1.95,6.35,3.0),hy:0.3,hp:0.45,lid:0.3,brow:0.6}),
+  K(1.0,{A:Wd(1.9,5.65,3.0)}),
+  K(1.65,{A:[0.7,7.95,2.9],hy:0.12,hp:0.0}),
+  K(1.95,{hp:0.16,mOpen:0.55,mCurve:0.1}),
+  K(2.1,{hp:0.02,mOpen:0.1,mCurve:0.6}),
+  K(2.7,{A:[0.85,8.55,3.1],hy:0.05,hp:-0.1,lid:0.55,brow:1,mCurve:0.8}),
+  K(3.1,{A:[0.95,8.6,3.15]}),
+  K(3.6,{A:[1.75,5.15,2.95],hp:0.2,lid:0.3,brow:0.5}),
+  K(3.85,{A:[1.2,5.45,3.0],mCurve:0.9}),
+  K(4.05,{A:[1.25,5.1,3.0]}),
+  K(4.25,{A:[1.2,5.45,3.0]}),
+  K(4.7,{A:REST_A,hp:0.04,lid:0.25,brow:0.5,mCurve:0.4})]);
+// рахівниця: три клацання, кісточки переїжджають праворуч
+const ABACUS=track([
+  K(0,{}),
+  K(0.35,{B:Wd(-2.55,6.0,2.85),hy:-0.3,hp:0.35}),
+  K(0.55,{B:Wd(-2.6,5.35,2.85)}),K(0.8,{B:Wd(-1.95,5.35,2.85)}),
+  K(1.05,{B:Wd(-2.6,5.8,2.85)}),K(1.3,{B:Wd(-1.95,5.8,2.85)}),
+  K(1.55,{B:Wd(-2.6,6.25,2.85)}),K(1.8,{B:Wd(-1.95,6.25,2.85)}),
+  K(2.3,{B:REST_B,hy:0,hp:0.04})]);
+// підозріло озирається
+const GLANCE=track([
+  K(0,{}),
+  K(0.4,{hy:-0.65,hp:0.05,ex:-1,lid:0.55,brow:0.0,mCurve:-0.1}),
+  K(1.0,{hy:0.6,ex:1}),
+  K(1.5,{hy:0,ex:0,lid:0.25,brow:0.5,mCurve:0.4})]);
+// потирає руки (над прилавком, не в тілі)
+const RUB=track([
+  K(0,{}),
+  K(0.35,{A:[0.55,6.1,3.45],B:[-0.55,6.1,3.45],rub:1,lean:0.1,mCurve:0.9,mWide:1.15,brow:0.7}),
+  K(1.4,{rub:1}),
+  K(1.8,{A:REST_A,B:REST_B,rub:0,lean:0.04,mCurve:0.4,mWide:1,brow:0.5})]);
+// ---- гравець у колі ----
+const WB={lean:0.1,mWide:1.15,mCurve:0.9,brow:1.0,lid:0.2};
+const GREET=track([
+  K(0,{}),
+  K(0.35,{A:Wd(3.55,6.45,2.85),hy:0.3,hp:0.3,brow:1.6,lid:0,lean:0.12}),
+  K(0.55,{A:Wd(3.55,5.6,2.85)}),
+  K(0.8,{A:Wd(3.55,6.3,2.85)}),
+  K(1.15,{A:Wd(2.5,4.75,2.8),B:Wd(-2.5,4.75,2.8),lean:0.24,hy:0,hp:-0.05,mCurve:1,mWide:1.3,mOpen:0.35,brow:1.4}),
+  K(1.6,{A:[0.55,6.3,3.45],B:[-0.55,6.3,3.45],rub:1,lean:0.16}),
+  K(2.9,{rub:1,hr:0.12}),
+  K(3.6,{A:REST_A,B:REST_B,rub:0,hr:0,mOpen:0.12,...WB})]);
+const WAITR=track([K(0,{...WB}),K(2,{hp:0.1}),K(4,{hp:0.04})]);
+const TAP=track([K(0,{...WB}),K(0.3,{tap:1}),K(1.6,{tap:1}),K(1.9,{tap:0})]);
+const RUBW=track([K(0,{...WB}),K(0.35,{A:[0.55,6.1,3.45],B:[-0.55,6.1,3.45],rub:1}),K(1.4,{rub:1}),K(1.8,{A:REST_A,B:REST_B,rub:0})]);
+// продаж (8 с)
+const SELL=track([
+  K(0,{...WB}),
+  K(0.9,{twist:-0.32,hy:-0.55,hp:0.4,B:Wd(-4.6,4.85,3.0)}),
+  K(1.5,{lean:0.33,hp:0.55,lid:0.5,brow:0.9}),
+  K(1.8,{dollar:1,mCurve:1,mWide:1.35,mOpen:0.3,lid:0,brow:1.6}),
+  K(2.7,{dollar:1}),
+  K(3.0,{dollar:0,twist:0,hy:0,hp:0.25,lean:0.1,mCurve:-0.8,mWide:0.9,mOpen:0.05,brow:-0.8,lid:0.3}),
+  K(3.35,{A:Wd(1.95,6.35,3.0)}),K(3.6,{A:Wd(1.9,5.65,3.0)}),
+  K(4.2,{A:Wd(1.7,4.95,3.35),trem:1,lean:0.18}),
+  K(4.55,{A:Wd(1.85,5.05,2.85),brow:-1,lean:0.1}),
+  K(5.0,{A:Wd(1.5,4.95,3.65),trem:1,lean:0.26}),
+  K(5.3,{A:Wd(1.6,5.45,3.3),trem:0}),
+  K(5.6,{A:REST_A,lean:0.1,mCurve:-0.5,brow:-0.5}),
+  K(5.9,{B:Wd(-5.0,5.5,3.0),twist:-0.25,hy:-0.35}),
+  K(6.3,{B:Wd(-6.3,5.3,2.6),twist:-0.4,mCurve:0.6,brow:0.6}),
+  K(6.8,{B:REST_B,twist:0,hy:0}),
+  K(7.2,{A:[0.6,9.3,2.4],hp:-0.1,lid:0.6,mCurve:0.2}),
+  K(7.45,{A:[-0.6,9.35,2.4]}),
+  K(8.0,{A:REST_A,hp:0.12,...WB})]);
+// гравець пішов: піднімає циліндр
+const BYE=track([
+  K(0,{}),
+  K(0.45,{A:[0.95,10.9,1.2],hp:0.0,mCurve:0.8}),
+  K(0.7,{hat:1,hp:0.15,lean:0.12}),
+  K(1.35,{hat:1}),
+  K(1.7,{hat:0,A:REST_A,lean:0.04}),
+  K(2.2,{mCurve:0.4,mWide:1,brow:0.5,lid:0.25})]);
+const ANIMS={
+  rest:{tr:REST,len:4,loop:true,lbl:'Спокій — просто стоїть'},
+  coin:{tr:COIN,len:4.7,next:'rest',lbl:'Кусає монету й ховає в кишеню'},
+  abacus:{tr:ABACUS,len:2.3,next:'rest',lbl:'Клацає рахівницею'},
+  glance:{tr:GLANCE,len:1.5,next:'rest',lbl:'Підозріло озирається'},
+  rub:{tr:RUB,len:1.8,next:'rest',lbl:'Потирає руки'},
+  greet:{tr:GREET,len:3.6,next:'waitRest',lbl:'Гравець у колі — дзвоник і вітання'},
+  waitRest:{tr:WAITR,len:4,loop:true,lbl:'Чекає — стежить за гравцем'},
+  tap:{tr:TAP,len:1.9,next:'waitRest',lbl:'Нетерпляче стукає пальцями'},
+  rubW:{tr:RUBW,len:1.8,next:'waitRest',lbl:'Потирає руки'},
+  sell:{tr:SELL,len:8.0,next:'waitRest',lbl:'Продаж — зважує й неохоче платить'},
+  bye:{tr:BYE,len:2.2,next:'rest',lbl:'Гравець пішов — піднімає циліндр'}};
+const SPECIAL={rest:['coin','abacus','glance','rub'],waitRest:['tap','rubW']};
+let nextSpecial=0, lastSpecial='';
+let anim='rest', at0=0, prevPose=null, blendT=1;
+function play(name){prevPose=lastPose?{...lastPose}:null; blendT=0; anim=name; at0=clock; document.querySelector('#stateLbl b').textContent=ANIMS[name].lbl; fxReset(name);
+  if(SPECIAL[name]) nextSpecial=clock+3+Math.random()*2;}
+
+// ---------- ефекти ----------
+const fx={};
+const beadRight=[1,2,0];
+function fxReset(name){ if(name==='abacus'){fx.ab0=fx.ab1=fx.ab2=false;} if(name==='sell'){fx.oreLaunched=false;fx.coinsPaid=false;fx.swept=false;} if(name==='greet') fx.dinged=false; }
+const flying=[];
+function fly(mesh,from,to,dur,h,onDone){scene.add(mesh);mesh.position.copy(from);flying.push({mesh,from:from.clone(),to:to.clone(),t0:clock,dur,h,onDone});}
+const sparks=[];
+function sparkle(p,n=6,color='ffe27a'){for(let i=0;i<n;i++){const m=new T.Mesh(new T.BoxGeometry(0.18,0.18,0.18),mat(color,{neon:true}));m.position.copy(p);scene.add(m);
+  const v=new T.Vector3((Math.random()-0.5)*3,1.5+Math.random()*2.5,(Math.random()-0.5)*3);sparks.push({m,v,t0:clock,life:0.7+Math.random()*0.4});}}
+const popEl=document.getElementById('pop'), dingEl=document.getElementById('ding');
+let popT=-9, dingT=-9;
+let scaleTilt=0, scaleTiltTarget=0, oreOnPan=[];
+const bellRing=new T.Mesh(new T.TorusGeometry(0.6,0.06,6,24),mat('ffe27a',{neon:true,op:.8})); bellRing.rotation.x=Math.PI/2; bellRing.visible=false; scene.add(bellRing);
+let bellT=-9;
+function worldOf(obj,lp){return obj.localToWorld(new T.Vector3(...lp));}
+
+// ---------- стан гравця ----------
+let playerIn=false, playerT=1, playerFrom=new T.Vector3(15,0,31), playerTo=new T.Vector3(15,0,31), walkT0=0;
+const IN_POS=new T.Vector3(0.6,0,19.5), OUT_POS=new T.Vector3(15,0,31);
+function walk(to){playerFrom.copy(player.position);playerTo.copy(to);walkT0=clock;playerT=0;}
+
+// ---------- головний цикл ----------
+let clock=0, last=performance.now(), speed=1, lastPose=null;
+let blinkNext=2.5, blinkT=-9;
+function update(dt){
+  clock+=dt;
+  const A=ANIMS[anim]; let t=clock-at0;
+  if(t>A.len){ if(A.loop){at0+=A.len*Math.floor(t/A.len); t=clock-at0;} else {play(A.next); t=0;} }
+  if(SPECIAL[anim]&&clock>nextSpecial){const list=SPECIAL[anim].filter(n=>n!==lastSpecial); const pick=list[Math.floor(Math.random()*list.length)]; lastSpecial=pick; play(pick); return update(0);}
+  let p=samp(A.tr,t);
+  if(prevPose&&blendT<1){blendT=Math.min(1,blendT+dt/0.35); p=mix(prevPose,p,ss(blendT));}
+  lastPose=p;
+  // гравець
+  if(playerT<1){playerT=Math.min(1,(clock-walkT0)/1.6); const k=ss(playerT); player.position.lerpVectors(playerFrom,playerTo,k);
+    const d=playerTo.clone().sub(playerFrom); if(d.lengthSq()>0.01) player.rotation.y=Math.atan2(d.x,d.z);
+    const sw=Math.sin(clock*9)*0.6*(playerT<1?1:0); pl.legL.rotation.x=sw; pl.legR.rotation.x=-sw; pl.armL.rotation.x=-sw; pl.armR.rotation.x=sw;}
+  else if(playerIn){ player.rotation.y=lerp(player.rotation.y,Math.PI,0.1); pl.legL.rotation.x=pl.legR.rotation.x=0; pl.armL.rotation.x=lerp(pl.armL.rotation.x,-0.9,0.1); pl.armR.rotation.x=pl.armL.rotation.x;}
+  else { pl.legL.rotation.x=pl.legR.rotation.x=0; pl.armL.rotation.x=pl.armR.rotation.x=0; }
+  carry.visible=playerIn && !(anim==='sell'&&fx.oreLaunched);
+  // голова стежить за гравцем у стані wait/greet
+  let followYaw=0; if(playerIn&&(anim==='waitRest'||anim==='tap'||anim==='rubW'||anim==='greet')){const pw=player.position.clone(); const gl=R.worldToLocal(pw); followYaw=clamp(Math.atan2(gl.x,gl.z),-0.6,0.6);}
+  // тіло
+  const breath=Math.sin(clock*1.6)*0.03;
+  SP.rotation.set(p.lean+breath*0.5,p.twist,0);
+  H.rotation.set(p.hp,p.hy+followYaw,p.hr);
+  HT.position.y=2.6+p.hat*0.9; HT.rotation.z=-0.1+p.hat*0.25; HT.rotation.x=-p.hat*0.3;
+  // кисті: IK з потиранням, постукуванням і тремтінням
+  const rub=Math.sin(clock*26)*0.28*p.rub, rubY=Math.cos(clock*26)*0.12*p.rub;
+  const tap=Math.max(0,Math.sin(clock*14))*0.28*p.tap, trem=Math.sin(clock*45)*0.06*p.trem;
+  const ta=new T.Vector3(p.A[0]+rub+trem,p.A[1]+rubY+tap,p.A[2]), tb=new T.Vector3(p.B[0]-rub,p.B[1]-rubY,p.B[2]);
+  SP.updateMatrixWorld(true);
+  solveArm(G.A,ta,new T.Vector3(4.5,4.5,-1.5)); solveArm(G.B,tb,new T.Vector3(-4.5,4.5,-1.5));
+  // кулак дивиться вперед-донизу
+  for(const a of [G.A,G.B]){ a.hand.rotation.set(0,0,0); a.el.updateMatrixWorld(true); const eq=new T.Quaternion(); a.el.getWorldQuaternion(eq);
+    const want=new T.Quaternion(); R.getWorldQuaternion(want); want.multiply(new T.Quaternion().setFromEuler(new T.Euler(0.25,a.s*0.15,0)));
+    a.hand.quaternion.copy(eq.invert().multiply(want)); }
+  // обличчя
+  blinkT+=dt; if(clock>blinkNext){blinkT=0;blinkNext=clock+2.5+Math.random()*3;}
+  const blink=blinkT<0.14?Math.sin(blinkT/0.14*Math.PI):0;
+  G.eyes.forEach(e=>{const lid=clamp(Math.max(p.lid,blink),0,1);
+    e.lid.scale.y=0.4+lid*1.15; e.lid.position.y=0.3-lid*0.27;
+    e.pupil.position.x=p.ex*0.12; e.pupil.position.y=-0.03+p.ey*0.05;
+    e.pupil.visible=p.dollar<0.5; e.dollar.visible=p.dollar>=0.5; e.dollar.scale.setScalar(1+Math.sin(clock*12)*0.08);
+    // брови: brow>0 хитро (внутрішній кут вниз), <0 сумно, >1.2 здивовано
+    const b=p.brow; e.brow.rotation.z=e.s*(-0.35*clamp(b,-1,1)); e.brow.position.y=0.55+Math.max(0,b-1)*0.25-Math.max(0,-b)*0.03; });
+  G.mouth.g.scale.set(p.mWide,1+p.mOpen*2.2,1);
+  G.mouth.cL.position.y=0.05+p.mCurve*0.13; G.mouth.cR.position.y=0.05+p.mCurve*0.13;
+  G.mouth.cL.rotation.z=-p.mCurve*0.5; G.mouth.cR.rotation.z=p.mCurve*0.5;
+  G.mouth.tooth.visible=p.mCurve>0.55||p.mOpen>0.25;
+  must[0].rotation.z=-0.18-p.mCurve*0.08; must[1].rotation.z=0.18+p.mCurve*0.08;
+  G.beard.rotation.x=-p.mOpen*0.12;
+  heart.material.emissiveIntensity=0.55+Math.sin(clock*3)*0.25+p.dollar*0.8; heart.getWorldPosition(heartLight.position); heartLight.position.z+=0.8;
+  // монета в руці (coin)
+  if(anim==='coin'){ G.coin.visible=t>1.0&&t<3.75; stacks[0].coins[stacks[0].n-1].visible=!(t>1.0);
+    if(t>2.05&&t<2.2&&!fx.bit){fx.bit=true; sparkle(worldOf(G.A.hand,[0,-0.8,0.8]),5);} if(t<1) fx.bit=false;
+  } else { G.coin.visible=false; if(anim!=='sell') stacks[0].coins[stacks[0].n-1].visible=true; }
+  // рахівниця: кожне клацання переводить одну кісточку ряду праворуч; коли ряд повний — усі повертаються ліворуч
+  if(anim==='abacus'){ [0.8,1.3,1.8].forEach((tt,k)=>{ if(t>=tt&&!fx['ab'+k]){fx['ab'+k]=true; const r=2-k; beadRight[r]++; if(beadRight[r]>5) beadRight[r]=0;} }); }
+  beads.forEach(b=>{const k=beadRight[b.r]; const tx=b.b>=5-k?0.99-(4-b.b)*0.34:b.base; b.m.position.x=lerp(b.m.position.x,tx,1-Math.pow(0.0005,dt));});
+  // дзвоник (greet)
+  if(anim==='greet'&&t>0.55&&!fx.dinged){fx.dinged=true;bellT=clock;dingT=clock;sparkle(worldOf(bell,[0,1,0]),6);}
+  const bt=clock-bellT; bellDome.rotation.z=bt<0.8?Math.sin(bt*40)*0.25*(1-bt/0.8):0; bellDome.position.y=0.15-(bt<0.12?Math.sin(bt/0.12*Math.PI)*0.15:0);
+  bellRing.visible=bt<0.7; if(bellRing.visible){bellRing.position.copy(worldOf(bell,[0,0.6,0])); bellRing.scale.setScalar(1+bt*4); bellRing.material.opacity=0.8*(1-bt/0.7);}
+  // продаж
+  if(anim==='sell'){
+    if(t>0.15&&!fx.oreLaunched){fx.oreLaunched=true; const from=player.position.clone().add(new T.Vector3(0,3.4,-0.6)); const pan=pans[0].dish.getWorldPosition(new T.Vector3());
+      oreOnPan=[]; for(let i=0;i<3;i++){const m=box(0.55,0.5,0.55,ORE[i]); const tgt=pan.clone().add(new T.Vector3((i-1)*0.42,0.35+(i===1?0.3:0),(i%2)*0.2-0.1));
+        setTimeout(()=>{},0); fly(m,from.clone().add(new T.Vector3((i-1)*0.5,0,0)),tgt,0.75+i*0.12,4.5,()=>{oreOnPan.push(m);}); m.userData.off=tgt.clone().sub(pan);}}
+    scaleTiltTarget=(t>0.9&&t<6.35)?0.32:0;
+    G.coins3.visible=t>3.6&&t<5.0;
+    for(let i=0;i<3;i++) stacks[0].coins[stacks[0].n-1-i].visible=!(t>3.6);
+    if(t>5.0&&!fx.coinsPaid){fx.coinsPaid=true; const from=G.coins3.getWorldPosition(new T.Vector3()); const to=player.position.clone().add(new T.Vector3(0,4,0));
+      for(let i=0;i<3;i++){const c=cyl(0.34,0.12,GOLDC,{...GOLD,seg:16}); fly(c,from.clone().add(new T.Vector3(0,i*0.12,0)),to,0.8+i*0.1,5,()=>{sparkle(to,4,'c8ff6a');});}
+      setTimeout(()=>{popT=clock;},700/speed);}
+    if(t>6.2&&!fx.swept){fx.swept=true; const cartP=cart.localToWorld(new T.Vector3(0,3.2,0));
+      oreOnPan.forEach((m,i)=>{const from=m.position.clone(); const tgt=cartP.clone().add(new T.Vector3((i-1)*0.6,0,(i%2)*0.4)); scene.remove(m); fly(m,from,tgt,0.65+i*0.08,3.5,()=>{scene.remove(m); addHeap(3-i>0?1:1);});});
+      oreOnPan=[];}
+  } else { G.coins3.visible=false; if(anim!=='coin') for(let i=0;i<4;i++) stacks[0].coins[stacks[0].n-1-i].visible=true; scaleTiltTarget=0; }
+  scaleTilt=lerp(scaleTilt,scaleTiltTarget,1-Math.pow(0.002,dt));
+  beam.rotation.z=scaleTilt;
+  pans.forEach(pn=>{const lx=pn.s*SB*Math.cos(scaleTilt), ly=3.0+pn.s*SB*Math.sin(scaleTilt); pn.g.position.set(lx,ly,0);});
+  const pan0=pans[0].dish.getWorldPosition(new T.Vector3()); oreOnPan.forEach(m=>{m.position.copy(pan0).add(m.userData.off);});
+  // польоти
+  for(let i=flying.length-1;i>=0;i--){const f=flying[i]; const k=clamp((clock-f.t0)/f.dur,0,1); const pos=f.from.clone().lerp(f.to,k); pos.y+=Math.sin(k*Math.PI)*f.h; f.mesh.position.copy(pos); f.mesh.rotation.x+=dt*8; f.mesh.rotation.y+=dt*6;
+    if(k>=1){flying.splice(i,1); if(f.onDone) f.onDone(); else scene.remove(f.mesh);} }
+  for(let i=sparks.length-1;i>=0;i--){const s=sparks[i]; const a=(clock-s.t0)/s.life; s.v.y-=9*dt; s.m.position.addScaledVector(s.v,dt); s.m.scale.setScalar(Math.max(0.01,1-a)); if(a>=1){scene.remove(s.m);sparks.splice(i,1);} }
+  // коло пульсує
+  glow2.material.opacity=0.18+Math.sin(clock*2.4)*0.06; lg.material.opacity=0.8+Math.sin(clock*7)*0.05; lampLight.intensity=1.0+Math.sin(clock*7.3)*0.08;
+}
+function addHeap(n){for(let i=0;i<n;i++){if(heapCount<heap.length){heap[heapCount].visible=true;heapCount++;}}}
+
+// ---------- камера ----------
+const CAMS={overview:{p:[27,19,45],t:[-1,5.5,7]},golem:{p:[4.2,9.4,17.5],t:[0,7.6,1.2]},counter:{p:[-9.5,8.2,13],t:[-1.5,5,3.2]},
+  player:{p:[1.5,8.5,30],t:[0,6.5,3]},niche:{p:[-6,30,62],t:[-2,4,6]}};
+let cam={th:0,ph:0,r:30,t:new T.Vector3()}, camFrom=null, camTo=null, camK=1;
+function camFromPreset(c){const p=new T.Vector3(...c.p), t=new T.Vector3(...c.t); const d=p.clone().sub(t); return {th:Math.atan2(d.x,d.z),ph:Math.asin(d.y/d.length()),r:d.length(),t};}
+function setCam(name,instant){const c=camFromPreset(CAMS[name]); if(instant){cam=c;camK=1;} else {camFrom={...cam,t:cam.t.clone()};camTo=c;camK=0;}
+  document.querySelectorAll('[data-cam]').forEach(b=>b.classList.toggle('on',b.dataset.cam===name));}
+function applyCam(dt){ if(camK<1){camK=Math.min(1,camK+dt/0.9); const k=ss(camK); let dth=camTo.th-camFrom.th; if(dth>Math.PI)dth-=2*Math.PI; if(dth<-Math.PI)dth+=2*Math.PI;
+    cam={th:camFrom.th+dth*k,ph:lerp(camFrom.ph,camTo.ph,k),r:lerp(camFrom.r,camTo.r,k),t:camFrom.t.clone().lerp(camTo.t,k)};}
+  const cp=Math.cos(cam.ph); camera.position.set(cam.t.x+Math.sin(cam.th)*cp*cam.r,cam.t.y+Math.sin(cam.ph)*cam.r,cam.t.z+Math.cos(cam.th)*cp*cam.r); camera.lookAt(cam.t);}
+let drag=null;
+canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};canvas.setPointerCapture(e.pointerId);camK=1;});
+canvas.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag={x:e.clientX,y:e.clientY};cam.th-=dx*0.006;cam.ph=clamp(cam.ph+dy*0.005,0.05,1.45);
+  document.querySelectorAll('[data-cam]').forEach(b=>b.classList.remove('on'));});
+canvas.addEventListener('pointerup',()=>drag=null); canvas.addEventListener('pointercancel',()=>drag=null);
+canvas.addEventListener('wheel',e=>{e.preventDefault();camK=1;cam.r=clamp(cam.r*Math.exp(e.deltaY*0.0012),6,90);},{passive:false});
+document.querySelectorAll('[data-cam]').forEach(b=>b.addEventListener('click',()=>setCam(b.dataset.cam)));
+
+// ---------- кнопки ----------
+const bEnter=document.getElementById('bEnter'), bSell=document.getElementById('bSell'), bLeave=document.getElementById('bLeave'), bSlow=document.getElementById('bSlow');
+function syncBtns(){bEnter.disabled=playerIn; bSell.disabled=!playerIn||anim==='sell'||anim==='greet'; bLeave.disabled=!playerIn||anim==='sell';}
+bEnter.onclick=()=>{playerIn=true;walk(IN_POS);setTimeout(()=>play('greet'),900/speed);syncBtns();};
+bSell.onclick=()=>{play('sell');syncBtns();};
+bLeave.onclick=()=>{playerIn=false;walk(OUT_POS);play('bye');syncBtns();};
+bSlow.onclick=()=>{speed=speed===1?0.3:1;bSlow.classList.toggle('on',speed!==1);};
+
+// ---------- мітки над світом ----------
+const bbEl=document.getElementById('bb');
+function place(el,p,scaleWithDist,base){const v=p.clone().project(camera); const w=stage.clientWidth,h=stage.clientHeight;
+  if(v.z>1){el.style.opacity=0;return;} el.style.left=((v.x+1)/2*w)+'px'; el.style.top=((1-v.y)/2*h)+'px';
+  if(scaleWithDist){const d=camera.position.distanceTo(p); el.style.transform='translate(-50%,-100%) scale('+clamp(base/d,0.25,1.6)+')';}}
+function resize(){const w=stage.clientWidth,h=stage.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();}
+window.addEventListener('resize',resize);
+
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000)*speed; last=now;
+  update(dt); applyCam(dt/Math.max(speed,0.0001)*speed); syncBtns();
+  renderer.render(scene,camera);
+  place(bbEl,signAnchor,true,26*stage.clientWidth/1100); bbEl.style.opacity=1;
+  const pa=player.position.clone().add(new T.Vector3(0,6.6,0)); const pk=(clock-popT)/1.4;
+  if(pk>=0&&pk<1){place(popEl,pa.add(new T.Vector3(0,pk*2.5,0)),false); popEl.style.opacity=pk<0.8?1:(1-pk)/0.2;} else popEl.style.opacity=0;
+  const dk=(clock-dingT)/1.0; if(dk>=0&&dk<1){place(dingEl,worldOf(bell,[0,1.6+dk*1.5,0]),false); dingEl.style.opacity=dk<0.7?1:(1-dk)/0.3;} else dingEl.style.opacity=0;
+  requestAnimationFrame(frame);
+}
+resize(); setCam('overview',true); play('rest');
+window.__sell={state:()=>JSON.stringify({anim,t:clock-at0,A:lastPose&&lastPose.A,clock}),beardRed:()=>{G.beard.children.forEach(m=>{m.material=new T.MeshStandardMaterial({color:col('c8643a'),map:STUD,roughness:.78});});},beardNoShadow:()=>{G.beard.children.forEach(m=>{m.receiveShadow=false;});},rayNdc:(x,y)=>{const rc=new T.Raycaster();rc.setFromCamera({x,y},camera);const hits=rc.intersectObjects(scene.children,true).slice(0,3);return JSON.stringify(hits.map(h=>{let path=[];let q=h.object;while(q&&q!==scene){path.push(q===SP?'SP':q===H?'H':q===G.beard?'beard':q===G.A.sh?'Ash':q===G.A.el?'Ael':q===G.A.hand?'Ahand':q===G.B.sh?'Bsh':q===G.B.el?'Bel':q===G.B.hand?'Bhand':q===R?'R':q.type);q=q.parent;}return {d:+h.distance.toFixed(2),geo:h.object.geometry.parameters,path:path.join('<'),col:h.object.material.color&&h.object.material.color.getHexString()};}));},px:()=>{renderer.render(scene,camera);const tgt=G.beard.children[1].getWorldPosition(new T.Vector3());const v=tgt.clone().project(camera);const gl=renderer.getContext();const W=gl.drawingBufferWidth,Hh=gl.drawingBufferHeight;const x=Math.round((v.x+1)/2*W),y=Math.round((v.y+1)/2*Hh);const a=new Uint8Array(4);gl.readPixels(x,y,1,1,gl.RGBA,gl.UNSIGNED_BYTE,a);return JSON.stringify({x,y,W,Hh,rgba:Array.from(a),cam:camera.position.toArray().map(q=>+q.toFixed(2))});},mats:()=>{const f=m=>({tr:m.transparent,dw:m.depthWrite,dt:m.depthTest,op:m.opacity,side:m.side,uuid:m.uuid.slice(0,6)});const c=SP.children[2],b=G.beard.children[1];return JSON.stringify({chest:f(c.material),beard:f(b.material),ro:[c.renderOrder,b.renderOrder],ft:[c.frustumCulled]});},hideIdx:(arr)=>{arr.forEach(i=>{const m=SP.children[i]; if(m) m.visible=false;}); return SP.children.map((c,i)=>i+':'+(c.isMesh?c.geometry.parameters.width+'x'+c.geometry.parameters.height:c.type)).join(' ');},det:()=>{const m=G.beard.children[1]; m.updateMatrixWorld(true); return JSON.stringify({det:m.matrixWorld.determinant(),hdet:H.matrixWorld.determinant(),spdet:SP.matrixWorld.determinant(),rdet:R.matrixWorld.determinant(),mpar:G.mouth.g.matrixWorld.determinant(),beardScale:[G.beard.scale.x,G.beard.scale.y,G.beard.scale.z]});},ray:()=>{const tgt=G.beard.children[1].getWorldPosition(new T.Vector3());const rc=new T.Raycaster(camera.position.clone(),tgt.clone().sub(camera.position).normalize());const hits=rc.intersectObjects(scene.children,true).slice(0,6);return JSON.stringify({tgt:tgt.toArray(),hits:hits.map(h=>({d:+h.distance.toFixed(2),geo:h.object.geometry.parameters,par:h.object.parent===SP?'SP':h.object.parent===G.beard?'beard':h.object.parent===H?'H':(h.object.parent&&h.object.parent.type),pos:h.object.position.toArray().map(v=>+v.toFixed(2)),col:h.object.material.color&&h.object.material.color.getHexString()}))});},hideBody:()=>{SP.children.forEach(c=>{if(c.isMesh)c.visible=false;});},hideArms:()=>{G.A.sh.visible=false;G.B.sh.visible=false;},only:(name)=>{const keep=name==='beard'?G.beard:H; R.traverse(o=>{if(o.isMesh){let k=false,q=o;while(q){if(q===keep){k=true;break;}q=q.parent;} o.visible=k;}});},bb:(w)=>{const o={};const pairs={beard:G.beard,head:H,spine:SP,hat:G.hat};for(const k in pairs){const b=new T.Box3().setFromObject(pairs[k]);o[k]=[b.min.toArray().map(v=>+v.toFixed(2)),b.max.toArray().map(v=>+v.toFixed(2))];}o.beardKids=G.beard.children.length;o.beardVis=G.beard.visible;o.hrot=H.rotation.toArray().slice(0,3).map(v=>+v.toFixed(2));o.brot=G.beard.rotation.toArray().slice(0,3);o.bscale=G.beard.scale.toArray();return JSON.stringify(o);},dbg:()=>{const o={};for(const k of ['A','B']){const a=G[k];const s=a.sh.getWorldPosition(new T.Vector3()),e=a.el.getWorldPosition(new T.Vector3()),h=a.hand.localToWorld(new T.Vector3(0,-0.55,0));o[k]={s:s.toArray().map(v=>+v.toFixed(2)),e:e.toArray().map(v=>+v.toFixed(2)),h:h.toArray().map(v=>+v.toFixed(2)),tgt:R.localToWorld(new T.Vector3(...lastPose[k])).toArray().map(v=>+v.toFixed(2))};}return JSON.stringify(o);},solo:(on)=>{stall.children.forEach(c=>{if(c!==G.root)c.visible=!on;});env.visible=!on;cart.visible=!on;ring.visible=!on;},freeze:(name,tt)=>{anim=name;at0=clock-tt;prevPose=null;blendT=1;update(0);applyCam(1);renderer.render(scene,camera);place(bbEl,signAnchor,true,26*stage.clientWidth/1100);},cam:(p,tg)=>{CAMS.dbg={p,t:tg};setCam('dbg',true);applyCam(0);renderer.render(scene,camera);},play,setCam,get clock(){return clock},step:(s)=>{for(let i=0;i<Math.round(s*30);i++)update(1/30);applyCam(1);renderer.render(scene,camera);},
+  enter:()=>bEnter.onclick(),sell:()=>bSell.onclick(),leave:()=>bLeave.onclick(),render:()=>{renderer.render(scene,camera);place(bbEl,signAnchor,true,26*stage.clientWidth/1100);}};
+requestAnimationFrame(t=>{last=t;requestAnimationFrame(frame);});
+})();
+</script>
