@@ -183,14 +183,16 @@
       "bases:Створити нову базу": false
     }
   },
-  "active": "4a9905eeb89d59a8",
+  "active": "9145cbfbb8086d07",
   "lastOpenFiles": [
+    "Places/My Mining Golems/Scripts/Modules/GolemCatalog.md",
+    "Places/My Mining Golems/Locations/Main Cave/Main Cave.md",
     "Places/My Mining Golems/Locations/Golem Cave/Golem Cave.md",
+    "Places/My Mining Golems/2D/Index/Index.md",
     "Places/My Mining Golems/Locations/Golem Cave",
     "Scripts/UI Hover/UI Hover.md",
     "Effects/Hit Chips/Hit Chips.md",
     "Places/My Mining Golems/GDD/My Mining Golems - GDD.md",
-    "Places/My Mining Golems/Scripts/Modules/GolemCatalog.md",
     "Places/My Mining Golems/3D Models/Instruments/Carrier Crate/Carrier Crate.md",
     "Places/My Mining Golems/2D/Loading Screen/Loading Screen.md",
     "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Miner.md",
@@ -215,7 +217,6 @@
     "Places/My Mining Golems/2D/Index/Source/index_ore_icon_svg.js",
     "Places/My Mining Golems/2D/Index/Source/gen_ore_icons.py",
     "Places/My Mining Golems/2D/Index/Source",
-    "Places/My Mining Golems/2D/Index/Index.md",
     "Places/My Mining Golems/2D/Inventory/Inventory.md",
     "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Warrior.md",
     "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Carrier.md",
@@ -230,7 +231,6 @@
     "Places/My Mining Golems/Interactive Objects/Plots/Plots.md",
     "Places/My Mining Golems/Interactive Objects/Cave Entrance/Cave Entrance.md",
     "Places/My Mining Golems/Interactive Objects/Roll Upgrades Screen/Roll Upgrades Screen.md",
-    "Places/My Mining Golems/Interactive Objects/Interactive Objects.md",
     "Без назви.canvas",
     "Без назви 1.canvas"
   ]

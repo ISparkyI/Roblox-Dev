@@ -19,7 +19,7 @@ updated: 2026-10-25
 - Геометрію ніші (оболонка `Shell`, підлога `Floor`, плоти `plot1…6`, табла `Upgrade panels`, `RollSystem` з `RollLeverModel` і 5 `Roll_stand` (тепер підставки спавнить сервер: точки `RollSystem/StandPoints/Point1…5`, шаблон `ReplicatedStorage/Prefabs/RollStand`, старі — у `ServerStorage/NicheBackup/RollStands_v1`), `WoodenCrateOpen`) робив **користувач**. Увесь декор лежить окремо в `NichePrefab_Stage1/Decor` — його можна прибрати, не зачепивши основу.
 - **Плоти:** заглушки `plot1…6` і ящик `WoodenCrateOpen` замінено на кам'яні плоти `Plots/Plot1…6` (генератор `ServerStorage/NicheTools/PlotBuilder`, опис — Interactive Objects → Plots). Старі деталі — у `ServerStorage/NicheBackup`.
 - **`PlotSpawn`** — невидима деталь (без колізії) на майданчику ролу перед важелем, обличчям до нього. Сюди сервер телепортує власника ніші.
-- Це **шаблон**: у грі сервер збирає з нього 6 ніш у печері (`Workspace/Niches/Niche1…6`) і роздає їх гравцям (див. [GDD - Studio Scene](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGDD%20-%20Studio%20Scene), «Ніші в печері й автоклейм плота»). Правки вносити в шаблон.
+- Це **шаблон**: у грі сервер збирає з нього 6 ніш у печері (`Workspace/Niches/Niche1…6`) і роздає їх гравцям (див. [GDD - Studio Scene](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGDD%20-%20Studio%20Scene), «Ніші в печері й автоклейм плота»). В Edit ніш у `Workspace` немає — правити шаблон у `Workspace/NichePrefabs`; ніші з'являються лише в Play.
 - Бекапи: `ServerStorage/NicheBackup/Decor_WoodV1` (відкинутий дерев'яний варіант), `Niche1L`, `NicheFloor1L`.
 
 **Локальні координати ніші.** `A = Anchor.CFrame`; точка = `A * CFrame.new(w, y − 0.6, −u)`:

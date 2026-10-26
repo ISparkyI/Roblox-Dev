@@ -31,7 +31,7 @@ updated: 2026-10-26
 ## У Roblox
 | Що | Де |
 | --- | --- |
-| Модель | `NichePrefab_Stage1/RollSystem/RollLeverModel` і копії в `Niches/Niche1..6` (клонування відносно півота ніші) |
+| Модель | `NichePrefab_Stage1/RollSystem/RollLeverModel` і копії в `Niches/Niche1..6` — лише в Play (клонування відносно півота ніші) |
 | Старий важіль (бекап) | `ServerStorage/NicheBackup/RollLeverModel_old_v1` |
 | Шарнір | `RollLever/Hinge` — невидимий, Anchored. До нього приварені (`WeldConstraint`) `Collar`, `Stick`, `Knob`. Ім'я `Hinge` потрібне `RollScreenService` (центр зони табла Roll Upgrades) |
 | Шестерня | `Gear/GearHub` — невидимий, Anchored. Деталі `Gear` приварені до нього |

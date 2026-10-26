@@ -257,13 +257,13 @@
     },
     {
       "id": "Places/My Mining Golems/Locations/Main Cave/Main Cave.md",
-      "x": 1502,
-      "y": -800
+      "x": 1471.933837890625,
+      "y": -574.801513671875
     },
     {
       "id": "Places/My Mining Golems/Locations/Niche Stage 1/Niche Stage 1.md",
-      "x": 1605,
-      "y": -791
+      "x": 1537.990234375,
+      "y": -791.4041748046875
     },
     {
       "id": "Places/My Mining Golems/My Mining Golems.md",
@@ -392,13 +392,13 @@
     },
     {
       "id": "OREKO/OREKO.md",
-      "x": -16.810686111450195,
-      "y": -118.79178619384766
+      "x": -16.80760383605957,
+      "y": -118.79318237304688
     },
     {
       "id": "OREKO/Loading Screen/OREKO Loading Screen.md",
-      "x": -429.3352355957031,
-      "y": -862.27294921875
+      "x": -505.8105773925781,
+      "y": -925.568115234375
     },
     {
       "id": "Places/My Mining Golems/2D/Loading Screen/Loading Screen.md",
@@ -407,23 +407,23 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Miner.md",
-      "x": 672.2214965820312,
-      "y": -1808.0699462890625
+      "x": 661.6210327148438,
+      "y": -1900.1395263671875
     },
     {
       "id": "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Carrier.md",
-      "x": 399.6909484863281,
-      "y": -1794.10302734375
+      "x": 364.67254638671875,
+      "y": -1881.9439697265625
     },
     {
       "id": "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Warrior.md",
-      "x": 252.95513916015625,
-      "y": -1553.623291015625
+      "x": 205.0416717529297,
+      "y": -1626.01171875
     },
     {
       "id": "Places/My Mining Golems/Scripts/Modules/GolemCatalog.md",
-      "x": 2854.713623046875,
-      "y": -417.67816162109375
+      "x": 2382.308978712749,
+      "y": -268.5009943451364
     },
     {
       "id": "Index",
@@ -432,13 +432,13 @@
     },
     {
       "id": "Places/My Mining Golems/2D/Index/Index.md",
-      "x": 1988.014892578125,
-      "y": -951.6304931640625
+      "x": 1887.7978515625,
+      "y": -674.4235229492188
     },
     {
       "id": "Places/My Mining Golems/Locations/Golem Cave/Golem Cave.md",
-      "x": 1756.0330810546875,
-      "y": -761.96923828125
+      "x": 1579.2410888671875,
+      "y": -538.5435791015625
     }
   ],
   "pinnedNodes": [

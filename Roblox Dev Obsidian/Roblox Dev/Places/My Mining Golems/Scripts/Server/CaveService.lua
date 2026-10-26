@@ -1,125 +1,173 @@
--- CaveService — персональна печера кожного власника ніші.
--- Де: ServerScriptService/CaveService (Script).
+-- CaveService — персональна печера кожного власника ніші, рівно ПІД його нішею.
+-- Де: ServerScriptService/CaveService (Script). Автор печери — друг користувача; прив'язку до сокетів переписано 26.10.2026.
 --
 -- Як працює:
---   * Шаблон печери лежить у Workspace/Cave_Inside (там його зручно редагувати). На старті сервера він переїжджає
---     в ServerStorage/CaveInsideTemplate, щоб у грі не було зайвої копії (так само, як NichePrefabs).
---   * Коли ніша отримує власника, для неї створюється своя печера Workspace/Caves/Cave_<NicheIndex>: копія шаблону,
---     зсунута по Z на SPACING * (індекс − 1). Атрибути печери: NicheIndex, OwnerUserId.
---   * Коли власник виходить (ніша стає вільною), його печера видаляється, а гості, що були всередині, повертаються
---     до кола входу тієї ніші, звідки зайшли.
---   * Вхід/вихід — ServerScriptService/CaveEntrance: вхід у печеру ТІЄЇ ніші, до чийого кола підійшов гравець,
---     вихід — назад у коло входу цієї ж ніші. Заходити можуть усі, а діяти (купівля стендів, підбір голема) —
---     лише власник: Shared/CaveAccess.
+--   * Шаблон печери — Workspace/Cave_Inside (тестовий префаб: правиш у Studio там, де він стоїть, під тестовою
+--     нішею NichePrefabs). На старті сервера він переїжджає в ServerStorage/CaveInsideTemplate і з карти зникає
+--     (як NichePrefabs / PlotPrefabs). Гравців у шаблон НЕ телепортуємо.
+--   * Печера прив'язана до СОКЕТА ніші (Workspace/NicheSockets/Socket*), а не до моделі ніші етапу: ставиться за
+--     CFrame сокета * CAVE_FROM_SOCKET — по центру під нішею, на фіксованій глибині (верх печери ≈ 12 стадів під
+--     підлогою ніші; не перетинає карту, ніші й сусідні печери — перевірено для всіх 6 сокетів). Ніша етапу
+--     (карта 1, 2…) може замінюватись — печера під нею лишається та сама: Workspace/Caves/Cave_<NicheIndex>
+--     (NicheIndex = номер слота NicheService, 1:1 із сокетом). Атрибути печери: NicheIndex, Socket, OwnerUserId.
+--   * Події NicheService (без опитування): Claimed → печера власника з'являється; Released → гості повертаються до
+--     входу ніші, печера прибирається (шаблон 5159 інстансів — у вільних нішах печер немає).
+--   * Підказка ENTER CAVE (Niche*/GolemCave/PromptAnchor/CavePrompt) увімкнена лише в зайнятій ніші; затиск 0,9 с
+--     ставить код (і для EXIT CAVE у печері) — значення з Edit не єдине джерело.
+--   * Вхід / вихід — ServerScriptService/CaveEntrance; права — Shared/CaveAccess.
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
+local SSS = game:GetService("ServerScriptService")
 
-local SPACING = 130          -- відстань між печерами вздовж Z (печера завширшки 84)
-local caves: { [number]: Model } = {}
+local NicheService = require(SSS:WaitForChild("NicheService"))
+
+-- де печера відносно сокета ніші (простір сокета: −Z — углиб ніші, X — уздовж ряду сокетів):
+-- центр під нішею (ніша 150 × 271, центр підлоги ≈ z −135), півот на 42 стади нижче сокета, довгою віссю (160) углиб.
+local CAVE_FROM_SOCKET = CFrame.new(0, -42, -135) * CFrame.Angles(0, -math.pi / 2, 0)
+local HOLD = 0.9 -- затиск ENTER / EXIT CAVE, с
 
 local folder = workspace:FindFirstChild("Caves") or Instance.new("Folder")
-folder.Name = "Caves"; folder.Parent = workspace
+folder.Name = "Caves"
+folder.Parent = workspace
 
--- шаблон
+-- шаблон: Workspace/Cave_Inside → ServerStorage/CaveInsideTemplate
 local authoring = workspace:FindFirstChild("Cave_Inside")
-if authoring then authoring.Name = "CaveInsideTemplate"; authoring.Parent = ServerStorage end
-local template = ServerStorage:WaitForChild("CaveInsideTemplate") :: Model
-local BASE = template:GetPivot()
+if authoring then
+	local old = ServerStorage:FindFirstChild("CaveInsideTemplate")
+	if old then old:Destroy() end
+	authoring.Name = "CaveInsideTemplate"
+	authoring.Parent = ServerStorage
+end
+local template = ServerStorage:WaitForChild("CaveInsideTemplate", 10) :: Model?
+if not template then
+	warn("CaveService: немає шаблону печери (Workspace/Cave_Inside або ServerStorage/CaveInsideTemplate) — печери вимкнено")
+	return
+end
 
+local caves: { [number]: Model } = {}
+
+local function socketOf(niche: Instance): BasePart?
+	local name = niche:GetAttribute("Socket")
+	local sockets = workspace:FindFirstChild("NicheSockets")
+	local s = sockets and type(name) == "string" and sockets:FindFirstChild(name)
+	return (s and s:IsA("BasePart")) and s or nil
+end
+
+-- точка біля кола входу ніші, обличчям від печерного входу (у бік ніші)
 local function nicheEntrance(niche: Instance?): CFrame?
 	local gc = niche and niche:FindFirstChild("GolemCave")
 	local center = gc and gc:FindFirstChild("RingCenter", true)
-	if center and center:IsA("BasePart") then return CFrame.new(center.Position + Vector3.new(0, 3, 0)) end
-	return nil
+	if not (center and center:IsA("BasePart")) then return nil end
+	local pos = center.Position + Vector3.new(0, 3, 0)
+	local away = center.Position - (gc :: Model):GetPivot().Position
+	away = Vector3.new(away.X, 0, away.Z)
+	if away.Magnitude < 0.1 then return CFrame.new(pos) end
+	return CFrame.lookAt(pos, pos + away.Unit)
 end
 
 local function moveTo(player: Player, cf: CFrame)
 	local char = player.Character
 	if not (char and char.PrimaryPart) then return end
-	pcall(function() player:RequestStreamAroundAsync(cf.Position) end)   -- StreamingEnabled: дочекатись підвантаження місця
-	if player.Character == char and char.PrimaryPart then char:PivotTo(cf) end
+	pcall(function() player:RequestStreamAroundAsync(cf.Position) end) -- StreamingEnabled: дочекатись підвантаження
+	if player.Character == char and char.PrimaryPart then
+		char:PivotTo(cf)
+		char.PrimaryPart.AssemblyLinearVelocity = Vector3.zero
+	end
 end
 
--- гості повертаються у коло входу ніші, звідки зайшли (або у власну нішу)
-local function evict(ownerUserId: number)
+local function clearCaveAttrs(p: Player)
+	p:SetAttribute("InCave", nil); p:SetAttribute("CaveOwner", nil); p:SetAttribute("CaveFrom", nil)
+end
+
+-- усіх, хто в печері idx, повертаємо до входу ніші, з якої зайшли (або до власної ніші)
+local function evict(idx: number)
+	local niches = workspace:FindFirstChild("Niches")
 	for _, p in Players:GetPlayers() do
-		if p:GetAttribute("InCave") and p:GetAttribute("CaveOwner") == ownerUserId then
-			local niches = workspace:FindFirstChild("Niches")
+		if p:GetAttribute("InCave") and p:GetAttribute("CaveIndex") == idx then
 			local from = p:GetAttribute("CaveFrom")
-			local niche = niches and type(from) == "string" and niches:FindFirstChild(from)
-			if not niche and niches then
-				for _, n in niches:GetChildren() do
-					if n:GetAttribute("OwnerUserId") == p.UserId then niche = n end
-				end
+			local niche = niches and type(from) == "string" and niches:FindFirstChild(from) or nil
+			if not niche or (niche:GetAttribute("NicheIndex") == idx) then
+				niche = NicheService.GetNiche(p) -- власник ніші вже пішов: гостя — у його власну нішу
 			end
-			p:SetAttribute("InCave", nil); p:SetAttribute("CaveOwner", nil); p:SetAttribute("CaveFrom", nil)
+			clearCaveAttrs(p); p:SetAttribute("CaveIndex", nil)
 			local cf = nicheEntrance(niche)
 			if cf then task.spawn(moveTo, p, cf) end
 		end
 	end
 end
 
-local function createCave(index: number, ownerId: number)
-	local c = template:Clone()
-	c.Name = "Cave_" .. index
-	c:SetAttribute("NicheIndex", index)
-	c:SetAttribute("OwnerUserId", ownerId)
-	c:PivotTo(BASE * CFrame.new(0, 0, SPACING * (index - 1)))
-	c.Parent = folder
-	caves[index] = c
-end
-
-local function destroyCave(index: number)
-	local c = caves[index]
+local function removeCave(idx: number)
+	local c = caves[idx]
 	if not c then return end
-	local owner = c:GetAttribute("OwnerUserId") :: number
-	caves[index] = nil
-	evict(owner)
+	caves[idx] = nil
+	evict(idx)
 	c:Destroy()
 end
 
--- підказка входу активна лише в зайнятій ніші (в неї є печера)
-local function syncEntrance(niche: Instance, enabled: boolean)
-	for _, d in niche:GetDescendants() do
-		if d:IsA("ProximityPrompt") and d.Name == "CavePrompt" and d.Enabled ~= enabled then d.Enabled = enabled end
+local function ensureCave(niche: Instance, ownerId: number)
+	local idx = niche:GetAttribute("NicheIndex") :: number?
+	local socket = socketOf(niche)
+	if not idx or not socket then warn("CaveService: у ніші " .. niche.Name .. " немає NicheIndex / Socket"); return end
+	local cur = caves[idx]
+	if cur and cur.Parent and cur:GetAttribute("OwnerUserId") == ownerId then return end
+	if cur then removeCave(idx) end
+	local c = (template :: Model):Clone()
+	c.Name = "Cave_" .. idx
+	c:SetAttribute("NicheIndex", idx)
+	c:SetAttribute("Socket", socket.Name)
+	c:SetAttribute("OwnerUserId", ownerId)
+	c:PivotTo(socket.CFrame * CAVE_FROM_SOCKET)
+	for _, d in c:GetDescendants() do
+		if d:IsA("ProximityPrompt") and d.Name == "ExitPrompt" then d.HoldDuration = HOLD end
 	end
+	c.Parent = folder
+	caves[idx] = c
 end
 
--- узгодження кожні 0,5 с: ніша з власником ⇒ є печера; вільна ніша ⇒ печери немає
-task.spawn(function()
-	while true do
-		local niches = workspace:FindFirstChild("Niches")
-		if niches then
-			local seen: { [number]: boolean } = {}
-			for _, n in niches:GetChildren() do
-				local idx = n:GetAttribute("NicheIndex") :: number?
-				local owner = (n:GetAttribute("OwnerUserId") :: number?) or 0
-				if idx then
-					seen[idx] = true
-					local cave = caves[idx]
-					if owner ~= 0 then
-						if cave and cave:GetAttribute("OwnerUserId") ~= owner then destroyCave(idx); cave = nil end
-						if not cave then createCave(idx, owner) end
-						syncEntrance(n, true)
-					else
-						if cave then destroyCave(idx) end
-						syncEntrance(n, false)
-					end
-				end
-			end
-			for idx in caves do
-				if not seen[idx] then destroyCave(idx) end
-			end
+-- ===== підказка ENTER CAVE: лише в зайнятій ніші; затиск 0,9 с =====
+local function syncNiche(n: Instance)
+	local on = ((n:GetAttribute("OwnerUserId") :: number?) or 0) ~= 0
+	for _, d in n:GetDescendants() do
+		if d:IsA("ProximityPrompt") and d.Name == "CavePrompt" then
+			d.HoldDuration = HOLD
+			if d.Enabled ~= on then d.Enabled = on end
 		end
-		task.wait(0.5)
 	end
+end
+local function hookNiche(n: Instance)
+	if not n:IsA("Model") or not n.Parent then return end
+	syncNiche(n)
+	n:GetAttributeChangedSignal("OwnerUserId"):Connect(function() syncNiche(n) end)
+end
+local function hookNiches(f: Instance)
+	for _, n in f:GetChildren() do hookNiche(n) end
+	f.ChildAdded:Connect(function(n) task.defer(hookNiche, n) end) -- ніша перебудована (етап / скидання)
+end
+workspace.ChildAdded:Connect(function(c)
+	if c.Name == "Niches" and c:IsA("Folder") then hookNiches(c) end -- NicheService.Start створює папку заново
 end)
+do
+	local nf = workspace:FindFirstChild("Niches")
+	if nf then hookNiches(nf) end
+end
 
--- після смерті/респавну гравця NicheService повертає його на спавн ніші — скидаємо стан печери
+-- ===== печери: події NicheService =====
+NicheService.Claimed.Event:Connect(function(player: Player, niche: Model)
+	if niche then ensureCave(niche, player.UserId) end
+end)
+NicheService.Released.Event:Connect(function(_player: Player, niche: Model)
+	local idx = niche and niche:GetAttribute("NicheIndex") :: number?
+	if idx then removeCave(idx) end
+end)
+-- ті, хто отримав нішу до підключення подій
+for _, p in Players:GetPlayers() do
+	local n = NicheService.GetNiche(p)
+	if n then ensureCave(n, p.UserId) end
+end
+
+-- після смерті / респавну NicheService ставить гравця на спавн ніші — скидаємо стан печери
 local function onPlayer(p: Player)
-	p.CharacterAdded:Connect(function()
-		p:SetAttribute("InCave", nil); p:SetAttribute("CaveOwner", nil); p:SetAttribute("CaveFrom", nil)
-	end)
+	p.CharacterAdded:Connect(function() clearCaveAttrs(p); p:SetAttribute("CaveIndex", nil) end)
 end
 Players.PlayerAdded:Connect(onPlayer)
 for _, p in Players:GetPlayers() do onPlayer(p) end
