@@ -21,6 +21,7 @@ local RunService = game:GetService("RunService")
 local SocialService = game:GetService("SocialService")
 
 local NF = require(RS:WaitForChild("Shared"):WaitForChild("NumberFormat"))
+local UISounds = require(RS:WaitForChild("Shared"):WaitForChild("UISounds")) -- звук натискання кнопок HUD
 local MultiCfg = require(RS:WaitForChild("Shared"):WaitForChild("MultiConfig"))
 local StyleA = require(RS:WaitForChild("Shared"):WaitForChild("StyleA"))
 local player = Players.LocalPlayer
@@ -135,6 +136,7 @@ local function button(parent, o)
 	b.MouseButton1Down:Connect(function() tw(scale, 0.08, { Scale = 0.92 }) end)
 	b.MouseButton1Up:Connect(function() tw(scale, 0.15, { Scale = 1.08 }, Enum.EasingStyle.Back) end)
 	b.Activated:Connect(function()
+		UISounds.play("tap", 0.08)
 		if o.key == "Invite" then
 			pcall(function()
 				if SocialService:CanSendGameInviteAsync(player) then SocialService:PromptGameInvite(player) end
@@ -184,7 +186,7 @@ end
 -- ===== лічильники: підкладка як у грошей (темна, зникає праворуч, слабкі studs) =====
 local counters = {}
 local function counter(y, icon, attr, key)
-	local plate = frame(root, { Position = pos(-16, y), Size = UDim2.fromOffset(210, 38), BackgroundTransparency = 0, BackgroundColor3 = PLATE,
+	local plate = frame(root, { Name = "Counter_" .. attr, Position = pos(-16, y), Size = UDim2.fromOffset(210, 38), BackgroundTransparency = 0, BackgroundColor3 = PLATE,
 		ClipsDescendants = true })
 	-- непрозорість менша на 33% за гроші (0.78 → 0.52, 0.70 → 0.47)
 	new("UIGradient", { Transparency = ns({ { 0, 0.48 }, { 0.6, 0.53 }, { 1, 1 } }) }, plate)
@@ -194,15 +196,36 @@ local function counter(y, icon, attr, key)
 	-- одна висота іконки (30) у слоті 44, по центру плашки
 	local ih = 30
 	local iw = math.round(ih * ASP[icon])
-	new("ImageLabel", { Name = "Icon", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(30 + 22, 19),
+	local iconImg = new("ImageLabel", { Name = "Icon", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(30 + 22, 19),
 		Size = UDim2.fromOffset(iw, ih), Image = ICON[icon], ScaleType = Enum.ScaleType.Fit, ZIndex = 2 }, plate)
+	local iconScale = new("UIScale", {}, iconImg)
 	local v = text(plate, { Name = "Value", Position = UDim2.fromOffset(30 + 44 + 10, 0), Size = UDim2.new(1, -94, 1, 0), TextXAlignment = Enum.TextXAlignment.Left,
 		Text = "0", ZIndex = 2 }, 24)
 	-- плашка теж клікабельна (відкриває потрібну сторінку магазину)
 	local hit = new("TextButton", { BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Size = UDim2.fromScale(1, 1), ZIndex = 5 }, plate)
 	hit:SetAttribute("NoHoverSound", true) -- лічильники без звуку наведення (бажання користувача)
-	hit.Activated:Connect(function() hudEvent:Fire(key) end)
-	local function upd() v.Text = NF.short(player:GetAttribute(attr) or 0) end
+	hit.Activated:Connect(function() UISounds.play("tap", 0.08); hudEvent:Fire(key) end)
+	-- зростання з будь-якого джерела (Index Claim, квест, покупка…): число рахує вгору від старого до нового (~0,6 с),
+	-- іконка «попає» масштабом; зменшення (витрата) — одразу
+	local shown = new("NumberValue", { Name = "Shown", Value = tonumber(player:GetAttribute(attr)) or 0 }, plate)
+	shown.Changed:Connect(function(x) v.Text = NF.short(math.floor(x + 0.5)) end)
+	local countTw = nil
+	local function upd()
+		local n = tonumber(player:GetAttribute(attr)) or 0
+		if countTw then countTw:Cancel(); countTw = nil end
+		if n > shown.Value + 0.5 then
+			countTw = TweenService:Create(shown, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = n })
+			countTw:Play()
+			local up = TweenService:Create(iconScale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1.25 })
+			up.Completed:Connect(function(st)
+				if st == Enum.PlaybackState.Completed then tw(iconScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back) end
+			end)
+			up:Play()
+		else
+			shown.Value = n
+		end
+		v.Text = NF.short(math.floor(shown.Value + 0.5))
+	end
 	player:GetAttributeChangedSignal(attr):Connect(upd)
 	upd()
 	counters[attr] = v

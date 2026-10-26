@@ -1,0 +1,278 @@
+<meta charset="utf-8">
+<title>Index Mock</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+@font-face{font-family:"MontserratMock";font-weight:800;src:url(data:font/woff2;base64,__F800__) format("woff2")}
+@font-face{font-family:"MontserratMock";font-weight:900;src:url(data:font/woff2;base64,__F900__) format("woff2")}
+:root{--bg:#15171b;--fg:#e9edf1;--mut:#9aa3ad;--card:#1e2126;--line:#343a42;--acc:#c3f04a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px;min-height:100vh}
+.top{max-width:1280px;margin:0 auto 10px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.top h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.02em}
+.top p{margin:2px 0 0;color:var(--mut);font-size:12.5px;max-width:74ch}
+.ctl{display:flex;gap:8px;flex-wrap:wrap}
+.ctl button{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+.ctl button:hover{border-color:var(--acc)}
+#fit{margin:0 auto;position:relative;overflow:hidden;background:#1b1714}
+#stage{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;font-family:"MontserratMock","Montserrat",system-ui,sans-serif;font-weight:900;user-select:none;-webkit-user-select:none;touch-action:none}
+#stage div,#stage img{position:absolute}
+#stage .t{white-space:nowrap;color:#fff;paint-order:stroke fill;-webkit-text-stroke-color:#14161a;stroke-linejoin:round;pointer-events:none}
+#stage .sa{border-style:solid;cursor:pointer;transition:transform .1s ease-out}
+#stage .sa.nc{cursor:default}
+#stage .sa .face{overflow:hidden}
+#stage .sa .tile{background-repeat:repeat}
+#stage .shine{inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.8) 40%,transparent 48%,transparent 51%,rgba(255,255,255,.55) 55%,transparent 59%);transform:translateX(-130%);animation:shine 4.6s ease-in-out infinite;pointer-events:none}
+@keyframes shine{0%{transform:translateX(-130%)}38%{transform:translateX(130%)}100%{transform:translateX(130%)}}
+.note{max-width:1280px;margin:12px auto 0;color:var(--mut);font-size:12.5px;display:grid;gap:4px}
+.note b{color:var(--fg)}
+</style>
+<div class="top">
+  <div><h1>INDEX · колекція големів (веб-макет у стилі вікна INVENTORY)</h1><p>Угорі — розділи Golems / Ores / Bosses (GDD). Ліворуч — клас (Miners / Carriers / Warriors) з прогресом сторінки. Ряд мутацій Normal…Secret. Сітка згрупована за рідкістю; невідкриті — темний силует «???». Клік по картці — внизу інформація: рідкість, шанс «1 in N» (голем × мутація), стати класу, діаманти за перше відкриття.</p></div>
+  <div class="ctl"><button id="b-undisc">Невідкритий голем</button><button id="b-gold">Gold · Warriors</button><button id="b-find">Відкрити вибраного (+💎)</button><button id="b-canvas">Межі 1080×640</button><button id="b-reset">Скинути</button></div>
+</div>
+<div id="fit"><div id="stage"></div></div>
+<div class="note">
+  <div><b>Сторінка Index</b> = клас × мутація: 24 големи. Усього записів 24 × 3 класи × 8 мутацій = 576 (GDD: «кожна рідкість × мутація × клас»). Exclusive-големів тут немає (не ролляться, без мутацій) — пропозиція: окрема група пізніше.</div>
+  <div><b>Шанс</b> — як у GDD Roll: шанс голема × шанс мутації, без удачі (Roll Luck). Normal і Wooden Golem — базові результати («решта»), тому в них дробові N (1 in 1.25 / 1 in 1.36).</div>
+  <div><b>Нагорода</b> — діаманти за новий запис, за мутацією (GDD): Normal +1, Bronze +2, Silver +3, Gold +5, Diamond +10, Void +25, Rainbow +100, Secret +200. Нараховуються одразу при першому отриманні; на картці — «NEW», доки гравець її не відкрив. Index не скидається при переході на мапу.</div>
+  <div><b>Roblox:</b> сяйво — ImageLabel з радіальною текстурою, силует — ImageColor3 = чорний + прозорість, Rainbow-напис — UIGradient, сітка — ScrollingFrame з групами (UIListLayout), без CanvasGroup.</div>
+</div>
+<script>
+__HELPERS__
+const CAT=__CATALOG__;
+const G=CAT.golems,MUT=CAT.muts,RC=CAT.rcol;
+const CLS=[["miner","Miners","Miner"],["carrier","Carriers","Carrier"],["warrior","Warriors","Warrior"]];
+const REWARD=[1,2,3,5,10,25,100,200]; // діаманти за новий запис (GDD - Quests and Index)
+// тимчасові іконки: 5 голів з інвентаря за матеріалом (у грі — 3D-модель / власна іконка кожного голема)
+const ICON={wooden:"wood",stone:"stone",clay:"wood",gravel:"stone",mossback:"wood",copperhead:"gold",flint:"stone",rustbolt:"iron",granite:"stone",lantern:"gold",ironclad:"iron",quartzling:"crystal",tinker:"iron",silverjaw:"iron",geode:"crystal",amethyst:"crystal",sapphire:"crystal",obsidian:"iron",magmaheart:"gold",ruby:"crystal",frostforged:"crystal",platinum:"iron",aurelian:"gold",astral:"crystal"};
+const fmt=n=>Math.round(n).toLocaleString("en-US");
+function short(n){const u=[[1e12,"T"],[1e9,"B"],[1e6,"M"],[1e3,"K"]];for(const [v,s] of u)if(n>=v){const x=n/v;return (x>=100?Math.round(x):x>=10?Math.round(x*10)/10:Math.round(x*100)/100)+s}return fmt(n)}
+// ===== шанси (GDD Roll: кумулятивні інтервали, базовий = «решта»; голем × мутація) =====
+const pG={},pM=[];
+(function(){let s=0;G.forEach(g=>{if(g.odds>1){pG[g.id]=1/g.odds;s+=1/g.odds}});G.forEach(g=>{if(g.odds<=1)pG[g.id]=1-s});
+  let m=0;MUT.forEach((u,i)=>{if(u.odds>1){pM[i]=1/u.odds;m+=1/u.odds}});MUT.forEach((u,i)=>{if(u.odds<=1)pM[i]=1-m})})();
+function oddsN(id,k){return 1/(pG[id]*pM[k])}
+function oddsTxt(N){if(N<10)return (Math.round(N*100)/100).toString();if(N<100)return (Math.round(N*10)/10).toString();if(N<10000)return fmt(N);return short(N)}
+// ===== стати (GolemCatalog.stats) =====
+function stats(g,c,k){const b=g[c],sp=b.speed*Math.pow(1.05,k),s={price:Math.floor(b.price*Math.pow(1.5,k)+1e-6),speed:sp};
+  if(b.dmg!=null)s.dmg=Math.max(1,Math.floor(b.dmg*Math.pow(1.35,k)+1e-6));if(b.hp!=null)s.hp=Math.max(1,Math.floor(b.hp*Math.pow(1.35,k)+1e-6));if(b.cap!=null)s.cap=Math.max(1,Math.floor(b.cap*Math.pow(1.25,k)+1e-6));return s}
+const spd=v=>"x"+v.toFixed(2).replace(/0+$/,"").replace(/\.$/,"");
+const money=v=>v===0?"FREE":"$"+(v>=1e5?short(v):fmt(v));
+function statHtml(g,c,k){const s=stats(g,c,k),L=t=>`<span style="color:#9aa3ad">${t}</span>`;
+  if(c==="carrier")return `${L("Capacity")} ${s.cap} · ${L("Speed")} ${spd(s.speed)} · ${money(s.price)}`;
+  if(c==="warrior")return `${L("Damage")} ${fmt(s.dmg)} · ${L("HP")} ${short(s.hp)} · ${L("Speed")} ${spd(s.speed)} · ${money(s.price)}`;
+  return `${L("Damage")} ${fmt(s.dmg)} · ${L("Speed")} ${spd(s.speed)} · ${money(s.price)}`}
+// ===== демо-дані: що гравець уже відкрив (клас → мутація → id) =====
+let FOUND,NEWS;
+function resetData(){
+  FOUND={miner:[["wooden","stone","clay","gravel","copperhead","flint","ironclad"],["wooden","stone","clay","gravel"],["wooden","stone"],["stone"],[],[],[],[]],
+    carrier:[["wooden","stone","clay","mossback","flint"],["wooden","clay"],["wooden"],[],[],[],[],[]],
+    warrior:[["wooden","stone"],["wooden"],[],[],[],[],[],[]]};
+  Object.values(FOUND).forEach(a=>a.forEach((l,i)=>a[i]=new Set(l)));
+  NEWS=new Set(["miner|0|ironclad","miner|0|flint"]);
+}
+const isFound=(c,k,id)=>FOUND[c][k].has(id);
+const pageCount=(c,k)=>FOUND[c][k].size;
+function totals(){let n=0,d=0;CLS.forEach(([c])=>FOUND[c].forEach((s,k)=>{n+=s.size;d+=s.size*REWARD[k]}));return {n,d}}
+let section="golems",cls="miner",mut=0,sel="flint";
+// ===== вимірювання тексту (у Roblox — TextScaled + UITextSizeConstraint) =====
+const _cv=document.createElement("canvas").getContext("2d");
+function fitSize(txt,max,min,w,wt,sw){for(let s=max;s>=min;s-=.5){_cv.font=`${wt||900} ${s*FS}px MontserratMock`;if(_cv.measureText(txt).width+2*(sw||0)<=w)return s}return min}
+// ===== тло «гри» =====
+box(stage,0,0,W,H,"radial-gradient(120% 90% at 50% 35%,#4a3d30 0,#2a221c 55%,#16120f 100%)",0);
+box(stage,0,430,W,290,"linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.35))",0);
+box(stage,0,430,W,290,studSvg,0,{backgroundSize:"34px 34px",opacity:.13,transform:"perspective(500px) rotateX(55deg)",transformOrigin:"50% 0"});
+box(stage,0,0,W,H,"rgba(10,11,13,.45)",10);
+// межі дизайн-полотна 1080×640 (перемикач у демо)
+const canvasBox=box(stage,100,0,1080,640,"transparent",60,{outline:"2px dashed #ff5ad8",outlineOffset:"-2px",display:"none",pointerEvents:"none"});
+T(canvasBox,{x:8,cy:14,w:300,size:15,text:"1080 × 640 design canvas",color:"#ff9be8",sw:2,weight:800});
+// ===== вікно =====
+const IW=980,IH=528,IX=(W-IW)/2,IY=56;
+const pop=box(stage,0,0,W,H,"transparent",11);
+const wf=windowFrame(pop,IX,IY,IW,IH,1,14);
+const C=wf.content;
+(function(){const mkT=(x,cy,col,sw)=>T(pop,{x,cy,w:620,size:96,text:"INDEX",color:col,sw,fs:.71});
+  const sh=mkT(IX+32,IY-8+7,"#14161a",9);sh.style.zIndex=3;const b=mkT(IX+32,IY-8,"#14161a",8);b.style.zIndex=4;
+  const g=mkT(IX+32,IY-8,"#fff",0);g.style.zIndex=5;
+  g.style.background="linear-gradient(90deg,#e6f6ff,#7fd0ff,#1c7fd8,#7fd0ff,#e6f6ff,#7fd0ff,#1c7fd8,#7fd0ff,#e6f6ff)";g.style.backgroundSize="520px 100%";g.style.webkitBackgroundClip="text";g.style.backgroundClip="text";g.style.color="transparent";g.style.webkitTextFillColor="transparent";
+  g.animate([{backgroundPosition:"0 0"},{backgroundPosition:"520px 0"}],{duration:4000,iterations:Infinity});
+  sa(pop,{x:IX+IW-70,y:IY-34,w:84,h:84,color:"red",icon:A.icon_x,iconPad:-.05,shadowDy:8,z:6,clickable:true});
+})();
+// ===== розділи вгорі: Golems / Ores / Bosses =====
+const SECT=[["golems","Golems",A.tab_golems],["ores","Ores",A.ore_Copper],["bosses","Bosses",A.hud_boss]];
+const sectBtns={};
+SECT.forEach(([k,label,ic],i)=>{
+  const x=338+i*178,hold=box(C,x,20,166,52,"transparent",6);
+  const b=sa(hold,{x:0,y:0,w:166,h:44,color:"gray",shadowDy:5,z:1,clickable:true,onClick:()=>setSection(k)});
+  const im=mk(hold,{left:"6px",top:"-6px",width:"46px",height:"46px",objectFit:"contain",zIndex:4,pointerEvents:"none",filter:"drop-shadow(0 2px 0 rgba(0,0,0,.25))"},"","img");im.src=ic;im.draggable=false;
+  T(hold,{x:56,cy:18,w:104,size:22,align:"left",text:label,sw:2.4,z:5});
+  sectBtns[k]=b;
+});
+// ===== класи ліворуч (як вкладки інвентаря) =====
+const TX=40,TW=222,TH=92;const clsTabs={};
+CLS.forEach(([k,label],i)=>{
+  const hold=box(C,TX,66+i*106,TW,TH+8,"transparent",4);hold.style.transition="transform .15s";
+  const b=sa(hold,{x:0,y:0,w:TW,h:TH,color:"gray",shadowDy:7,z:1,clickable:true,onClick:()=>{cls=k;selectFirst();render()}});
+  const im=mk(hold,{left:"6px",top:"0px",width:"78px",height:"78px",objectFit:"contain",zIndex:4,pointerEvents:"none",filter:"drop-shadow(0 2px 0 rgba(0,0,0,.25))"},"","img");im.src=A["role_"+k];im.draggable=false;
+  T(hold,{x:88,cy:31,w:130,size:24,align:"left",text:label,sw:2.6,z:5});
+  const c=T(hold,{x:88,cy:57,w:130,size:15,align:"left",text:"",sw:2,z:5,weight:800,color:"#e9edf1"});
+  clsTabs[k]={hold,b,c};
+});
+// ===== колекція (ліворуч унизу): загальний прогрес і зароблені діаманти =====
+const CARD_BG="linear-gradient(rgba(53,59,67,.55),rgba(27,30,35,.6))";
+const coll=box(C,TX,392,TW,100,CARD_BG,3,{boxShadow:"0 0 0 3px "+INK});
+T(coll,{x:12,cy:20,w:200,size:17,align:"left",text:"All Golems",sw:2,z:2});
+const collBar=box(coll,12,36,198,26,"linear-gradient(#1a1d22,#2a2f36)",2,{boxShadow:"0 0 0 3px "+INK,overflow:"hidden"});
+const collFill=box(collBar,0,0,10,26,"linear-gradient(#eaff9a,#c3f04a 50%,#8ccc22)",1);
+const collTxt=T(collBar,{x:0,cy:13,w:198,size:16,align:"center",text:"",sw:2,z:3});
+const dIc=mk(coll,{left:"12px",top:"68px",width:"20px",height:"26px",objectFit:"contain",zIndex:2},"","img");dIc.src=A.hud_diamond;
+const collD=T(coll,{x:38,cy:81,w:176,size:16,align:"left",text:"",sw:2,z:2,weight:800});
+// ===== мутації (ряд над сіткою) =====
+const CH_W=74,CH_H=46,CH_X=290,CH_Y=78,CH_G=(642-8*CH_W)/7;const chips=[];
+function rainbow(t){const cs=["#ff5a5a","#ffa53a","#ffe14a","#6ee05a","#4fd2ff","#7a8cff","#e06bff"];return [...t].map((ch,i)=>`<span style="color:${cs[i%cs.length]}">${ch}</span>`).join("")}
+MUT.forEach((u,i)=>{
+  const x=CH_X+i*(CH_W+CH_G),root=box(C,x,CH_Y,CH_W,CH_H,"transparent",4,{cursor:"pointer",transition:"transform .1s"});
+  box(root,0,3,CH_W,CH_H,"rgba(0,0,0,.3)",0);
+  const bg=box(root,0,0,CH_W,CH_H,"linear-gradient(#22262c,#15181c)",1,{boxShadow:`0 0 0 3px ${INK}, inset 0 0 0 2px ${u.color}55`});
+  const glow=box(root,2,2,CH_W-4,CH_H-4,`radial-gradient(ellipse at 50% 50%, ${u.color}88 0, ${u.color}33 45%, transparent 75%)`,2);
+  const nm=T(root,{x:0,cy:16,w:CH_W,size:fitSize(u.key,16,12,CH_W-8,900,1.8),align:"center",text:u.key==="Rainbow"?rainbow(u.key):u.key,sw:1.8,z:4,color:u.color});
+  const ct=T(root,{x:0,cy:34,w:CH_W,size:13,align:"center",text:"",sw:1.6,z:4,weight:800,color:"#c9ced4"});
+  const ring=box(root,-1,-1,CH_W+2,CH_H+2,"transparent",6,{boxShadow:"0 0 0 4px #c8ff6a, 0 0 12px rgba(200,255,106,.5)",pointerEvents:"none",opacity:0});
+  root.addEventListener("pointerenter",()=>root.style.transform="scale(1.05)");root.addEventListener("pointerleave",()=>root.style.transform="");
+  root.addEventListener("click",()=>{mut=i;selectFirst();render()});
+  chips.push({root,glow,ct,ring});
+});
+// ===== сітка (гортається, групи за рідкістю) =====
+const GX=288,GY=134,GW=636,GH=250,S=112,GG=14,GCOLS=5,GP=8;
+const gvp=box(C,GX,GY,GW,GH,"transparent",2,{overflow:"hidden",cursor:"grab"});
+const gstrip=box(gvp,0,0,GW,10,"transparent",1);
+const vsb=box(C,GX+GW+3,GY+GP,10,GH-2*GP,"linear-gradient(90deg,#1a1d22,#353b44)",3,{boxShadow:"0 0 0 3px "+INK});
+const vth=box(vsb,0,0,10,60,"linear-gradient(#eaff9a,#c3f04a 50%,#8ccc22)",1);
+let gscroll=0,gH=0;
+const gmax=()=>Math.max(0,gH-GH);
+function setG(v){gscroll=Math.max(0,Math.min(gmax(),v));gstrip.style.transform=`translateY(${-gscroll}px)`;const th=Math.max(40,(GH-2*GP)*GH/Math.max(GH,gH));vth.style.height=px(th);vth.style.top=px(gmax()>0?gscroll/gmax()*(GH-2*GP-th):0);vsb.style.display=gmax()>0?"":"none"}
+gvp.addEventListener("wheel",e=>{if(gmax()<=0)return;e.preventDefault();setG(gscroll+e.deltaY/(window.__s||1))},{passive:false});
+(function(){let dy=null,s0=0,moved=false;gvp.addEventListener("pointerdown",e=>{dy=e.clientY;s0=gscroll;moved=false});
+  addEventListener("pointermove",e=>{if(dy==null)return;const d=(e.clientY-dy)/(window.__s||1);if(Math.abs(d)>4)moved=true;if(moved)setG(s0-d)});
+  addEventListener("pointerup",()=>{dy=null;setTimeout(()=>moved=false,0)});gvp.__moved=()=>moved})();
+// картка голема в сітці — слот «C · Сяйво» з інвентаря
+function tile(p,x,y,g,found,isNew){
+  const wrap=box(p,x,y,S,S,"transparent",1);
+  const root=box(wrap,0,0,S,S,"transparent",1,{transition:"transform .12s ease-out",transformOrigin:"50% 60%",cursor:"pointer"});
+  box(root,0,Math.round(S*.04),S,S,"rgba(0,0,0,.3)",0);
+  const tone=RC[g.rarity];
+  box(root,0,0,S,S,"linear-gradient(#22262c,#15181c)",1,{boxShadow:`0 0 0 4px ${INK}, inset 0 0 0 3px ${found?tone+"55":"rgba(255,255,255,.06)"}`});
+  box(root,S*.04,S*.04,S*.92,S*.92,found?`radial-gradient(circle at 50% 50%, ${tone}d0 0, ${tone}66 30%, ${tone}22 52%, transparent 70%)`:"radial-gradient(circle at 50% 50%, rgba(255,255,255,.12) 0, rgba(255,255,255,.04) 32%, transparent 62%)",2);
+  const pad=S*.17;
+  const img=mk(root,{left:px(pad),top:px(pad*.95),width:px(S-2*pad),height:px(S-2*pad),objectFit:"contain",zIndex:3,pointerEvents:"none"},"","img");img.src=A["golem_"+ICON[g.id]];img.draggable=false;
+  if(!found){img.style.filter="brightness(0)";img.style.opacity=".5"}
+  const nm=found?g.name:"???";
+  T(root,{x:7,cy:15,w:S-10,size:found?fitSize(nm,14,10.5,S-12,800,2.2):18,align:"left",text:nm,sw:2.2,z:5,weight:found?800:900,color:found?"#fff":"#8b939c"});
+  T(root,{x:0,cy:S-13,w:S-8,size:13,align:"right",text:"1 in "+oddsTxt(oddsN(g.id,mut)),sw:2,z:5,weight:800,color:found?tone:"#8b939c"});
+  if(isNew){const nb=box(root,-6,S-27,44,22,"linear-gradient(#ff7a85,#e8394a)",8,{boxShadow:"0 0 0 3px "+INK});T(nb,{x:0,cy:11,w:44,size:14,align:"center",text:"NEW",sw:1.8,z:2})} // NEW — лівий нижній кут, не закриває назву
+  const ring=box(root,-2,-2,S+4,S+4,"transparent",6,{boxShadow:"0 0 0 4px #c8ff6a, 0 0 16px rgba(200,255,106,.55)",pointerEvents:"none",opacity:sel===g.id?1:0});
+  if(sel===g.id)wrap.style.zIndex=3;
+  let hov=false,down=false,rot=0;const ap=()=>{root.style.transform=`scale(${down?.96:hov?1.025:1}) rotate(${hov?rot:0}deg)`};
+  root.addEventListener("pointerenter",()=>{hov=true;ap()});
+  root.addEventListener("pointermove",e=>{const r=root.getBoundingClientRect();rot=Math.max(-1,Math.min(1,(e.clientX-(r.left+r.width/2))/(r.width/2)))*1.5;ap()});
+  root.addEventListener("pointerleave",()=>{hov=false;down=false;ap()});
+  root.addEventListener("pointerdown",()=>{down=true;ap()});root.addEventListener("pointerup",()=>{down=false;ap()});
+  root.addEventListener("click",()=>{if(gvp.__moved())return;sel=g.id;NEWS.delete(cls+"|"+mut+"|"+g.id);renderGrid(false);renderInfo()});
+  return wrap;
+}
+function renderGrid(resetScroll){
+  gstrip.innerHTML="";let y=GP,selY=0;
+  CAT.rarities.forEach(r=>{
+    const list=G.filter(g=>g.rarity===r);if(!list.length)return;
+    const n=list.filter(g=>isFound(cls,mut,g.id)).length,done=n===list.length;
+    const hd=box(gstrip,GP,y,GW-2*GP-4,26,`linear-gradient(90deg,${RC[r]}55,rgba(20,22,26,.6) 55%,rgba(20,22,26,.4))`,1,{boxShadow:`inset 4px 0 0 ${RC[r]}`});
+    T(hd,{x:12,cy:13,w:300,size:19,align:"left",text:r,sw:2.2,z:2,color:RC[r]});
+    T(hd,{x:GW-2*GP-4-212,cy:13,w:200,size:15,align:"right",text:(done?"✔ ":"")+n+" / "+list.length,sw:2,z:2,weight:800,color:done?"#c8ff6a":"#e9edf1"});
+    if(list.some(g=>g.id===sel))selY=y-GP;
+    y+=26+12;
+    list.forEach((g,i)=>{const cx=GP+(i%GCOLS)*(S+GG),cy=y+Math.floor(i/GCOLS)*(S+GG);tile(gstrip,cx,cy,g,isFound(cls,mut,g.id),NEWS.has(cls+"|"+mut+"|"+g.id))});
+    y+=Math.ceil(list.length/GCOLS)*(S+GG)+6;
+  });
+  gH=y+GP-6;gstrip.style.height=px(gH);
+  if(resetScroll)gscroll=selY; // відкриваємо сторінку там, де вибраний голем
+  setG(gscroll);
+}
+// ===== картка вибраного голема внизу =====
+const info=box(C,290,392,646,100,CARD_BG,3,{boxShadow:"0 0 0 3px "+INK});
+const infoGlow=box(info,8,4,92,92,"transparent",1);
+const infoIcon=mk(info,{left:"12px",top:"7px",width:"86px",height:"86px",objectFit:"contain",zIndex:2},"","img");
+const infoName=T(info,{x:110,cy:27,w:310,size:27,align:"left",text:"",sw:3,z:2});
+const infoSub=T(info,{x:110,cy:55,w:310,size:16,align:"left",text:"",sw:1.9,z:2,weight:800,color:"#e9edf1"});
+const infoStat=T(info,{x:110,cy:79,w:320,size:14,align:"left",text:"",sw:1.7,z:2,weight:800,color:"#e9edf1"});
+const odds=box(info,432,10,202,80,"linear-gradient(#1c1f24,#121418)",2,{boxShadow:"0 0 0 3px "+INK+", inset 0 0 0 2px rgba(255,255,255,.06)"});
+T(odds,{x:0,cy:15,w:202,size:13,align:"center",text:"ROLL CHANCE",sw:1.6,z:2,weight:800,color:"#9aa3ad"});
+const oddsTx=T(odds,{x:0,cy:39,w:202,size:28,align:"center",text:"",sw:3,z:2});
+const rwIc=mk(odds,{left:"0px",top:"55px",width:"15px",height:"20px",objectFit:"contain",zIndex:3},"","img");rwIc.src=A.hud_diamond;
+const rwTx=T(odds,{x:0,cy:66,w:202,size:14,align:"left",text:"",sw:1.7,z:2,weight:800});
+function renderInfo(){
+  const g=G.find(x=>x.id===sel),found=isFound(cls,mut,g.id),tone=RC[g.rarity],u=MUT[mut],cn=CLS.find(c=>c[0]===cls)[2];
+  infoIcon.src=A["golem_"+ICON[g.id]];infoIcon.style.filter=found?"":"brightness(0)";infoIcon.style.opacity=found?1:.5;
+  infoGlow.style.background=found?`radial-gradient(circle at 50% 50%, ${tone}aa 0, ${tone}44 35%, transparent 70%)`:"transparent";
+  const nm=found?g.name:"???";infoName.innerHTML=nm;infoName.style.fontSize=px(fitSize(nm,27,20,310,900,3)*FS);
+  const mutTxt=u.key==="Rainbow"?rainbow(u.key):`<span style="color:${u.color}">${u.key}</span>`;
+  infoSub.innerHTML=`<span style="color:${tone}">${g.rarity}</span> ${cn} · ${mutTxt}`;
+  infoStat.innerHTML=found?statHtml(g,cls,mut):`<span style="color:#9aa3ad">Roll it to reveal stats</span>`;
+  oddsTx.innerHTML="1 in "+oddsTxt(oddsN(g.id,mut));oddsTx.style.color=found?"#fff":"#c9ced4";
+  oddsTx.style.fontSize=px(fitSize(oddsTx.textContent,28,20,190,900,3)*FS);
+  const rw=REWARD[mut];
+  rwTx.innerHTML=found?`<span style="color:#c8ff6a">✔</span> +${rw} first find`:`+${rw} on first find`;rwTx.style.color=found?"#e9edf1":"#7fd0ff";
+  _cv.font=`800 ${14*FS}px MontserratMock`;const tw=_cv.measureText(rwTx.textContent).width,x0=(202-(tw+20))/2;
+  rwIc.style.left=px(x0);rwTx.style.left=px(x0+20);
+}
+// ===== заглушка розділів Ores / Bosses =====
+const soon=box(C,40,92,896,400,CARD_BG,3,{boxShadow:"0 0 0 3px "+INK,display:"none"});
+const soonT=T(soon,{x:0,cy:60,w:896,size:34,align:"center",text:"",sw:3.4,z:2});
+const soonS=T(soon,{x:0,cy:330,w:896,size:17,align:"center",text:"",sw:1.9,z:2,weight:800,color:"#e9edf1"});
+const soonRow=box(soon,0,120,896,130,"transparent",2);
+// ===== рендер =====
+function selectFirst(){if(!G.find(g=>g.id===sel))sel=G[0].id}
+function render(){
+  const gol=section==="golems";
+  Object.entries(sectBtns).forEach(([k,b])=>b.setColor(k===section?"blue":"gray"));
+  [gvp,vsb,info,coll,...chips.map(c=>c.root),...Object.values(clsTabs).map(t=>t.hold)].forEach(e=>e.style.display=gol?"":"none");
+  Object.values(clsTabs).forEach(t=>t.b.shadow&&(t.b.shadow.style.display=gol?"":"none"));
+  soon.style.display=gol?"none":"";
+  if(!gol){renderSoon();return}
+  Object.entries(clsTabs).forEach(([k,t])=>{const on=k===cls;t.b.setColor(on?"blue":"gray");t.hold.style.transform=on?"translateX(10px)":"";
+    const n=pageCount(k,mut);t.c.innerHTML=`${n} / 24 found`});
+  chips.forEach((c,i)=>{const on=i===mut,n=pageCount(cls,i);c.ring.style.opacity=on?1:0;c.glow.style.opacity=on?1:.25;c.ct.innerHTML=n===24?"✔ 24/24":`${n}/24`;c.ct.style.color=n===24?"#c8ff6a":on?"#fff":"#9aa3ad";c.root.style.zIndex=on?5:4});
+  const t=totals();collTxt.innerHTML=`${t.n} / ${24*3*8}`;collFill.style.width=px(Math.max(6,198*t.n/576));collD.innerHTML=`+${t.d} <span style="color:#9aa3ad">earned</span>`;
+  renderGrid(true);renderInfo();
+  gstrip.animate([{opacity:0},{opacity:1}],{duration:160});
+}
+function renderSoon(){
+  soonRow.innerHTML="";
+  const ore=section==="ores";
+  soonT.innerHTML=ore?"Ores":"Bosses";
+  soonS.innerHTML=ore?"Every ore broken at least once · same grid and info card (ore HP, price, map)":"Every boss fought · unlocks with boss events";
+  const items=ore?[["Coal",A.ore_Coal,1],["Copper",A.ore_Copper,1],["Iron",A.ore_Iron,1],["",A.ore_Iron,0],["",A.ore_Copper,0]]:[["",A.hud_boss,0],["",A.hud_boss,0],["",A.hud_boss,0]];
+  const w=items.length*126-14;
+  items.forEach(([nm,ic,f],i)=>{const x=(896-w)/2+i*126,r=box(soonRow,x,4,S,S,"linear-gradient(#22262c,#15181c)",1,{boxShadow:`0 0 0 4px ${INK}`});
+    const im=mk(r,{left:"18px",top:"16px",width:"76px",height:"76px",objectFit:"contain",zIndex:2},"","img");im.src=ic;if(!f){im.style.filter="brightness(0)";im.style.opacity=".5"}
+    T(r,{x:7,cy:15,w:S-10,size:f?14:18,align:"left",text:f?nm:"???",sw:2.2,z:3,weight:800,color:f?"#fff":"#8b939c"})});
+}
+function setSection(k){section=k;render()}
+// ===== хотбар (контекст: лишається видно під вікном) =====
+(function(){const HS=74,n=3,HX=(W-(n*HS+(n-1)*8))/2,HY=H-HS-16;
+  [["ore_Coal",25],["ore_Copper",12],["ore_Iron",6]].forEach(([k,c],i)=>{const x=HX+i*(HS+8),r=box(stage,x,HY,HS,HS,"linear-gradient(#22262c,#15181c)",12,{boxShadow:"0 0 0 3px "+INK});
+    box(r,3,3,HS-6,HS-6,"radial-gradient(circle,rgba(255,255,255,.18) 0,transparent 62%)",1);
+    const im=mk(r,{left:"10px",top:"8px",width:"54px",height:"54px",objectFit:"contain",zIndex:2},"","img");im.src=A[k];
+    T(r,{x:6,cy:13,w:30,size:15,align:"left",text:String(i+1),sw:2.2,z:3,color:"#c9ced4"});T(r,{x:0,cy:HS-14,w:HS-6,size:19,align:"right",text:"×"+c,sw:2.4,z:3})})})();
+// ===== демо-кнопки =====
+document.getElementById("b-undisc").onclick=()=>{section="golems";cls="miner";mut=0;sel="lantern";render()};
+document.getElementById("b-gold").onclick=()=>{section="golems";cls="warrior";mut=3;sel="stone";render()};
+document.getElementById("b-find").onclick=()=>{if(section!=="golems")return;FOUND[cls][mut].add(sel);NEWS.add(cls+"|"+mut+"|"+sel);const s=gscroll;render();setG(s)};
+document.getElementById("b-canvas").onclick=()=>{canvasBox.style.display=canvasBox.style.display==="none"?"":"none"};
+document.getElementById("b-reset").onclick=()=>{resetData();section="golems";cls="miner";mut=0;sel="flint";render()};
+document.fonts.load("900 26px MontserratMock").then(()=>document.fonts.load("800 22px MontserratMock")).catch(()=>{}).finally(()=>{
+  fitStage();resetData();render();
+  wf.root.animate([{transform:"scale(.85)",opacity:0},{transform:"scale(1.05)",opacity:1,offset:.6},{transform:"scale(1)"}],{duration:250,easing:"ease-out"});
+  window.__ready=true;
+});
+</script>

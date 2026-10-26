@@ -28,6 +28,7 @@ local GuiService = game:GetService("GuiService")
 
 local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("ForgeConfig"))
 local NF = require(RS.Shared:WaitForChild("NumberFormat"))
+local UISounds = require(RS.Shared:WaitForChild("UISounds")) -- claim — забрати злитки (Take Bars)
 local StyleA = require(RS:WaitForChild("Shared"):WaitForChild("StyleA"))
 local ItemVP = require(RS.Shared:WaitForChild("ItemViewport")) -- 3D-моделі руди й злитків у плитках замість PNG
 local Action = RS:WaitForChild("Remotes"):WaitForChild("ForgeAction")
@@ -193,6 +194,7 @@ local function makeButton(parent, x, y, w, h, opt)
 		textSize = opt.textSize, icon = opt.icon, iconPad = opt.iconPad, clickable = true, zIndex = opt.z + 1 })
 	b.btn = b.root
 	b.shadow = sh
+	StyleA.follow(b, sh) -- тінь масштабується й хитається разом з кнопкою
 	b.onClick = nil
 	b.action = nil
 	StyleA.bind(b, { debounce = 0.2, onClick = function() if b.onClick then b.onClick(b) end end })
@@ -260,7 +262,8 @@ end
 -- ===== плитка 80 × 80 з іконкою (стиль A: колір руди, візерунок половинної сили, іконка в межах грані; галочка — ZIndex 4) =====
 local ORE_TILE = { Coal = "ore_coal", Copper = "ore_copper", Iron = "ore_iron" }
 local function makeTile(parent, x, y, oreKey, iconId, clickable, itemKey)
-	local t = StyleA.new(parent, { size = Vector2.new(80, 80), position = Vector2.new(x, y), anchor = Vector2.zero,
+	-- якір у центрі (за замовчуванням StyleA): наведення / натискання масштабують плитку від центру, а не від лівого верхнього кута
+	local t = StyleA.new(parent, { size = Vector2.new(80, 80), position = Vector2.new(x, y),
 		color = ORE_TILE[oreKey] or "gray", half = true, rows = 4, icon = iconId, zIndex = 2, clickable = clickable, shine = false })
 	-- іконка плитки → 3D-модель (ItemViewport): шукаємо ImageLabel із цією картинкою
 	if itemKey and ItemVP.has(itemKey) then
@@ -394,6 +397,8 @@ local function vLayout()
 	vThumb.Size = UDim2.fromOffset(SB_W, th)
 	vThumb.Position = UDim2.fromOffset(0, ms > 0 and scrollY / ms * (VIEW_H - th) or 0)
 	vThumb.BackgroundTransparency = ms > 0 and 0 or 0.55
+	-- гортати нікуди (вміст ≤ висоти вікна) — повзунок не показуємо (правка користувача)
+	vTrack.Visible = ms > 0
 end
 local function setScrollY(y: number)
 	scrollY = math.clamp(y, 0, vMax())
@@ -478,7 +483,11 @@ local over = { word = nil, keys = FILL.amber, t0 = nil, dur = 4.2 }
 -- кнопки дії (стиль A: green — можна, gray — не можна)
 local btnLeft = makeButton(content, 104 + DX, 520, 400, 82, { shadowDy = 8, textSize = 40, text = "", color = "green", z = 6 })
 local btnRight = makeButton(content, 536 + DX, 520, 400, 82, { shadowDy = 8, textSize = 40, text = "", color = "green", z = 6 })
-local function fireAction(b) if b.action then Action:FireServer(b.action) end end
+local function fireAction(b)
+	if not b.action then return end
+	if b.action == "Take" then UISounds.play("claim") end -- злитки в інвентар = нагорода
+	Action:FireServer(b.action)
+end
 btnLeft.onClick = fireAction
 btnRight.onClick = fireAction
 
@@ -522,10 +531,21 @@ setTall(false)
 -- заголовок «Forge» поза вікном: тінь-копія +7 і градієнтний текст (лівий край x 72, центр великих літер y 52)
 -- заголовок КАПСОМ: «золото, що переливається» (кольори повільно пливуть зліва направо, період 4 с)
 -- + білий відблиск, що час від часу пробігає зліва направо (як на кнопках стилю A)
-textAt(pop, 79, 50 + 9, 560, 118, "FORGE", INK, 11, { Name = "TitleShadow", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
-local title = textAt(pop, 79, 50, 560, 118, "FORGE", WHITE, 10, { Name = "Title", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
+-- Домовленість для всіх вікон: іконка зліва від тексту (тут — ковадло, mmg_title_anvil_v2), видима висота ≈ 2 × висоти літер,
+-- нахил −8°, текст зсунуто праворуч, щоб не налазив; обводка й тінь тексту та тінь іконки — ЧОРНІ (INK),
+-- як до спроби з #040435 (правка користувача); тінь — силует +9 вниз.
+local TITLE_ICON = "rbxassetid://102635405420682" -- mmg_title_anvil_black (Decal 117805404448692): ковадло й 2 зірочки, чорний контур #14161a
+local TITLE_IS = 222                                -- розмір картинки іконки (ковадло — ~65 % її висоти ≈ 2 × висоти літер)
+local TITLE_ICX, TITLE_ICY = 56 + TITLE_IS / 2, 38  -- центр іконки
+local TITLE_X = TITLE_ICX + TITLE_IS * 0.44 + 10    -- лівий край тексту — одразу за правим краєм ковадла
+new("ImageLabel", { Name = "TitleIconShadow", BackgroundTransparency = 1, Image = TITLE_ICON, ImageColor3 = INK, ScaleType = Enum.ScaleType.Fit,
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(TITLE_ICX, TITLE_ICY + 9), Size = UDim2.fromOffset(TITLE_IS, TITLE_IS), Rotation = -8, ZIndex = 3 }, pop)
+new("ImageLabel", { Name = "TitleIcon", BackgroundTransparency = 1, Image = TITLE_ICON, ScaleType = Enum.ScaleType.Fit,
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(TITLE_ICX, TITLE_ICY), Size = UDim2.fromOffset(TITLE_IS, TITLE_IS), Rotation = -8, ZIndex = 4 }, pop)
+local titleShadow = textAt(pop, TITLE_X, 50 + 9, 560, 118, "FORGE", INK, 11, { Name = "TitleShadow", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
+local title = textAt(pop, TITLE_X, 50, 560, 118, "FORGE", WHITE, 10, { Name = "Title", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
 local titleGrad = new("UIGradient", { Rotation = 0 }, title)
-local titleShine = textAt(pop, 79, 50, 560, 118, "FORGE", WHITE, 0, { Name = "TitleShine", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
+local titleShine = textAt(pop, TITLE_X, 50, 560, 118, "FORGE", WHITE, 0, { Name = "TitleShine", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
 local titleShineGrad = new("UIGradient", { Rotation = 25, Offset = Vector2.new(-1.3, 0),
 	Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.32, 1), NumberSequenceKeypoint.new(0.40, 0.2),
 		NumberSequenceKeypoint.new(0.48, 1), NumberSequenceKeypoint.new(0.51, 1), NumberSequenceKeypoint.new(0.55, 0.45),
@@ -831,8 +851,15 @@ end
 
 do
 	local dim = frame(content, 0, 0, WIN_W, WIN_H, C("0d0f12"), { Name = "PickerDim", BackgroundTransparency = 0.5, Active = true, Visible = false, ZIndex = 20 })
+	-- закриваємо лише кліком ПОЗА вікном попапа (InputBegan затемнення спрацьовує й під самим вікном) або хрестиком
 	dim.InputBegan:Connect(function(inp)
-		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then closePicker() end
+		if inp.UserInputType ~= Enum.UserInputType.MouseButton1 and inp.UserInputType ~= Enum.UserInputType.Touch then return end
+		local r = PK.root
+		if r and r.Visible then
+			local p, a, s = inp.Position, r.AbsolutePosition, r.AbsoluteSize
+			if p.X >= a.X and p.X <= a.X + s.X and p.Y >= a.Y and p.Y <= a.Y + s.Y then return end
+		end
+		closePicker()
 	end)
 	PK.dim = dim
 	-- стрілка до плитки: повернуті на 45° квадрати (ink + колір обрамлення), обидва шаром НИЖЧЕ вікна попапа (ZIndex 28 / 29 < 30), щоб не перекривати його рамку

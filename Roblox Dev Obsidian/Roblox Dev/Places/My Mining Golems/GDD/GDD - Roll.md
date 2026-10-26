@@ -34,7 +34,7 @@ updated: 2026-10-25
 | Множник швидкості | `Speed x1.16` | завжди |
 | Множник шкоди | `Damage x3.8` | завжди |
 
-- **x1 — еталон:** Wooden Golem Normal (повільний). Майнер: швидкість = `1.40 / Інтервал`, шкода = `Шкода / 5`. Носій: швидкість = `Швидкість / 8`, другий рядок — місткість (`Capacity x…`). Воїн: як майнер, другий рядок — шкода (пропозиція).
+- **x1 — еталон:** Wooden Golem Normal. `Speed` — це сам параметр **Швидкість** голема (з мутацією). Майнер: шкода = `Шкода / 5`. Носій: другий рядок — місткість (`Capacity x{Місткість / 2}`). Воїн: другий рядок — шкода. Дані — у Golem Stats ([Miner](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGolem%20Stats%2FGolem%20Stats%20-%20Miner), [Carrier](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGolem%20Stats%2FGolem%20Stats%20-%20Carrier), [Warrior](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGolem%20Stats%2FGolem%20Stats%20-%20Warrior)).
 - Числа форматуються модулем NumberFormat (`mult`).
 
 **Як працює шанс «1 до N»** (пошук по devforum Roblox і RNG-іграх на кшталт Sol's RNG):

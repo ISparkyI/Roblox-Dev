@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OREKO Splash</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&display=swap">
+<style>
+:root{--ink:#14161a;--page:#14171d;--fg:#e9edf3;--muted:#9aa3b2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--fg);font-family:'Montserrat','Arial Black',sans-serif;
+ padding:20px max(16px,env(safe-area-inset-right,0px)) 32px max(16px,env(safe-area-inset-left,0px))}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-weight:900;font-size:20px;margin:0 0 4px}
+p.lead{color:var(--muted);font-weight:800;font-size:13px;margin:0 0 12px;max-width:95ch}
+.screen{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;border:1px solid #2b3140;background:#22262d}
+svg#sv{position:absolute;inset:0;width:100%;height:100%}
+.bar{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+button{font:900 13px 'Montserrat',sans-serif;color:#fff;background:linear-gradient(#7fd0ff,#1f78e0);border:3px solid var(--ink);border-radius:10px;
+ padding:9px 16px;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.5);-webkit-text-stroke:3px var(--ink);paint-order:stroke fill}
+button:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.5)}
+.note{color:var(--muted);font-size:12px;font-weight:800}
+</style></head><body>
+<div class="wrap">
+<h1>OREKO — загрузочний екран (v3.2)</h1>
+<p class="lead">Камінь неправильної блокової форми. Кірка — та сама, що в кам'яного голема (сталева голова, загнуте лезо зі сходинок, дерев'яний держак з обмоткою). Удар — замах навколо руків'я, лезо б'є в одну точку. Після третього удару передня частина каменю обсипається, кірка падає на камінь: «MADE BY OREKO». Далі — завантаження 0 → 100 %.</p>
+<div class="screen"><svg id="sv" viewBox="0 0 1000 562.5"></svg></div>
+<div class="bar"><button id="again">Ще раз</button><span class="note">Логотип ≈ 4,5 с, далі шкала LOADING (у макеті — імітація; у грі підключимо до справжнього завантаження).</span></div>
+</div>
+<script>
+const NS="http://www.w3.org/2000/svg",sv=document.getElementById("sv"),INK="#14161a";
+function E(tag,a,p){const e=document.createElementNS(NS,tag);for(const k in a)e.setAttribute(k,a[k]);(p||sv).appendChild(e);return e}
+let seed=11;function rnd(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646}
+const ease={out:t=>1-Math.pow(1-t,3),in:t=>t*t*t,in2:t=>t*t,inout:t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,back:t=>{const c=1.7;return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2)}};
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v)),k=(t,a,b)=>cl((t-a)/(b-a),0,1),lerp=(a,b,t)=>a+(b-a)*t;
+const pts=a=>"M"+a.map(p=>p[0]+" "+p[1]).join(" L")+" Z";
+
+// ---------- stone: blocky irregular slab (top steps + chamfers) ----------
+const SIL=[[166,250],[196,214],[290,214],[306,198],[452,198],[468,206],[620,206],[640,188],[770,188],[800,214],[832,244],[842,318],[834,398],[806,434],[650,446],[480,440],[318,448],[204,438],[170,404],[158,320]];
+const TOPN=10,BAND=24;
+const FACE=SIL.map((p,i)=>i<TOPN?[p[0],p[1]+BAND]:p).map((p,i)=>i==0?[p[0]+6,p[1]]:i==TOPN-1?[p[0]-4,p[1]]:p);
+function topAt(x){for(let i=0;i<TOPN-1;i++){const a=SIL[i],b=SIL[i+1];if(x>=a[0]&&x<=b[0])return lerp(a[1],b[1],(x-a[0])/(b[0]-a[0]||1))}return 200}
+// stud pattern «стиль A»: 2×2 клітинки — L-куточок, квадратик зі світлою гранню зверху й зліва, квадратик, L (як stylea_tile_*)
+function stylePat(id,c,od,ol){const s=c/64,r=(x,y,w,h,f,o)=>`<rect x="${x*s}" y="${y*s}" width="${w*s}" height="${h*s}" fill="${f}" opacity="${o}"/>`;
+  const L=(ox,oy)=>r(ox+14,oy+14,6,36,"#000",od)+r(ox+14,oy+44,36,6,"#000",od);
+  const Q=(ox,oy)=>r(ox+14,oy+14,34,36,"#000",od)+r(ox+14,oy+14,34,6,"#fff",ol)+r(ox+14,oy+14,6,36,"#fff",ol);
+  return `<pattern id="${id}" width="${2*c}" height="${2*c}" patternUnits="userSpaceOnUse">${L(0,0)}${Q(64,0)}${Q(0,64)}${L(64,64)}</pattern>`}
+const defs=E("defs",{});
+defs.innerHTML=`<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6b0"/><stop offset=".45" stop-color="#ffd23a"/><stop offset="1" stop-color="#ff9a1a"/></linearGradient>
+<linearGradient id="faceB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4e555f"/><stop offset="1" stop-color="#2c3138"/></linearGradient>
+<linearGradient id="topB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b3bbc5"/><stop offset="1" stop-color="#858e9a"/></linearGradient>
+<linearGradient id="lime" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8ff7a"/><stop offset=".55" stop-color="#7fe23a"/><stop offset="1" stop-color="#38ad24"/></linearGradient>
+${stylePat("studs",15,.22,.16)}
+${stylePat("studsS",9,.2,.3)}
+<clipPath id="faceClip"><path d="${pts(FACE)}"/></clipPath>
+<mask id="embed" maskUnits="userSpaceOnUse" x="0" y="-600" width="1000" height="1400"><rect x="0" y="-600" width="1000" height="1400" fill="#fff"/><path d="${pts(SIL)}" transform="translate(0 12)" fill="#000"/></mask>`;
+// ---------- background: dark gray + very faint studs drifting down at an angle ----------
+defs.insertAdjacentHTML("beforeend",`${stylePat("bgStuds",24,.10,.035)}
+<radialGradient id="bgVig" cx=".5" cy=".5" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></radialGradient>`);
+E("rect",{x:0,y:0,width:1000,height:562.5,fill:"#22262d"});
+const bgStuds=E("rect",{x:-100,y:-100,width:1200,height:800,fill:"url(#bgStuds)",opacity:.9});
+E("rect",{x:0,y:0,width:1000,height:562.5,fill:"url(#bgVig)"});
+const BG_V={x:-16,y:30};               // px per second: down and a little to the left
+function drawBg(sec){const T=48,ox=((sec*BG_V.x)%T+T)%T,oy=((sec*BG_V.y)%T+T)%T;bgStuds.setAttribute("transform",`translate(${ox} ${oy})`)}
+const world=E("g",{}),shake=E("g",{},world);
+const back=E("g",{},shake);
+E("path",{d:pts(SIL),fill:"url(#topB)"},back);
+E("path",{d:pts(FACE),fill:"url(#faceB)"},back);
+E("path",{d:pts(FACE),fill:"url(#studs)"},back);
+E("path",{d:pts(FACE),fill:"none",stroke:INK,"stroke-width":5,"stroke-linejoin":"round",opacity:.8},back);
+E("path",{d:"M"+SIL.slice(0,TOPN).map(p=>p[0]+" "+(p[1]+5)).join(" L"),fill:"none",stroke:"#fff","stroke-width":4,opacity:.35,"stroke-linejoin":"round"},back);
+E("path",{d:pts(SIL),fill:"none",stroke:INK,"stroke-width":8,"stroke-linejoin":"round"},back);
+const nameG=E("g",{"font-family":"Montserrat,Arial Black,sans-serif","font-weight":900,"font-size":148,"text-anchor":"middle"},back);
+E("text",{x:500,y:388,fill:"#0c0e12",stroke:INK,"stroke-width":22,"stroke-linejoin":"round"},nameG).textContent="OREKO";
+E("text",{x:500,y:380,fill:"url(#gold)",stroke:INK,"stroke-width":20,"stroke-linejoin":"round","paint-order":"stroke"},nameG).textContent="OREKO";
+const nameGlow=E("text",{x:500,y:380,fill:"#fff",opacity:0},nameG);nameGlow.textContent="OREKO";
+
+// ---------- front shell: chunks, each clipped by the face shape (clip travels with the chunk) ----------
+const HIT={x:545,y:300};
+const front=E("g",{},shake),chunks=[];
+const BX0=150,BX1=850,BY0=226,BY1=452,COLS=8,ROWS=3;
+const V=[];for(let j=0;j<=ROWS;j++){V[j]=[];for(let i=0;i<=COLS;i++){let x=lerp(BX0,BX1,i/COLS),y=lerp(BY0,BY1,j/ROWS);if(i>0&&i<COLS)x+=(rnd()-.5)*46;if(j>0&&j<ROWS)y+=(rnd()-.5)*34;V[j][i]=[x,y]}}
+const shades=["#8d959f","#838b96","#97a0aa","#7e8691","#9ca4ad","#88909b"];
+for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++){
+  const p=[V[j][i],V[j][i+1],V[j+1][i+1],V[j+1][i]];
+  const cx=p.reduce((a,b)=>a+b[0],0)/4,cy=p.reduce((a,b)=>a+b[1],0)/4;
+  const g=E("g",{},front),inner=E("g",{"clip-path":"url(#faceClip)"},g);
+  E("path",{d:pts(p),fill:shades[(i*3+j*5)%6],stroke:"#5d6570","stroke-width":2},inner);
+  E("path",{d:pts(p),fill:"url(#studs)"},inner);
+  const edge=E("path",{d:pts(p),fill:"none",stroke:INK,"stroke-width":0,"stroke-linejoin":"round"},inner);
+  const dx=cx-HIT.x,dy=cy-HIT.y,dist=Math.hypot(dx,dy);
+  chunks.push({g,edge,cx,cy,vx:dx*0.9+(rnd()-.5)*140,vy:-90-rnd()*200+dy*.5,vr:(rnd()-.5)*560,delay:dist/2400});
+}
+const frontEdge=E("path",{d:pts(FACE),fill:"none",stroke:INK,"stroke-width":6,"stroke-linejoin":"round"},front);
+const crackG=E("g",{fill:"none",stroke:INK,"stroke-linecap":"round","stroke-linejoin":"round","clip-path":"url(#faceClip)"},front);
+function walk(x,y,ang,steps,len){const a=[[x,y]];for(let s=0;s<steps;s++){ang+=(rnd()-.5)*1.1;x+=Math.cos(ang)*len*(0.7+rnd()*.6);y+=Math.sin(ang)*len*(0.7+rnd()*.6);a.push([Math.round(x),Math.round(y)])}return a}
+const stages=[[],[],[]],tips=[];
+[-2.6,-1.2,0.1,1.2,2.4].forEach(ang=>{const w=walk(HIT.x,HIT.y,ang,3,22);stages[0].push(w);tips.push({p:w[w.length-1],ang})});
+tips.forEach(t=>{const w=walk(t.p[0],t.p[1],t.ang,4,30);stages[1].push(w);t.p=w[w.length-1]});
+tips.forEach(t=>{const w=walk(t.p[0],t.p[1],t.ang,6,40);stages[2].push(w);if(rnd()<.6)stages[2].push(walk(w[2][0],w[2][1],t.ang+(rnd()<.5?-1:1),3,30))});
+const cracks=stages.map((st,i)=>st.map(w=>E("path",{d:"M"+w.map(p=>p.join(" ")).join(" L"),"stroke-width":[7,6,5][i],opacity:0},crackG)));
+const fx=E("g",{},world);
+const chips=[0,1,2].map(()=>Array.from({length:7},(_,n)=>{const s=7+rnd()*12;return{e:E("rect",{x:-s/2,y:-s/2,width:s,height:s,fill:shades[n%6],stroke:INK,"stroke-width":3,opacity:0},fx),vx:(rnd()-.35)*460,vy:-180-rnd()*280,vr:(rnd()-.5)*900}}));
+const flash=E("circle",{cx:HIT.x,cy:HIT.y,r:10,fill:"#fff",opacity:0},fx);
+const ring=E("circle",{cx:HIT.x,cy:HIT.y,r:10,fill:"none",stroke:"#fff","stroke-width":5,opacity:0},fx);
+
+// ---------- pickaxe: profile of the Stone Golem pickaxe (side view, mirrored so the pick points left) ----------
+// golem model units (Z → x, Y → up); origin = middle of the grip (z −0.57, y −1.88); mirrored: x = −(z+0.57)·S
+const S=72;
+const pickWrap=E("g",{},world),pick=E("g",{id:"pickG"},pickWrap);
+function blk(z,y,w,h,rot,fill,sw,extra){ // w along Z, h along Y, rot = rotation about X (deg)
+  const x=-(z+.57)*S,yy=-(y+1.88)*S;
+  const g=E("g",{transform:`translate(${x} ${yy}) rotate(${-rot})`},pick);
+  E("rect",{x:-w*S/2,y:-h*S/2,width:w*S,height:h*S,rx:3,fill,stroke:INK,"stroke-width":sw||5,"stroke-linejoin":"round"},g);
+  if(extra)extra(g,w*S,h*S);
+  return g}
+const hiTop=(g,w,h)=>E("rect",{x:-w/2+4,y:-h/2+3,width:w-8,height:Math.max(3,h*.22),rx:2,fill:"#fff",opacity:.4},g);
+const studsOn=(g,w,h)=>E("rect",{x:-w/2,y:-h/2,width:w,height:h,fill:"url(#studsS)"},g);
+blk(-.57,-.18,.42,4.6,0,"#a8754a",6,(g,w,h)=>{studsOn(g,w,h);E("rect",{x:-w/2+5,y:-h/2+6,width:6,height:h-12,rx:3,fill:"#d6a06a",opacity:.75},g)});
+
+blk(-.57,-.95,.52,.2,0,"#7a5233",5);       // band (moved down a bit so the text fits)
+blk(-.57,-1.88,.47,1.2,0,"#7a5233",5,(g,w,h)=>{for(let i=1;i<4;i++)E("line",{x1:-w/2+3,y1:-h/2+i*h/4,x2:w/2-3,y2:-h/2+i*h/4-6,stroke:INK,"stroke-width":3,opacity:.55},g)});
+blk(-.57,-2.6,.71,.3,0,"#6e7884",5,hiTop);
+blk(-1.22,2.15,.7,.5,-6,"#a3adb8",5,hiTop);
+blk(-1.69,2.10,.5,.35,-23,"#a3adb8",5,hiTop);
+blk(-1.95,2.0,.15,.5,-23,"#6e7884",5);
+blk(-.57,2.20,.78,1.0,0,"#6e7884",5);
+blk(-.57,2.17,.9,.8,0,"#6e7884",5,(g,w,h)=>{studsOn(g,w,h);E("circle",{cx:0,cy:0,r:7,fill:"#a3adb8",stroke:INK,"stroke-width":3},g)});
+blk(.21,2.15,.95,.52,6,"#a3adb8",5,hiTop);
+blk(.95,2.08,.8,.4,18,"#a3adb8",5,hiTop);
+blk(1.52,1.89,.65,.3,32,"#a3adb8",5,hiTop);
+blk(1.88,1.66,.45,.2,46,"#a3adb8",5);
+blk(1.02,2.27,.5,.12,18,"#f1f5f8",3);
+blk(-.57,2.65,.56,.2,0,"#a3adb8",5,hiTop);
+const madeBy=E("text",{transform:`translate(0 ${-(.78+1.88)*S}) rotate(90)`,"text-anchor":"middle","dominant-baseline":"central","font-family":"Montserrat,Arial Black,sans-serif",
+  "font-weight":900,"font-size":19,fill:"#fff",stroke:INK,"stroke-width":5,"paint-order":"stroke","letter-spacing":"1.5",opacity:0},pick);madeBy.textContent="MADE BY";
+const TIPL=(()=>{const z=1.88+.225*Math.cos(46*Math.PI/180),y=1.66-.225*Math.sin(46*Math.PI/180);return [-(z+.57)*S,-(y+1.88)*S]})();
+const HEADL=[0,-(2.17+1.88)*S];
+function rotv(v,a){const r=a*Math.PI/180,c=Math.cos(r),s=Math.sin(r);return [v[0]*c-v[1]*s,v[0]*s+v[1]*c]}
+function setPick(x,y,a,mask){pick.setAttribute("transform",`translate(${x} ${y}) rotate(${a})`);if(mask)pickWrap.setAttribute("mask","url(#embed)");else pickWrap.removeAttribute("mask")}
+// swing about the grip G: the strike angle puts the tip exactly on HIT
+const R=Math.hypot(TIPL[0],TIPL[1]),PHI=32*Math.PI/180;
+const G={x:HIT.x+R*Math.cos(PHI),y:HIT.y+R*Math.sin(PHI)};
+const A_STRIKE=Math.atan2(HIT.y-G.y,HIT.x-G.x)*180/Math.PI-Math.atan2(TIPL[1],TIPL[0])*180/Math.PI;
+const A_WIND=A_STRIKE+64;
+// final rest: lying on the stone, head on the left with the pick pushed into the stone, handle to the right
+const A_FINAL=-90,headW=rotv(HEADL,A_FINAL),FX=300,FINAL={x:FX-headW[0],y:198-17-headW[1]};
+
+const notch=E("path",{d:"",fill:"#0c0e12",stroke:INK,"stroke-width":3,opacity:0},shake);
+function placeNotch(){const x=FINAL.x+rotv(TIPL,A_FINAL)[0],y=topAt(x);notch.setAttribute("d",`M${x-16} ${y+2} L${x+16} ${y+2} L${x+10} ${y+12} L${x-10} ${y+12} Z`)}
+placeNotch();
+// ---------- loading bar ----------
+const LB={x:320,y:486,w:360,h:30};
+const load=E("g",{opacity:0});
+E("rect",{x:LB.x,y:LB.y,width:LB.w,height:LB.h,rx:10,fill:"#1d2129",stroke:INK,"stroke-width":6},load);
+const lclip=E("clipPath",{id:"lclip"},defs),lclipR=E("rect",{x:LB.x+3,y:LB.y+3,width:0,height:LB.h-6,rx:7},lclip);
+const lfill=E("g",{"clip-path":"url(#lclip)"},load);
+E("rect",{x:LB.x,y:LB.y,width:LB.w,height:LB.h,fill:"url(#lime)"},lfill);
+E("rect",{x:LB.x,y:LB.y,width:LB.w,height:LB.h,fill:"url(#studs)"},lfill);
+E("rect",{x:LB.x,y:LB.y+4,width:LB.w,height:6,fill:"#fff",opacity:.35},lfill);
+const ltxt=E("text",{x:500,y:LB.y+LB.h/2+8,"text-anchor":"middle","font-family":"Montserrat,Arial Black,sans-serif","font-weight":900,"font-size":21,
+  fill:"#fff",stroke:INK,"stroke-width":5,"paint-order":"stroke","letter-spacing":"1"},load);ltxt.textContent="LOADING 0%";
+// ---------- shine over the whole logo (stone + pick), masked by their shape ----------
+defs.insertAdjacentHTML("beforeend",`<filter id="toWhite" x="-20%" y="-20%" width="140%" height="140%"><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0"/></filter>
+<mask id="logoMask" maskUnits="userSpaceOnUse" x="-200" y="-300" width="1400" height="1200"><path d="${pts(SIL)}" fill="#fff"/><use href="#pickG" filter="url(#toWhite)"/></mask>
+<linearGradient id="shineG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`);
+const shineLayer=E("g",{mask:"url(#logoMask)"},world);
+const shineBar=E("rect",{x:-60,y:-200,width:120,height:900,fill:"url(#shineG)",opacity:0},shineLayer);
+// ---------- outro: «game» placeholder + dark overlay ----------
+const game=E("g",{opacity:0});
+E("rect",{x:0,y:0,width:1000,height:562.5,fill:"#6fb6ff"},game);
+E("rect",{x:0,y:330,width:1000,height:240,fill:"#5aa64a"},game);
+E("text",{x:500,y:250,"text-anchor":"middle","font-family":"Montserrat,Arial Black,sans-serif","font-weight":900,"font-size":40,fill:"#fff",stroke:INK,"stroke-width":7,"paint-order":"stroke"},game).textContent="(тут уже плейс)";
+const dark=E("rect",{x:0,y:0,width:1000,height:562.5,fill:"#000",opacity:0});
+let realProgress=null;window.setLoadProgress=p=>{realProgress=cl(p,0,1)};
+
+// ---------- timeline ----------
+const HITS=[1.35,2.0,2.65],B=HITS[2],SHINE_AT=B+1.9,LOAD_AT=B+2.45;
+let readyAt=null;
+const dust=Array.from({length:8},(_,n)=>{const s=6+rnd()*8;return{e:E("rect",{x:-s/2,y:-s/2,width:s,height:s,fill:"#9aa3ae",stroke:INK,"stroke-width":2.5,opacity:0},fx),vx:(n<4?-1:1)*(80+rnd()*170),vy:-120-rnd()*160}});
+function swingAngle(t){
+  if(t<HITS[0]){const w=k(t,HITS[0]-.32,HITS[0]);return lerp(A_WIND,A_STRIKE,ease.in2(w))}
+  let i=HITS.length-1;for(let j=0;j<HITS.length-1;j++)if(t<HITS[j+1]){i=j;break}
+  const d=t-HITS[i],next=(HITS[i+1]||99)-HITS[i];
+  const rec=k(d,0,.12),up=k(d,.12,next-.3),down=k(d,next-.3,next);
+  let a=A_STRIKE+Math.sin(rec*Math.PI)*7;
+  if(d>.12)a=lerp(A_STRIKE,A_WIND,ease.out(up));
+  if(d>next-.3)a=lerp(A_WIND,A_STRIKE,ease.in2(down));
+  return a}
+function frame(t){
+  const sIn=k(t,0,.45);
+  // shine across the logo, left → right
+  const su=k(t,SHINE_AT,SHINE_AT+.75);shineBar.setAttribute("opacity",su>0&&su<1?1:0);shineBar.setAttribute("transform",`translate(${lerp(80,940,ease.inout(su))} 0) skewX(-18)`);
+  let sx=0,sy=0;for(const h of HITS){const d=t-h;if(d>=0&&d<.25){const m=(1-d/.25)*(h==B?10:6);sx+=Math.sin(d*95)*m;sy+=Math.cos(d*70)*m*.5}}
+  shake.setAttribute("transform",`translate(${sx} ${sy}) translate(500 320) scale(${lerp(.9,1,ease.back(sIn))}) translate(-500 -320)`);
+  cracks.forEach((st,i)=>st.forEach(c=>c.setAttribute("opacity",t>=HITS[i]&&t<B?1:0)));
+  chips.forEach((arr,i)=>arr.forEach(c=>{const d=t-HITS[i];if(d<0||d>1.1){c.e.setAttribute("opacity",0);return}
+    c.e.setAttribute("transform",`translate(${HIT.x+c.vx*d} ${HIT.y+c.vy*d+950*d*d}) rotate(${c.vr*d})`);c.e.setAttribute("opacity",1-d/1.1)}));
+  let fl=0;for(const h of HITS){const d=t-h;if(d>=0&&d<.2)fl=Math.max(fl,1-d/.2)}
+  flash.setAttribute("opacity",fl*.9);flash.setAttribute("r",8+(1-fl)*34);
+  ring.setAttribute("opacity",fl*.8);ring.setAttribute("r",14+(1-fl)*70);
+  chunks.forEach(c=>{const d=t-B-c.delay*.3;if(d<0){c.g.removeAttribute("transform");c.g.setAttribute("opacity",1);c.edge.setAttribute("stroke-width",0);return}
+    c.edge.setAttribute("stroke-width",5);c.g.setAttribute("transform",`translate(${c.vx*d} ${c.vy*d+1500*d*d}) rotate(${c.vr*d} ${c.cx} ${c.cy})`);c.g.setAttribute("opacity",d>1.1?0:1)});
+  frontEdge.setAttribute("opacity",t>=B?0:1);
+  const sh=k(t,B+.35,B+.9);nameGlow.setAttribute("opacity",(sh>0&&sh<1)?Math.sin(sh*Math.PI)*.5:0);
+  if(t<.5){pickWrap.setAttribute("opacity",0);setPick(G.x,G.y,A_WIND)}
+  else if(t<B+.05){pickWrap.setAttribute("opacity",1);
+    const fly=ease.out(k(t,.5,1.0)),a=swingAngle(t),wu=cl((a-A_STRIKE)/(A_WIND-A_STRIKE),0,1);
+    setPick(G.x+wu*18+(1-fly)*420,G.y-wu*10-(1-fly)*360,a+(1-fly)*120)}
+  else{
+    const up=k(t,B,B+.7),fall=k(t,B+.7,B+1.3),settle=k(t,B+1.3,B+1.7);let x,y,a;
+    if(up<1){x=lerp(G.x,640,ease.out(up));y=lerp(G.y,-80,ease.out(up));a=lerp(A_STRIKE,A_STRIKE-260,up)}
+    else if(fall<1){x=lerp(640,FINAL.x,fall);y=lerp(-80,FINAL.y,ease.in2(fall));a=lerp(A_STRIKE-260,A_FINAL-360,ease.out(fall))}
+    else{const b=Math.sin(settle*Math.PI)*(1-settle)*14;x=FINAL.x;y=FINAL.y-b;a=A_FINAL-360+Math.sin(settle*Math.PI*2)*(1-settle)*3}
+    setPick(x,y,a,up>=1);            // from the start of the fall the pick is masked by the stone (it goes INTO the stone, never over it)
+    madeBy.setAttribute("opacity",ease.out(k(t,B+1.4,B+1.8)));notch.setAttribute("opacity",settle>0?1:0);
+    const d=t-(B+1.3);dust.forEach(p=>{if(d<0||d>.8){p.e.setAttribute("opacity",0);return}
+      p.e.setAttribute("transform",`translate(${FX+p.vx*d} ${topAt(FX)+4+p.vy*d+700*d*d})`);p.e.setAttribute("opacity",1-d/.8)})}
+  if(t<B){madeBy.setAttribute("opacity",0);notch.setAttribute("opacity",0)}
+  const p=realProgress!==null?realProgress:ease.inout(k(t,LOAD_AT+.2,LOAD_AT+3.7));
+  lclipR.setAttribute("width",(LB.w-6)*p);ltxt.textContent=p>=1?"READY!":"LOADING "+Math.floor(p*100)+"%";
+  // the place is loaded → outro (logo pops away, bar springs down, quick darkening, game)
+  if(p>=1&&readyAt===null&&t>=LOAD_AT)readyAt=realProgress!==null?t:LOAD_AT+3.7;
+  const OUT=readyAt===null?1e9:readyAt+.35;
+  const show=k(t,LOAD_AT,LOAD_AT+.4),bo=k(t,OUT+.05,OUT+.6);
+  const backIn=u=>{const c=1.9;return (c+1)*u*u*u-c*u*u};
+  load.setAttribute("opacity",ease.out(show)*(1-bo*bo));
+  load.setAttribute("transform",`translate(0 ${(1-ease.out(show))*14+backIn(bo)*140})`);
+  const lu=k(t,OUT,OUT+.5);
+  const lsc=lu<.35?lerp(1,1.08,ease.out(lu/.35)):lerp(1.08,0,ease.in2((lu-.35)/.65));
+  world.setAttribute("opacity",ease.out(sIn)*(lu<.35?1:1-ease.in2((lu-.35)/.65)));
+  world.setAttribute("transform",lu>0?`translate(500 320) scale(${lsc}) translate(-500 -320)`:"");
+  const dk=k(t,OUT+.45,OUT+.75),undk=k(t,OUT+.9,OUT+1.3);
+  dark.setAttribute("opacity",dk*(1-undk));
+  game.setAttribute("opacity",t>=OUT+.75?1:0);
+}
+const qs=new URLSearchParams(location.search);let t0=null;
+let bg0=null;function bgLoop(ts){if(bg0===null)bg0=ts;drawBg((ts-bg0)/1000);requestAnimationFrame(bgLoop)}
+function loop(ts){if(t0===null)t0=ts;const t=(ts-t0)/1000;frame(t);if(readyAt===null||t<readyAt+2.2)requestAnimationFrame(loop)}
+function play(){t0=null;readyAt=null;requestAnimationFrame(loop)}
+document.getElementById("again").addEventListener("click",play);
+if(qs.has("t")){frame(parseFloat(qs.get("t")));drawBg(parseFloat(qs.get("t")))}else{requestAnimationFrame(bgLoop)}
+if(!qs.has("t")) (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(play);
+</script>
+</body></html>

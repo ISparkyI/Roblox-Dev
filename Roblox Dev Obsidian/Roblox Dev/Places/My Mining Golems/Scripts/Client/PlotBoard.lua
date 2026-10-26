@@ -129,7 +129,9 @@ local function card(parent, x, y, key)
 	local holder, o = CardHover.holder(parent, x, y, CW, CH, 14)
 	frame(holder, o.X, o.Y + 14, CW, CH, Color3.new(0, 0, 0), { BackgroundTransparency = 0.65 })
 	local c = frame(holder, o.X, o.Y, CW, CH, WHITE); local cgrad = vgrad(c, th.grad); stroke(c, INK, 6)
-	local sg = new("CanvasGroup", { Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, GroupTransparency = 0.68 }, c)
+	-- шар studs — звичайний Frame (CanvasGroup у таблах на слабкій графіці не малювався); прозорість 0.68 — кожній пупочці
+	local sg = new("Frame", { Name = "Studs", Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, ClipsDescendants = true }, c)
+	task.defer(function() for _, d in sg:GetChildren() do if d:IsA("GuiObject") then d.BackgroundTransparency = 0.68 end end end)
 	local cell = 46
 	local studs = {}
 	for cx = 0, math.ceil((CW - 20) / cell) - 1 do
@@ -153,9 +155,10 @@ local function card(parent, x, y, key)
 	label(c, 0, 432, CW, 90, d[2], d[1], WHITE, 7)
 	local value = label(c, 0, 530, CW, 70, 50, "", WHITE, 6, { RichText = true })
 	local bx, by, bw, bh = 70, 640, CW - 140, 100
-	frame(c, bx, by + 8, bw, bh, Color3.new(0, 0, 0), { BackgroundTransparency = 0.7 })
+	local saShadow = frame(c, bx, by + 8, bw, bh, Color3.new(0, 0, 0), { BackgroundTransparency = 0.7 })
 	local sa = StyleA.new(c, { size = Vector2.new(bw, bh), position = Vector2.new(bx, by), color = "green", text = "", textSize = 58,
 		clickable = true, zIndex = 2 })
+	StyleA.follow(sa, saShadow) -- тінь кнопки масштабується й хитається разом з нею
 	return { value = value, btn = sa.button, sa = sa, holder = holder, card = c, th = th, grad = cgrad, rim = rimS, strip = strip, studs = studs, icon = icon, lock = lock, locked = false }
 end
 
@@ -301,7 +304,8 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 	for _, cd in cards do CardHover.attach(cd.holder, cd.card, function() return true end, CARD_K) end
 	if mine then
 		for key, cd in cards do
-			StyleA.bind(cd.sa, { hoverAlways = true, canClick = function() return pn.can[key] == true end,
+			-- tap = false: у покупки свій звук BuySound (без нашарування з tap)
+			StyleA.bind(cd.sa, { hoverAlways = true, tap = false, canClick = function() return pn.can[key] == true end,
 				onClick = function() UISfx.play("BuySound"); Action:FireServer("Upgrade", key) end })
 		end
 	else

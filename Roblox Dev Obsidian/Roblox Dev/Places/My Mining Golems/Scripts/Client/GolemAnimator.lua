@@ -1,4 +1,5 @@
 --!strict
+-- PlotGolem animator (копія StoneGolem animator v2 + LOD, Carry, синхронний Mine для плотів).
 -- StoneGolem animator v2 (клієнтський). Кліпи Idle / Walk / Run / Face (порт з golem_rig.py) + Mine (удар кіркою).
 -- Керування атрибутами моделі:
 --   State  = "Auto" | "Idle" | "Walk" | "Run" | "Mine"   (Auto — за швидкістю руху Root)
@@ -10,6 +11,8 @@ local RunService = game:GetService("RunService")
 local model = script.Parent :: Model
 local root = model:WaitForChild("Root") :: BasePart
 local D = require(model:WaitForChild("GolemData")) :: any
+-- [Plot] Carry: ящичок (локальна копія CarryBox, кладе PlotClient) тримається між кулаками
+local BOX_DROP = 0.75 -- стадів: центр ящичка трохи нижче центру кулаків (кулаки тримають верхню половину)
 
 local FLIP = CFrame.Angles(0, math.pi, 0) -- у моделі обличчя в +Z, у Roblox «вперед» це -Z
 local UNIT = 0.5                          -- 1 од. моделі = 0,5 стада
@@ -205,6 +208,17 @@ local blendT, BLEND = 1, 0.25
 local clock = 0
 local lastPos = root.Position
 local smoothSpeed = 0
+-- [Plot] LOD: далекі големи оновлюються 4 рази на секунду
+local LOD_DIST, lodAcc = 150, 0
+-- [Plot] Carry: руки тримають ящичок перед собою
+local function holdPose(a: Pose): Pose
+	local o = table.clone(a)
+	o.UpperArm_R = { r = rot(-0.95, 0, 0.32) }
+	o.UpperArm_L = { r = rot(-0.95, 0, -0.32) }
+	o.Forearm_R = { r = rot(-0.55, 0, 0) }
+	o.Forearm_L = { r = rot(-0.55, 0, 0) }
+	return o
+end
 
 local function pickState(dt: number): string
 	local wanted = model:GetAttribute("State")
@@ -231,9 +245,18 @@ local cfs: { CFrame } = table.create(#parts, CFrame.identity)
 
 RunService.PreRender:Connect(function(dt)
 	if not model.Parent then return end
+	local cam = workspace.CurrentCamera
+	if cam and (cam.CFrame.Position - root.Position).Magnitude > LOD_DIST then
+		lodAcc += dt
+		if lodAcc < 0.25 then return end
+		dt, lodAcc = lodAcc, 0
+	end
 	clock += dt * ((model:GetAttribute("AnimSpeed") :: number?) or 1)
 	local st = pickState(dt)
-	if st ~= current then previous, current, blendT = current, st, 0 end
+	if st ~= current then
+		previous, current, blendT = current, st, 0
+		if st == "Mine" then clock = 0 end -- [Plot] удар синхронний із сервером: перший удар через MINE_HIT / AnimSpeed
+	end
 	blendT = math.min(1, blendT + dt / BLEND)
 
 	-- момент удару: повідомляємо ціль (руду) через атрибути HitPoint і HitTime
@@ -251,6 +274,7 @@ RunService.PreRender:Connect(function(dt)
 	end
 
 	local a = sample(current)
+	if model:GetAttribute("Carry") then a = holdPose(a) end
 	local b = if blendT < 1 then sample(previous) else nil
 	local face = if model:GetAttribute("Face") ~= false then sample("Face") else nil
 	local S = UNIT * model:GetScale()
@@ -292,6 +316,17 @@ RunService.PreRender:Connect(function(dt)
 		end
 	end
 	workspace:BulkMoveTo(parts, cfs, Enum.BulkMoveMode.FireCFrameChanged)
+
+	-- [Plot] Carry: ящичок рівно між кулаками (після пози, у тому ж кадрі) — руки справді його тримають
+	if model:GetAttribute("Carry") then
+		local box = model:FindFirstChild("CarryBox")
+		local fl, fr = model:FindFirstChild("Fist_L"), model:FindFirstChild("Fist_R")
+		if box and box:IsA("Model") and fl and fr and fl:IsA("BasePart") and fr:IsA("BasePart") then
+			local mid = (fl.Position + fr.Position) / 2
+			local ctr = (box:GetAttribute("CenterY") :: number?) or 0.575 -- висота центру ящичка над його півотом (дном)
+			box:PivotTo(CFrame.new(mid) * root.CFrame.Rotation * CFrame.new(0, -(ctr + BOX_DROP) * model:GetScale(), 0))
+		end
+	end
 
 	if pendingHit then
 		local pick = model:FindFirstChild("Pickaxe")

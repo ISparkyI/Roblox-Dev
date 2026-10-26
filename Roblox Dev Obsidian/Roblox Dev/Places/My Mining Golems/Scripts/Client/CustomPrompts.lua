@@ -6,12 +6,20 @@
 -- Показ / сховування робить сам рушій (PromptShown / PromptHidden): відстань MaxActivationDistance, RequiresLineOfSight —
 --   не просвічує крізь стіни, Enabled = false — ховається. Клавіша E працює рушієм; клік мишкою / дотик —
 --   InputHoldBegin / InputHoldEnd. Поява — пружне збільшення з центру (Back, 0,22 с), зникнення — 0,14 с.
+-- Підказка з HoldDuration > 0 (вхід і вихід печери — 0,9 с, важіль ролу RollPrompt — 0,25 с): кнопка в своєму яскравому кольорі, поверх неї —
+--   темна напівпрозора «тінь» на всю кнопку разом із зовнішньою обводкою (грань, світла рамка,
+--   лінія, нижній бортик, обводка; під іконкою й написом); у спокої вона покриває все це. Треба ТРИМАТИ E / мишку / палець: ліва межа тіні їде вправо і відкриває яскраву
+--   кнопку (це й є «заповнення»), відпустив раніше — тінь плавно повертається; дійшло до 100 % —
+--   рушій сам запускає Triggered (телепорт робить сервер, CaveEntrance). Блакитної заливки немає.
 
 local Players = game:GetService("Players")
 local PPS = game:GetService("ProximityPromptService")
 local TweenService = game:GetService("TweenService")
 local RS = game:GetService("ReplicatedStorage")
 local StyleA = require(RS:WaitForChild("Shared"):WaitForChild("StyleA"))
+local UISounds = require(RS:WaitForChild("Shared"):WaitForChild("UISounds"))
+-- Звуки: tap — натискання (E, мишка, дотик; у підказок з утриманням — на початку утримання), lever — важіль ролу
+--   (RollPrompt, лише в того, хто тягне). StyleA.bind кнопки підказки — tap = false, щоб не було подвійного звуку.
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -21,6 +29,45 @@ local W, H = 250, 74       -- полотно кнопки (одиниці диз
 local BW, BH = 234, 66     -- сама кнопка
 
 local shown: { [ProximityPrompt]: { gui: BillboardGui, pop: UIScale, tok: number } } = {}
+
+local SHADE = Color3.fromRGB(0, 0, 8)   -- тінь утримання: майже чорна з ледь синім відтінком
+local SHADE_T = 0.45                     -- прозорість: грань темнішає приблизно як колись від ImageColor3 (140, 140, 150)
+local BACK_SPEED = 2.5                  -- відпустив раніше: тінь повертається зі швидкістю (частка / с)
+
+-- утримання: кнопка яскрава, поверх неї — темна тінь у рамці HoldClip на ВСЮ кнопку, разом із зовнішньою
+-- обводкою (рішення користувача: головне — рівно, без щілин; кути прямі, як у стилі A), ClipsDescendants,
+-- ZIndex 2 — над гранню й візерунком, під відблиском, написом і іконкою. Правий край тіні прив'язаний
+-- до правого краю кнопки, ширина = 1 − p: ліва межа їде вправо і відкриває яскраву кнопку.
+local function holdFx(prompt: ProximityPrompt, btn: any)
+	local clip = Instance.new("Frame")
+	clip.Name = "HoldClip"; clip.BackgroundTransparency = 1; clip.BorderSizePixel = 0; clip.ClipsDescendants = true; clip.Active = false
+	clip.Position = UDim2.fromOffset(0, 0); clip.Size = UDim2.fromScale(1, 1); clip.ZIndex = 2; clip.Parent = btn.root -- тінь на всю кнопку, разом з обводкою
+	local fill = Instance.new("Frame")
+	fill.Name = "HoldShade"; fill.BackgroundColor3 = SHADE; fill.BackgroundTransparency = SHADE_T; fill.BorderSizePixel = 0
+	fill.AnchorPoint = Vector2.new(1, 0); fill.Position = UDim2.fromScale(1, 0)
+	fill.Size = UDim2.fromScale(1, 1); fill.ZIndex = 1; fill.Active = false; fill.Parent = clip
+	local p, holding = 0, false
+	local conn: RBXScriptConnection? = nil
+	local function step(dt: number)
+		if holding then
+			p = math.min(1, p + dt / math.max(prompt.HoldDuration, 0.05))
+		else
+			p = math.max(0, p - dt * BACK_SPEED)
+		end
+		fill.Size = UDim2.fromScale(1 - p, 1)
+		if not holding and p <= 0 and conn then conn:Disconnect(); conn = nil end
+	end
+	local function run()
+		if not conn then conn = game:GetService("RunService").RenderStepped:Connect(step) end
+	end
+	prompt.PromptButtonHoldBegan:Connect(function() holding = true; run(); StyleA.tap() end)
+	prompt.PromptButtonHoldEnded:Connect(function() holding = false; run() end)
+	prompt.Triggered:Connect(function()
+		-- дійшло до 100 %: кнопка ще мить повністю яскрава, потім тінь повертається
+		holding = false; p = 1; fill.Size = UDim2.fromScale(0, 1)
+		task.delay(0.25, run)
+	end)
+end
 
 local function build(prompt: ProximityPrompt)
 	local widthStuds = (prompt:GetAttribute("UIWidth") :: number?) or 8.8
@@ -59,15 +106,34 @@ local function build(prompt: ProximityPrompt)
 		end
 	end
 	local key = Instance.new("TextLabel")
-	key.Size = UDim2.fromOffset(30, 30); key.Position = UDim2.fromOffset(-6, -8); key.BackgroundColor3 = Color3.fromHex("1d2233")
+	-- клавіша E — дитина кнопки (рухається й масштабується разом з нею при наведенні / натисканні); лівий верхній кут кнопки — (8, 4)
+	key.Size = UDim2.fromOffset(30, 30); key.Position = UDim2.fromOffset(-6 - 8, -8 - 4); key.BackgroundColor3 = Color3.fromHex("1d2233")
 	key.BorderSizePixel = 0; key.FontFace = HEAVY; key.TextScaled = true; key.Text = prompt.KeyboardKeyCode.Name; key.TextColor3 = Color3.new(1, 1, 1); key.ZIndex = 8
 	local ks = Instance.new("UIStroke"); ks.Color = INK; ks.Thickness = 2.5; ks.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ks.Parent = key
-	key.Parent = anim
-	StyleA.bind(btn, { debounce = 0.25, onClick = function()
-		if not prompt.Enabled then return end
-		prompt:InputHoldBegin()
-		task.defer(function() prompt:InputHoldEnd() end)
-	end })
+	key.Parent = btn.root
+	if prompt.HoldDuration > 0 then
+		-- тримати мишкою / пальцем: натиснув — InputHoldBegin, відпустив або звів курсор — InputHoldEnd
+		holdFx(prompt, btn)
+		StyleA.bind(btn, { tap = false })
+		local down = false
+		local function release() if down then down = false; prompt:InputHoldEnd() end end
+		btn.button.InputBegan:Connect(function(inp: InputObject)
+			if (inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch) and prompt.Enabled and not down then
+				down = true; prompt:InputHoldBegin()
+			end
+		end)
+		btn.button.InputEnded:Connect(function(inp: InputObject)
+			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then release() end
+		end)
+		btn.button.MouseLeave:Connect(release)
+		prompt.PromptHidden:Connect(release)
+	else
+		StyleA.bind(btn, { debounce = 0.25, tap = false, onClick = function()
+			if not prompt.Enabled then return end
+			prompt:InputHoldBegin()
+			task.defer(function() prompt:InputHoldEnd() end)
+		end })
+	end
 	bb.Parent = playerGui
 	return bb, pop
 end
@@ -96,6 +162,15 @@ PPS.PromptHidden:Connect(function(prompt: ProximityPrompt)
 	tw:Play()
 end)
 
+-- звук спрацювання (лише в того, хто натиснув): важіль ролу — lever, інші власні підказки без утримання — tap
+PPS.PromptTriggered:Connect(function(prompt: ProximityPrompt)
+	if prompt.Name == "RollPrompt" then
+		UISounds.play("lever", 0.3)
+	elseif prompt.Style == Enum.ProximityPromptStyle.Custom and prompt.HoldDuration <= 0 then
+		StyleA.tap()
+	end
+end)
+
 -- поки місця призначення немає (атрибут ComingSoon) — кнопка хитається, над нею спливає «COMING SOON»
 PPS.PromptTriggered:Connect(function(prompt: ProximityPrompt)
 	if not prompt:GetAttribute("ComingSoon") then return end
@@ -120,8 +195,9 @@ end)
 -- ===== табличка «CAVE» над колом печери: золотий градієнт, що переливається, + білий відблиск (як SELL / FORGE) =====
 do
 	local RunService = game:GetService("RunService")
-	local P = { Color3.fromHex("fff6b0"), Color3.fromHex("ffd23a"), Color3.fromHex("ff9a1a"), Color3.fromHex("ffd23a") }
-	local function sample(u)
+	local GOLD = { Color3.fromHex("fff6b0"), Color3.fromHex("ffd23a"), Color3.fromHex("ff9a1a"), Color3.fromHex("ffd23a") }
+	local RED = { Color3.fromHex("ffd6cf"), Color3.fromHex("ff5a4d"), Color3.fromHex("c9181d"), Color3.fromHex("ff5a4d") }   -- EXIT: той самий ефект, червона гама
+	local function sample(P, u)
 		local x = (u % 1) * #P
 		local k = math.floor(x)
 		local t = x - k
@@ -132,7 +208,7 @@ do
 		NumberSequenceKeypoint.new(0.48, 1), NumberSequenceKeypoint.new(0.51, 1), NumberSequenceKeypoint.new(0.55, 0.45),
 		NumberSequenceKeypoint.new(0.59, 1), NumberSequenceKeypoint.new(1, 1) })
 	local signs = {}
-	local function hook(sign: Instance)
+	local function hook(sign: Instance, pal)
 		local t = sign:FindFirstChild("Title")
 		if not (t and t:IsA("TextLabel")) or signs[t] then return end
 		local grad = t:FindFirstChildOfClass("UIGradient") or Instance.new("UIGradient", t)
@@ -145,24 +221,29 @@ do
 		sh.Parent = t.Parent
 		local tw = TweenService:Create(sg, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Offset = Vector2.new(1.3, 0) })
 		tw.Completed:Connect(function() sg.Offset = Vector2.new(-1.3, 0) end)
-		signs[t] = { grad = grad, tween = tw, nextAt = os.clock() + 1 + math.random() * 3 }
+		signs[t] = { grad = grad, tween = tw, nextAt = os.clock() + 1 + math.random() * 3, pal = pal }
 	end
 	task.spawn(function()
 		while true do
 			local niches = workspace:FindFirstChild("Niches")
-			if niches then for _, d in niches:GetDescendants() do if d.Name == "CaveSign" and d:IsA("BillboardGui") then hook(d) end end end
+			if niches then for _, d in niches:GetDescendants() do if d.Name == "CaveSign" and d:IsA("BillboardGui") then hook(d, GOLD) end end end
+			for _, root in { workspace:FindFirstChild("Cave_Inside"), workspace:FindFirstChild("Caves") } do
+				for _, d in root:GetDescendants() do if d.Name == "ExitSign" and d:IsA("BillboardGui") then hook(d, RED) end end
+			end
 			task.wait(2)
 		end
 	end)
 	RunService.Heartbeat:Connect(function()
 		local now = os.clock()
-		local ks
+		local cache = {}
 		for t, s in signs do
 			if not t.Parent then signs[t] = nil continue end
+			local ks = cache[s.pal]
 			if not ks then
-				ks = {}
-				for k = 0, 18 do ks[#ks + 1] = ColorSequenceKeypoint.new(k / 18, sample(k / 18 * 2 - now / 4)) end
-				ks = ColorSequence.new(ks)
+				local list = {}
+				for k = 0, 18 do list[#list + 1] = ColorSequenceKeypoint.new(k / 18, sample(s.pal, k / 18 * 2 - now / 4)) end
+				ks = ColorSequence.new(list)
+				cache[s.pal] = ks
 			end
 			s.grad.Color = ks
 			if now >= s.nextAt then s.tween:Play(); s.nextAt = now + 3 + math.random() * 3 end

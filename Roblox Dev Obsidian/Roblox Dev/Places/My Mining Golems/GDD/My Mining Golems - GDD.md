@@ -50,7 +50,8 @@ updated: 2026-10-25
 | **6 плотів** (зони фарму 44 × 44), купуються 1 → 6 | уздовж ніші, 3 + 3 | [[GDD - Plots]], [Plots](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FPlots%2FPlots) |
 | **Ящик плоту** з кнопкою COLLECT | внутрішній передній кут кожного плоту | [Plots](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FPlots%2FPlots) |
 | **Станція ролу** (вибір типу голема, важіль E · ROLL), 1–5 підставок ролу, табло покращень ролу | біля спавну гравця (спавн дивиться на станцію) | [[GDD - Roll]], [Roll Station](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FRoll%20Station%2FRoll%20Station), [Roll Upgrades Screen](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FRoll%20Upgrades%20Screen%2FRoll%20Upgrades%20Screen) |
-| **Вхід у печеру големів** (CAVE, поки COMING SOON) | у ніші | [Cave Entrance](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FCave%20Entrance%2FCave%20Entrance) |
+| **Вхід у печеру големів** (CAVE, затиск 0,9 с → печера-сховище ніші) | у ніші | [Cave Entrance](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FCave%20Entrance%2FCave%20Entrance) |
+| **Печера-сховище големів** (своя на кожну нішу, 14 стендів; автор — друг користувача, стенди ще без логіки) | окремо під картою | [Golem Cave](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FGolem%20Cave%2FGolem%20Cave) |
 | **Табло прокачки плоту** (8 карток) | ліворуч від лавки SELL | [[GDD - Plots]] |
 | **Forge** — голем-коваль, переплавка руди в злитки | правий передній кут біля входу | [[GDD - Ores and Bars]], [Forge](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FForge%2FForge) |
 | **Sell** — лавка скупщика Наґґета | лівий передній кут біля входу | [[GDD - Ores and Bars]], [Sell Shop](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FSell%20Shop%2FSell%20Shop) |
@@ -121,7 +122,7 @@ updated: 2026-10-25
 - [x] Плот: UI розстановки (Place Golems, Equip Best), табло прокачки плоту (8 карток), ящик з місткістю й COLLECT, жили Coal / Copper / Iron (S / M / L)
 - [x] Руда й злитки в стилі жил (Union) на піддонах, плотах, у ящику й 3D-іконками в слотах; вугілля не плавиться
 - [x] Станція ролу з вибором типу голема (Miner / Carrier, Warrior — MAP 2), свої підказки E
-- [x] Вхід у печеру големів (коло CAVE, ENTER CAVE — поки COMING SOON)
+- [x] Вхід у печеру големів (коло CAVE, ENTER CAVE — затиск 0,9 с, телепорт у свою печеру ніші)
 - [x] Вікна Inventory / Sell / Forge / Place Golems — однаковий розмір і місце (`WindowFit`), гортання замість росту вікна
 - [ ] Картка Auto Sell — механіка й ціна (мапа 2)
 - [x] Forge мапи 1 у Roblox: сцена, анімації голема й печі, пробудження, піддони, переплавка, апгрейдер (руда й гроші — тестові атрибути)

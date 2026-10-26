@@ -37,8 +37,13 @@
 --   StyleA.bind(obj, opts) — поведінка кнопки (GDD): наведення — масштаб 1,04 (0,1 с); натискання — 0,92 і пружне
 --     повернення (Back, 0,2 с); якщо не можна — хитання −10, 10, −7, 7, −3, 0 px по 0,03 с. opts:
 --     canClick = function() → boolean (за замовчуванням obj.enabled); onClick = function(obj); debounce = секунди між діями;
---     hoverAlways = true — збільшувати при наведенні й тоді, коли дія недоступна. Повертає список з'єднань.
+--     hoverAlways = true — збільшувати при наведенні й тоді, коли дія недоступна;
+--     tap = false — без звуку натискання (у кнопки свій звук, напр. покупка). За замовчуванням успішний клік грає
+--     UISounds "tap" (недоступна кнопка лише хитається, без звуку). StyleA.tap() — той самий звук для кнопок без bind. Повертає список з'єднань.
 --   StyleA.shake(obj), StyleA.faceRect(w, h) → x, y, fw, fh; StyleA.sliceScale(h).
+--   StyleA.follow(obj, gui) — елемент, що візуально належить кнопці, але лежить поруч (тінь-сусід, бейдж, підпис), масштабується
+--     й хитається разом з нею (власний UIScale = obj.scale.Scale, якір переноситься в центр без зміни місця).
+--     Діти obj.root рухаються самі — їх реєструвати не треба.
 
 local TweenService = game:GetService("TweenService")
 
@@ -78,6 +83,11 @@ StyleA.ASSETS = {
 	forge_bar_iron_v2 = "rbxassetid://103278698396779",   -- новий злиток заліза (вугілля й мідь — старі ID у скриптах)
 }
 local ASSETS = StyleA.ASSETS
+-- зсув іконки відносно центру грані (частки висоти кнопки h): хрестик закриття стояв вище й лівіше за центр
+-- видимої грані (від контуру до губи, разом із світлою рамкою й лінією) — заміряно в грі на кнопці 103 × 103
+StyleA.ICON_NUDGE = {
+	[ASSETS.stylea_icon_x] = Vector2.new(0.004, 0.016),
+}
 
 -- еталон основи (h = 100): контур, світла рамка, губа, світла лінія
 local O, B, LIP, LINE = 4, 3, 12, 4
@@ -86,6 +96,16 @@ local SLICE_CENTER = StyleA.SLICE_CENTER
 
 local INK = Color3.fromHex("14161a")
 local WHITE = Color3.new(1, 1, 1)
+
+-- звук натискання (Shared/UISounds, лише на клієнті); minGap 0,08 с — щоб два обробники одного кліку не дали подвійний tap
+local uiSounds: any = nil
+function StyleA.tap()
+	if uiSounds == nil then
+		local ok, m = pcall(function() return require(script.Parent:WaitForChild("UISounds", 5) :: ModuleScript) end)
+		uiSounds = ok and m or false
+	end
+	if uiSounds then uiSounds.play("tap", 0.08) end
+end
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
 local SHAKE = { -10, 10, -7, 7, -3, 0 }
 
@@ -146,7 +166,10 @@ function Obj:_layout()
 	self.tile.TileSize = UDim2.fromOffset(t, t)
 	if self.icon then
 		local m = self.iconPad * fh
-		self.icon.Position = UDim2.fromOffset(fx + m, fy + m)
+		-- оптичне вирівнювання окремих іконок (частки висоти кнопки): X — по центру видимої грані (від контуру до губи)
+		local nd = StyleA.ICON_NUDGE[self.icon.Image]
+		local nx, ny = nd and nd.X * h or 0, nd and nd.Y * h or 0
+		self.icon.Position = UDim2.fromOffset(fx + m + nx, fy + m + ny)
 		self.icon.Size = UDim2.fromOffset(fw - 2 * m, fh - 2 * m)
 	end
 	if self.label then
@@ -198,9 +221,9 @@ end
 function Obj:setIcon(id: string?)
 	if not self.icon then
 		self.icon = new("ImageLabel", { Name = "Icon", BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Active = false, ZIndex = 2 }, self.root)
-		self:_layout()
 	end
 	self.icon.Image = id or ""
+	self:_layout() -- після Image: ICON_NUDGE залежить від картинки
 end
 
 function Obj:setSize(v: Vector2)
@@ -325,11 +348,35 @@ function StyleA.shake(obj)
 	obj.shaking = true
 	local root = obj.root
 	local p0 = root.Position
+	local fs = {}
+	for _, f in obj.followers or {} do if f.Parent then table.insert(fs, { f, f.Position }) end end
 	task.spawn(function()
-		for _, dx in SHAKE do root.Position = p0 + UDim2.fromOffset(dx, 0); task.wait(0.03) end
+		for _, dx in SHAKE do
+			root.Position = p0 + UDim2.fromOffset(dx, 0)
+			for _, e in fs do e[1].Position = e[2] + UDim2.fromOffset(dx, 0) end
+			task.wait(0.03)
+		end
 		root.Position = p0
+		for _, e in fs do e[1].Position = e[2] end
 		obj.shaking = false
 	end)
+end
+
+-- елемент-сусід кнопки (тінь, бейдж…) масштабується й хитається разом з кнопкою
+function StyleA.follow(obj, g: GuiObject)
+	obj.followers = obj.followers or {}
+	if table.find(obj.followers, g) then return end
+	table.insert(obj.followers, g)
+	-- якір у центр (без зміни місця), щоб UIScale масштабував від центру, як у кнопки
+	local ap, sz = g.AnchorPoint, g.Size
+	if ap.X ~= 0.5 or ap.Y ~= 0.5 then
+		local kx, ky = 0.5 - ap.X, 0.5 - ap.Y
+		g.Position = g.Position + UDim2.new(sz.X.Scale * kx, sz.X.Offset * kx, sz.Y.Scale * ky, sz.Y.Offset * ky)
+		g.AnchorPoint = Vector2.new(0.5, 0.5)
+	end
+	local sc = g:FindFirstChildOfClass("UIScale") or new("UIScale", {}, g)
+	sc.Scale = obj.scale.Scale
+	obj.scale:GetPropertyChangedSignal("Scale"):Connect(function() sc.Scale = obj.scale.Scale end)
 end
 
 function StyleA.bind(obj, opts)
@@ -350,6 +397,7 @@ function StyleA.bind(obj, opts)
 	end))
 	table.insert(conns, btn.Activated:Connect(function()
 		if canClick() then
+			if opts.tap ~= false then StyleA.tap() end -- tap = false: у кнопки свій звук (покупка тощо)
 			obj.scale.Scale = 0.92
 			scaleTo(obj, 1, 0.2, Enum.EasingStyle.Back)
 			if opts.onClick and os.clock() - lastFire > debounce then

@@ -116,7 +116,9 @@ local function card(parent, x, y, r)
 	cd.shadow = frame(holder, o.X, o.Y + 14, CW, CH, Color3.new(0, 0, 0), { BackgroundTransparency = 0.65 })
 	local c = frame(holder, o.X, o.Y, CW, CH, WHITE); cd.card = c
 	cd.grad = vgrad(c, r.th.grad); stroke(c, INK, 6)
-	local sg = new("CanvasGroup", { Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, GroupTransparency = 0.68 }, c)
+	-- шар studs — звичайний Frame (CanvasGroup у таблах на слабкій графіці не малювався); прозорість 0.68 — кожній пупочці
+	local sg = new("Frame", { Name = "Studs", Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, ClipsDescendants = true }, c)
+	task.defer(function() for _, d in sg:GetChildren() do if d:IsA("GuiObject") then d.BackgroundTransparency = 0.68 end end end)
 	cd.studs = {}
 	local cell = 46
 	for gx = 0, math.ceil((CW - 20) / cell) - 1 do
@@ -140,9 +142,10 @@ local function card(parent, x, y, r)
 	label(c, 0, 432, CW, 90, 80, r.title, WHITE, 7)
 	cd.value = label(c, 0, 530, CW, 70, 50, r.line, C("d4ff3e"), 6)
 	local bx, by, bw, bh = 70, 640, CW - 140, 100
-	frame(c, bx, by + 8, bw, bh, Color3.new(0, 0, 0), { BackgroundTransparency = 0.7 })
+	local saShadow = frame(c, bx, by + 8, bw, bh, Color3.new(0, 0, 0), { BackgroundTransparency = 0.7 })
 	cd.sa = StyleA.new(c, { size = Vector2.new(bw, bh), position = Vector2.new(bx, by), color = "blue", text = "SELECT", textSize = 54,
 		clickable = true, zIndex = 2 })
+	StyleA.follow(cd.sa, saShadow) -- тінь кнопки масштабується й хитається разом з нею
 	-- клік по всій картці (під кнопкою)
 	cd.hit = new("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 1, AutoButtonColor = false }, c)
 	-- рамка вибору: лаймова смуга + темний контур, галочка в правому верхньому куті
@@ -207,7 +210,8 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 			if not mine then return end
 			if cd.locked then shake(cd); return end
 			if cd.state == "sel" then return end
-			-- звук вибору картки — пізніше (свій, не звук покупки)
+			-- звук вибору картки — tap (UISounds; клік по кнопці й по картці дають один tap — minGap)
+			StyleA.tap()
 			Remote:FireServer(r.key)
 		end
 		if mine then

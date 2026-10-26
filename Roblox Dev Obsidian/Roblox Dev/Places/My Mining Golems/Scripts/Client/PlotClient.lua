@@ -24,6 +24,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local HitChips = require(RS:WaitForChild("Effects"):WaitForChild("HitChips"))
+local UISounds = require(RS:WaitForChild("Shared"):WaitForChild("UISounds")) -- claim — руда з ящика (COLLECT)
 local ASSETS = RS:WaitForChild("PlotAssets")
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
 local INK = Color3.fromHex("040435")
@@ -538,7 +539,7 @@ local function addStack(m: Model)
 		local t0 = os.clock()
 		local con: RBXScriptConnection
 		con = RunService.Heartbeat:Connect(function()
-			local a = math.clamp((os.clock() - t0) / 0.35, 0, 1)
+			local a = math.clamp((os.clock() - t0) / (toPlayer and 0.2 or 0.35), 0, 1) -- до гравця — швидко (0,2 с)
 			local target: Vector3? = nil
 			if toPlayer and toPlayer.Character then
 				local hrp = toPlayer.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -718,6 +719,11 @@ local function setupCrate(plot: Model, crate: Model)
 		if n > 0 then
 			local cf2, size = crate:GetBoundingBox()
 			popup(cf2.Position + Vector3.new(0, size.Y / 2 + 3, 0), "+" .. n .. " ore", Color3.fromHex("ffd34d"))
+			-- свій ящик (власник ніші = я) — звук нагороди
+			local nf = workspace:FindFirstChild("Niches")
+			local p: Instance? = plot
+			while p and p.Parent and p.Parent ~= nf do p = p.Parent end
+			if p and p.Parent == nf and p:GetAttribute("OwnerUserId") == player.UserId then UISounds.play("claim") end
 		end
 	end)
 	table.insert(crates, { plot = plot, crate = crate, floor = floor, height = sz.Y })
@@ -748,10 +754,12 @@ canim.Parent = cholder
 local cpop = Instance.new("UIScale"); cpop.Scale = 0; cpop.Parent = canim
 local cbtn = StyleA.new(canim, { size = Vector2.new(214, 66), position = Vector2.new(8, 4), color = "green", text = "COLLECT", textSize = 28, clickable = true, name = "Collect" })
 local key = Instance.new("TextLabel")
-key.Size = UDim2.fromOffset(30, 30); key.Position = UDim2.fromOffset(-6, -8); key.BackgroundColor3 = Color3.fromHex("1d2233")
+-- клавіша E — як на підказках печери (CustomPrompts): фон #1d2233, ЧОРНА обводка #14161a (не INK цього скрипта #040435);
+-- дитина кнопки (рухається й масштабується разом з нею); лівий верхній кут кнопки — (8, 4)
+key.Size = UDim2.fromOffset(30, 30); key.Position = UDim2.fromOffset(-6 - 8, -8 - 4); key.BackgroundColor3 = Color3.fromHex("1d2233")
 key.BorderSizePixel = 0; key.FontFace = HEAVY; key.TextScaled = true; key.Text = "E"; key.TextColor3 = Color3.new(1, 1, 1); key.ZIndex = 8
-local ks = Instance.new("UIStroke"); ks.Color = INK; ks.Thickness = 2.5; ks.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ks.Parent = key
-key.Parent = canim
+local ks = Instance.new("UIStroke"); ks.Color = Color3.fromHex("14161a"); ks.Thickness = 2.5; ks.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ks.Parent = key
+key.Parent = cbtn.root
 local near: CR? = nil
 local function doCollect()
 	if not near then return end

@@ -5,7 +5,8 @@
 --
 -- Стан — атрибути гравця (їх читає клієнт):
 --   Ore_* / Bars_* (ставлять ForgeService, SellService), Pot_<зілля> — кількість;
---   InvGolems — JSON-список { { id, kind, cls } } (големи не стакаються; cls = "miner" | "carrier");
+--   InvGolems — JSON-список { { id, kind, cls, mut } } (големи не стакаються; kind — ID з Shared/GolemCatalog,
+--     cls = "miner" | "carrier", mut — мутація 0..7). Старі ID (wood, iron…) при завантаженні замінюються новими (Catalog.LEGACY);
 --   PlotPlaced (ставить PlotService) — id големів на плотах: їх не можна видалити;
 --   InvLocks — JSON-список заблокованих ключів (не видаляються, але їх можна брати в руку / пити / ставити в хотбар);
 --   InvHotbar — JSON-список з 9 ключів ("" = порожній слот);  InvHeld — ключ предмета в руці ("" = нічого).
@@ -19,7 +20,8 @@
 --   "Hotbar", { ключі }       — новий список хотбара;
 --   "Pin",    { key, on }      — кнопка Hotbar / Unpin: закріплений слот лишається після Put Away (InvPinned);
 --   "Clear",  { ключі }       — кнопка «в інвентар»: ці предмети зникають з хотбара й руки;
---   "Hold",   ключ або ""     — взяти в руку (створює слот) / прибрати з рук (слот зникає). Модель у руці — наступний крок.
+--   "Hold",   ключ або ""     — взяти в руку (створює слот) / прибрати з рук (слот зникає). Модель у руці й табличку над
+--                             големом показує HeldItemService (за атрибутом InvHeld).
 -- ТЕСТ: у Studio без збереженої секції — тестові големи й зілля (ItemConfig.TEST_*).
 
 local Players = game:GetService("Players")
@@ -28,6 +30,7 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 
 local Items = require(RS:WaitForChild("Shared"):WaitForChild("ItemConfig"))
+local Catalog = require(RS.Shared:WaitForChild("GolemCatalog"))
 local DataService = require(script.Parent:WaitForChild("DataService"))
 
 local InventoryService = {}
@@ -189,7 +192,16 @@ local function onPlayer(p: Player)
 	if not DataService.WaitLoaded(p) then return end
 	local sec = DataService.GetSection(p, "Inventory")
 	if type(sec) == "table" then
-		if type(sec.golems) == "table" then encode(p, "InvGolems", sec.golems) end
+		if type(sec.golems) == "table" then
+			-- міграція: старі тестові ID → каталог, мутація за замовчуванням Normal; невідомих големів не губимо (лишаються як є)
+			for _, g in sec.golems do
+				if type(g) == "table" then
+					g.kind = Catalog.id(g.kind) or g.kind
+					g.mut = Catalog.mut(g.mut)
+				end
+			end
+			encode(p, "InvGolems", sec.golems)
+		end
 		if type(sec.locks) == "table" then encode(p, "InvLocks", sec.locks) end
 		if type(sec.hotbar) == "table" then encode(p, "InvHotbar", sec.hotbar) end
 		encode(p, "InvPinned", type(sec.pinned) == "table" and sec.pinned or {})
@@ -201,8 +213,8 @@ local function onPlayer(p: Player)
 		local gl = {}
 		if RunService:IsStudio() then -- ТЕСТ: зілля й големи для перевірки вкладок
 			for i, e in Items.TEST_GOLEMS do
-				local kind, cls = string.match(e, "^(%w+):?(%w*)$")
-				table.insert(gl, { id = i, kind = kind, cls = (cls == "carrier") and "carrier" or "miner" })
+				local kind, cls, mut = string.match(e, "^(%w+):?(%a*)@?(%d*)$")
+				table.insert(gl, { id = i, kind = Catalog.id(kind) or "wooden", cls = (cls == "carrier") and "carrier" or "miner", mut = Catalog.mut(mut) })
 			end
 		end
 		encode(p, "InvGolems", gl)

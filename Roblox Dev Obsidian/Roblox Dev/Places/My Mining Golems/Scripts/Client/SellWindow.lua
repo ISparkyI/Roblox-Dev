@@ -35,6 +35,7 @@ local NF = require(RS.Shared:WaitForChild("NumberFormat"))
 local StyleA = require(RS.Shared:WaitForChild("StyleA"))
 local ItemVP = require(RS.Shared:WaitForChild("ItemViewport")) -- 3D-моделі руди й злитків у слотах замість PNG
 local UISfx = require(RS.Shared:WaitForChild("UISfx"))
+local UISounds = require(RS.Shared:WaitForChild("UISounds")) -- hover / tap для кнопок +/− на слотах (вони без StyleA.bind)
 local Action = RS:WaitForChild("Remotes"):WaitForChild("SellAction")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -185,6 +186,7 @@ local function makeButton(parent, x, y, w, h, opt)
 	local b = StyleA.new(parent, { size = Vector2.new(w, h), position = Vector2.new(x, y), color = opt.color, text = opt.text,
 		textSize = opt.textSize, icon = opt.icon, iconPad = opt.iconPad, clickable = true, shine = opt.shine, zIndex = opt.z + 1 })
 	b.shadow = sh
+	StyleA.follow(b, sh) -- тінь масштабується й хитається разом з кнопкою
 	b.base = opt.color
 	b.onClick = nil
 	if opt.noSound then b.root:SetAttribute("NoHoverSound", true) end
@@ -227,6 +229,8 @@ end
 
 -- затиснути кнопку: дія одразу; через 0,38 с — повтор, що пришвидшується (інтервал 170 → 30 мс), і крок росте
 -- 1 → 2 → 5 → 15 → 50 (після 1,2 / 2,5 / 4 / 6 с). fn() → false — далі не можна (кнопка хитається / повтор зупиняється).
+-- Звук tap — на КОЖЕН крок повтору (правка користувача): що швидший повтор, то частіше звук; тон ледь росте
+-- з прискоренням (PlaybackSpeed до ×1,12). minGap 0,025 с — щоб копії не злипались.
 local holdActive = nil
 local function holdRepeat(b, fn: () -> boolean)
 	local token = 0
@@ -243,20 +247,26 @@ local function holdRepeat(b, fn: () -> boolean)
 		holdActive = stop
 		b.scale.Scale = 0.92
 		if not fn() then StyleA.shake(b); stop(); return end
+		UISounds.play("tap", 0.025) -- звук натискання; далі — на кожен крок автоповтору
 		local t0 = os.clock()
 		task.delay(0.38, function()
 			while token == my do
 				local el = os.clock() - t0
 				local n = el < 1.2 and 1 or el < 2.5 and 2 or el < 4 and 5 or el < 6 and 15 or 50
+				local done = 0
 				for _ = 1, n do
-					if not fn() then stop(); return end
+					if not fn() then break end
+					done += 1
 				end
+				if done > 0 then UISounds.play("tap", 0.025, 1 + math.min(0.12, el * 0.02)) end
+				if done < n then stop(); return end
 				task.wait(math.max(0.03, 0.17 - el * 0.07))
 			end
 		end)
 	end)
 	b.root.MouseLeave:Connect(function() b.hover = false; if holdActive == stop then stop() end end)
-	b.root.MouseEnter:Connect(function() b.hover = true; if holdActive ~= stop then tween(b.scale, 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Scale = 1.04 }) end end)
+	-- звук наведення тут (атрибут NoHoverSound лишаємо — автоматичний UIHover не дублює)
+	b.root.MouseEnter:Connect(function() b.hover = true; UISounds.play("hover", 0.05); if holdActive ~= stop then tween(b.scale, 0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Scale = 1.04 }) end end)
 end
 UIS.InputEnded:Connect(function(inp) if isPress(inp) and holdActive then holdActive() end end)
 
@@ -512,6 +522,7 @@ local function makeSlot(it, col: number, row: number)
 		if (drag and drag.moved) or os.clock() - dragEndAt < 0.15 then return end
 		if lockedKeys[it.key] and inv(it.key) > 0 then StyleA.shake(s); toast(s, "LOCKED"); return end
 		if inv(it.key) < 1 then StyleA.shake(s); toast(s, "EMPTY"); return end
+		StyleA.tap() -- звук натискання (слот — не StyleA.bind)
 		openMini(s)
 	end)
 	return s
@@ -587,10 +598,20 @@ btnSell.onClick = function()
 end
 
 -- заголовок «SELL» поза вікном: тінь-копія +7, зелений перелив (період 4 с) і білий відблиск, що час від часу пробігає
-textAt(pop, 79, 50 + 9, 560, 118, "SELL", INK, 11, { Name = "TitleShadow", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
-local title = textAt(pop, 79, 50, 560, 118, "SELL", WHITE, 10, { Name = "Title", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
+-- Домовленість для всіх вікон: іконка зліва від тексту (тут — гроші, як на кнопці x2 Money у HUD), висота ≈ 2 ×
+-- висоти літер, нахил −8°, текст зсунуто праворуч; обводка й тінь тексту та тінь іконки (силует +9 вниз) — ЧОРНІ (INK).
+local TITLE_ICON = "rbxassetid://94881597034076" -- mmg_title_cash_black (Decal 73285674841616): гроші як у HUD, чорний контур #14161a
+local TITLE_IS = 170                                 -- розмір іконки ≈ 2 × висоти літер (118 · 0,7)
+local TITLE_ICX, TITLE_ICY = 56 + TITLE_IS / 2, 44   -- центр іконки
+local TITLE_X = TITLE_ICX + TITLE_IS / 2 + 8         -- лівий край тексту — за іконкою, не налазить
+new("ImageLabel", { Name = "TitleIconShadow", BackgroundTransparency = 1, Image = TITLE_ICON, ImageColor3 = INK, ScaleType = Enum.ScaleType.Fit,
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(TITLE_ICX, TITLE_ICY + 9), Size = UDim2.fromOffset(TITLE_IS, TITLE_IS), Rotation = -8, ZIndex = 3 }, pop)
+new("ImageLabel", { Name = "TitleIcon", BackgroundTransparency = 1, Image = TITLE_ICON, ScaleType = Enum.ScaleType.Fit,
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(TITLE_ICX, TITLE_ICY), Size = UDim2.fromOffset(TITLE_IS, TITLE_IS), Rotation = -8, ZIndex = 4 }, pop)
+local titleShadow = textAt(pop, TITLE_X, 50 + 9, 560, 118, "SELL", INK, 11, { Name = "TitleShadow", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
+local title = textAt(pop, TITLE_X, 50, 560, 118, "SELL", WHITE, 10, { Name = "Title", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
 local titleGrad = new("UIGradient", { Rotation = 0 }, title)
-local titleShine = textAt(pop, 79, 50, 560, 118, "SELL", WHITE, 0, { Name = "TitleShine", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
+local titleShine = textAt(pop, TITLE_X, 50, 560, 118, "SELL", WHITE, 0, { Name = "TitleShine", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
 local titleShineGrad = new("UIGradient", { Rotation = 25, Offset = Vector2.new(-1.3, 0),
 	Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.32, 1), NumberSequenceKeypoint.new(0.40, 0.2),
 		NumberSequenceKeypoint.new(0.48, 1), NumberSequenceKeypoint.new(0.51, 1), NumberSequenceKeypoint.new(0.55, 0.45),
@@ -653,8 +674,8 @@ do
 	MK.knob = StyleA.new(cont, { size = Vector2.new(KW, KH), position = Vector2.new(TX, TY + TH / 2 - KH / 2 - 4), anchor = Vector2.zero, color = "gray",
 		rows = 4, clickable = true, shine = false, zIndex = 8 })
 	StyleA.bind(MK.knob, { hoverAlways = true })
-	MK.minus = makeButton(cont, MPAD, TY + TH / 2 - 25, 50, 50, { shadowDy = 5, color = "red", text = "−", textSize = 30, z = 4, shine = false, manual = true })
-	MK.plus = makeButton(cont, MW - MPAD - 50, TY + TH / 2 - 25, 50, 50, { shadowDy = 5, color = "green", text = "+", textSize = 30, z = 4, shine = false, manual = true })
+	MK.minus = makeButton(cont, MPAD, TY + TH / 2 - 25, 50, 50, { shadowDy = 5, color = "red", text = "−", textSize = 30, z = 4, shine = false, manual = true, noSound = true }) -- звуки — у holdRepeat
+	MK.plus = makeButton(cont, MW - MPAD - 50, TY + TH / 2 - 25, 50, 50, { shadowDy = 5, color = "green", text = "+", textSize = 30, z = 4, shine = false, manual = true, noSound = true })
 	MK.cost = textAt(cont, 0, TY + TH + 22, MW, 20, "", INK, 0, { FontFace = XBOLD, ZIndex = 3 })
 	local btnY = MH - 18 - 12 - 70
 	MK.all = makeButton(cont, MPAD, btnY, 200, 68, { shadowDy = 6, color = "blue", text = "All", textSize = 32, z = 4 })
@@ -723,7 +744,16 @@ local function closeMini()
 		if mini.tok == my then MK.root.Visible = false end
 	end)
 end
-MK.dim.InputBegan:Connect(function(inp) if isPress(inp) then closeMini() end end)
+-- закриваємо лише кліком ПОЗА вікном меню (InputBegan затемнення спрацьовує й під самим вікном), хрестиком або Done
+MK.dim.InputBegan:Connect(function(inp)
+	if not isPress(inp) then return end
+	local r = MK.root
+	if r and r.Visible then
+		local p, a, sz = inp.Position, r.AbsolutePosition, r.AbsoluteSize
+		if p.X >= a.X and p.X <= a.X + sz.X and p.Y >= a.Y and p.Y <= a.Y + sz.Y then return end
+	end
+	closeMini()
+end)
 MK.close.onClick = function() closeMini() end
 MK.done.onClick = function() closeMini() end
 

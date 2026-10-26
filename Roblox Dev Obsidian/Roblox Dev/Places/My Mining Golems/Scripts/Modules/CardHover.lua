@@ -58,7 +58,7 @@ CardHover.SCALE = 1.05
 CardHover.TILT = 3 -- градусів
 local SPEED = 14
 
-type State = { holder: GuiObject, scale: UIScale, hover: boolean, rel: number, s: number, r: number, base: number }
+type State = { holder: GuiObject, scale: UIScale, hover: boolean, rel: number, s: number, r: number, base: number, noTilt: boolean }
 local active: { [State]: boolean } = {}
 local loop: RBXScriptConnection? = nil
 
@@ -67,7 +67,7 @@ local function step(dt: number)
 	for st in active do
 		if not st.holder.Parent then active[st] = nil; continue end
 		local ts = (st.hover and CardHover.SCALE or 1) * st.base
-		local tr = st.hover and st.rel * CardHover.TILT or 0
+		local tr = (st.hover and not st.noTilt) and st.rel * CardHover.TILT or 0
 		st.s += (ts - st.s) * a
 		st.r += (tr - st.r) * a
 		if not st.hover and math.abs(st.s - st.base) < 0.0005 and math.abs(st.r) < 0.02 then
@@ -85,10 +85,15 @@ local function wake(st: State)
 	if not loop then loop = RunService.RenderStepped:Connect(step) end
 end
 
--- тримач картки: CanvasGroup з AnchorPoint у центрі; повертає його і зсув, з якого малювати картку
-function CardHover.holder(parent: Instance, x: number, y: number, w: number, h: number, extraBottom: number?): (CanvasGroup, Vector2)
+-- тримач картки з AnchorPoint у центрі; повертає його і зсув, з якого малювати картку.
+-- У ScreenGui — CanvasGroup (масштаб + нахил). У SurfaceGui (табла в світі) — звичайний Frame і БЕЗ нахилу:
+-- у CanvasGroup є ліміт відеопам'яті, і на слабких пристроях / низькій графіці великі картки табел взагалі не малювались
+-- (порожнє табло зі studs), поки пам'ять не звільнялась (~10 с).
+function CardHover.holder(parent: Instance, x: number, y: number, w: number, h: number, extraBottom: number?): (GuiObject, Vector2)
 	local P, eb = CardHover.PAD, extraBottom or 0
-	local g = Instance.new("CanvasGroup")
+	local inWorld = parent:FindFirstAncestorWhichIsA("SurfaceGui") ~= nil or parent:IsA("SurfaceGui")
+	local g = Instance.new(inWorld and "Frame" or "CanvasGroup")
+	if inWorld then g:SetAttribute("NoTilt", true) end
 	g.Name = "CardHolder"
 	g.BackgroundTransparency = 1
 	g.BorderSizePixel = 0
@@ -109,7 +114,9 @@ function CardHover.attach(holder: GuiObject, hit: GuiObject?, enabled: (() -> bo
 	local b = base or 1
 	target:SetAttribute("HoverSoundBy", "CardHover") -- автозвук кнопок (UIHoverAuto) пропускає картку, щоб не грало двічі
 	;(scale :: UIScale).Scale = b
-	local st: State = { holder = holder, scale = scale :: UIScale, hover = false, rel = 0, s = b, r = 0, base = b }
+	-- без нахилу для звичайного Frame: Roblox вимикає обрізання в повернутих елементах (візерунок кнопок стилю A виліз би)
+	local st: State = { holder = holder, scale = scale :: UIScale, hover = false, rel = 0, s = b, r = 0, base = b,
+		noTilt = holder:GetAttribute("NoTilt") == true or not holder:IsA("CanvasGroup") }
 	local sg = holder:FindFirstAncestorWhichIsA("SurfaceGui")
 	local function aim(x: number)
 		-- у SurfaceGui координату мишки на полотні рахуємо самі (променем), у ScreenGui — x з події

@@ -174,7 +174,9 @@ local function card(parent, x, y, key, title, titleSize)
 	frame(holder, o.X, o.Y + 14, CW, CH, Color3.new(0, 0, 0), { BackgroundTransparency = 0.65 })
 	local c = frame(holder, o.X, o.Y, CW, CH, WHITE); vgrad(c, th.grad); stroke(c, INK, 6)
 	-- studs на картці (ледь помітні)
-	local sg = new("CanvasGroup", { Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, GroupTransparency = 0.68 }, c)
+	-- шар studs — звичайний Frame (CanvasGroup у таблах на слабкій графіці не малювався); прозорість 0.68 — кожній пупочці
+	local sg = new("Frame", { Name = "Studs", Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, ClipsDescendants = true }, c)
+	task.defer(function() for _, d in sg:GetChildren() do if d:IsA("GuiObject") then d.BackgroundTransparency = 0.68 end end end)
 	local cell = 46
 	for cx = 0, math.ceil((CW - 20) / cell) - 1 do
 		for cy = 0, math.ceil((CH - 20) / cell) - 1 do
@@ -199,9 +201,10 @@ local function card(parent, x, y, key, title, titleSize)
 	-- кнопка купівлі — «стиль A» (Shared/StyleA): green — грошей вистачає, gray — не вистачає або MAX; напис — ціна / MAX.
 	-- Квадратна тінь під нею лишилася.
 	local bx, by, bw, bh = 70, 640, CW - 140, 100
-	frame(c, bx, by + 8, bw, bh, Color3.new(0, 0, 0), { BackgroundTransparency = 0.7 })
+	local saShadow = frame(c, bx, by + 8, bw, bh, Color3.new(0, 0, 0), { BackgroundTransparency = 0.7 })
 	local sa = StyleA.new(c, { size = Vector2.new(bw, bh), position = Vector2.new(bx, by), color = "green", text = "", textSize = 58,
 		clickable = true, zIndex = 2 })
+	StyleA.follow(sa, saShadow) -- тінь кнопки масштабується й хитається разом з нею
 	return { value = value, btn = sa.button, sa = sa, holder = holder, card = c }
 end
 
@@ -358,7 +361,8 @@ local function buildPanel(f: Model, screen: BasePart, ownerId: number)
 	if mine then
 		for key, cd in cards do
 			-- наведення 1,04 завжди; натискання 0,92 + Back і запит, якщо можна; інакше (грошей нема / MAX / не працює) — хитання
-			StyleA.bind(cd.sa, { hoverAlways = true, canClick = function() return pn.can[key] == true end,
+			-- tap = false: у покупки свій звук BuySound (без нашарування з tap)
+			StyleA.bind(cd.sa, { hoverAlways = true, tap = false, canClick = function() return pn.can[key] == true end,
 				onClick = function() UISfx.play("BuySound"); Action:FireServer("Upgrade", key) end })
 		end
 	else

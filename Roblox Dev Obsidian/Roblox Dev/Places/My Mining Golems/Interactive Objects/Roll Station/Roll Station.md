@@ -1,8 +1,8 @@
 ---
 tags: [interactive, roll, station]
 status: in-game
-version: 1
-updated: 2026-10-25
+version: 2
+updated: 2026-10-26
 ---
 
 # Roll Station
@@ -38,7 +38,7 @@ updated: 2026-10-25
 | Скрипт важеля | `RollLever/LeverScript` (копія — `Source/LeverScript.lua`) |
 | Екран | `StarterPlayerScripts/RollStationClient` — SurfaceGui у `PlayerGui` з `Adornee = Screen` (так працює клік мишкою) |
 | Вибір типу (сервер) | `ServerScriptService/RollRoleService` + `Remotes/RollRole` (RemoteEvent) |
-| Підказка E | `RollPrompt`: `Style = Custom`, атрибути `UIText "ROLL"`, `UIColor "orange"`, `UIIcon` (іконка важеля), `UIOffsetY 0.6`, `UIWidth 6.4`; `MaxActivationDistance 8`, `RequiresLineOfSight = false`. Малює `StarterPlayerScripts/CustomPrompts` |
+| Підказка E | `RollPrompt`: `Style = Custom`, атрибути `UIText "ROLL"`, `UIColor "orange"`, `UIIcon` (іконка важеля), `UIOffsetY 0.6`, `UIWidth 6.4`; `MaxActivationDistance 8`, `RequiresLineOfSight = false`, **`HoldDuration 0.25`** (v2). Малює `StarterPlayerScripts/CustomPrompts` |
 
 ## Екран: CHOOSE GOLEM
 Три картки в стилі табла плоту (градієнт, studs, косі смуги, блиск, обвідка, кнопка «стиль A»).
@@ -50,7 +50,7 @@ updated: 2026-10-25
 | **Warrior** | сіра, іконка сіра, замок | Fights bosses | **MAP 2** (сіра). Клік — картка трясеться |
 
 - Вибрана картка має лаймову рамку з темним контуром, галочку в правому верхньому куті й зелену **SELECTED**. Галочка — темне коло з лаймовим кругом (градієнт, блік) і біла «пташка» з круглими кінцями й темною обвідкою; зібрана з фреймів без `UIStroke` (у CanvasGroup тримача картки `UIStroke` малював під кружком чорний квадрат).
-- Натиснути можна на кнопку або на саму картку. Звуку вибору поки немає (буде свій, не звук покупки).
+- Натиснути можна на кнопку або на саму картку. Звук вибору — `tap` (`UISounds`; кнопка й картка дають один звук).
 - Своя ніша — кнопки працюють. Чужа або вільна — видно вибір власника, кнопки неактивні.
 - Екран будується, коли камера ближче 140 стадів, і прибирається далі 200.
 
@@ -67,6 +67,10 @@ updated: 2026-10-25
 - `RollRoleService` приймає `RollRole:FireServer("Miner" | "Carrier" | "Warrior")`. Warrior проходить лише при `Stage >= 2`. Не частіше ніж раз на 0,2 с.
 - Лампи `Lamp1..3` перемикає клієнт у кожного гравця за `RollRole` власника ніші.
 - **Важіль** (`LeverScript`): E → відтяг до гравця +44° (0,28 с) → напруга +48° → постріл назад −22° (Cubic In) → **удар**: табло спалахує білим і гасне до зеленого, `Flash` (PointLight) підсвічує підлогу, із пазу вилітають золоті іскри (`Hinge/SparkAtt/Sparks`), `Pulled:Fire(player, role)` → відскок −14° → осідання −18° → пауза → повернення (Back Out, 0,6 с). Шестерня крутиться разом із ривком. Поки йде анімація, підказку вимкнено.
+- **Кнопка ROLL треба затиснути 0,25 с (v2):** E / мишка / палець — на кнопці та сама темна тінь-заповнення на всю кнопку, що й на ENTER / EXIT CAVE (`CustomPrompts.holdFx`: ліва межа тіні їде вправо, відпустив раніше — тінь повертається). На початку затиску — `tap`, на спрацюванні — `lever` (`SoundService/LeverPull`, гучність 0,25). `HoldDuration` ставиться і в Edit, і на сервері (`RollRoleService`: усім `RollPrompt` у workspace і новим нішам), бо значення з Edit одного разу злетіло на 0.
+
+![[roll_station_prompt_hold.jpg]]
+*v2: кнопка ROLL під час затиску — тінь відкриває яскраву кнопку зліва направо.*
 - Система ролу (шанси, анімація, покупка голема) ще не написана: вона підпишеться на `RollLever.Pulled`.
 
 ## Структура папки
@@ -74,10 +78,11 @@ updated: 2026-10-25
 - `Source/LeverScript.lua` — скрипт важеля; `Source/gen_role_icons.py` — іконки ролей
 - `Roblox/role_*.png` — іконки для Asset Manager
 - `Preview/roll_station_mock.html` — затверджений веб-макет (3D + екран); `roll_station_mock.png`, `roll_station_panel_mock.png` — кадри з нього
-- `Preview/roll_station_*.jpg` — скріни з гри
+- `Preview/roll_station_*.jpg` — скріни з гри (`roll_station_prompt_hold.jpg` — затиск кнопки ROLL, v2)
 
 ![[roll_station_niche.jpg]]
 
 ## Історія
+- **v2 (26.10.2026):** кнопку ROLL треба затиснути 0,25 с — з тією самою тінню-заповненням, що й на печері; закріплено в `RollRoleService`. Бекап — `ServerStorage/NicheBackup/Scripts_UIAudit_v5`.
 - **v1 (25.10.2026):** веб-макет → правки користувача: екран лежить на схилі, без таблички «GOLEM ROLL», лише лампи; лампи сидять на балці; станція на 20% менша (місце між стендами); краща тумба (шестерня, рамка, восьмикутна основа, кругла рукоятка); кнопка ROLL перенесена на фронт пульта, низько. Перенесено в гру в шаблон і всі 6 ніш. Червоне світіння рукоятки замінено на спалах табла й іскри. Звук покупки при виборі картки прибрано.
 - **v1.1 (25.10.2026):** нова галочка вибраної картки — справжня «пташка» з круглими кінцями замість двох брусків, прибрано чорний квадрат під кружком.

@@ -5,9 +5,12 @@
 --   виставив label.Image. Якщо для key є модель — Image очищується, а всередині label з'являється Frame «ItemVP»:
 --   темний контур (8 силуетів, зсунутих на OUTLINE px) + сама модель. Модель більша за картинку (SCALE).
 --   ImageTransparency / ImageColor3 мітки повторюються на моделі (сірий і напівпрозорий «порожній» слот).
---   Якщо моделі немає (зілля, големи…) — ItemVP ховається і працює звичайна картинка.
+--   Якщо моделі немає (зілля, голем без моделі…) — ItemVP ховається і працює звичайна картинка.
+-- Големи: ключ "GolemVP:<ID>:<клас>" (M.golemKey) — модель з каталогу (Shared/GolemCatalog, поле model → PlotAssets/<model>),
+--   стоїть у 3/4 обличчям до камери; майнер — з кіркою, носій — без кірки, з ящичком біля ніг. Контур — 4 силуети (не 8: модель важка).
 
 local RS = game:GetService("ReplicatedStorage")
+local Catalog = require(RS:WaitForChild("Shared"):WaitForChild("GolemCatalog"))
 
 local M = {}
 
@@ -31,8 +34,124 @@ local function props(): Instance?
 	return p and p:FindFirstChild("ForgeProps")
 end
 
+-- голем: ключ для set(), або nil, якщо 3D-моделі цього голема ще немає
+function M.golemKey(kind: string?, cls: string?): string?
+	local g = Catalog.get(kind)
+	if not g or not g.model then return nil end
+	return "GolemVP:" .. g.id .. ":" .. Catalog.cls(cls)
+end
+local function golemSpec(key: string?): (any, string?)
+	if not key or string.sub(key, 1, 8) ~= "GolemVP:" then return nil, nil end
+	local id, cls = string.match(key, "^GolemVP:(%w+):(%w+)$")
+	local g = Catalog.get(id)
+	if not g or not g.model then return nil, nil end
+	return g, cls
+end
+
 function M.has(key: string?): boolean
-	return key ~= nil and MODELS[key] ~= nil
+	return key ~= nil and (MODELS[key] ~= nil or golemSpec(key) ~= nil)
+end
+
+-- ===== голем у ViewportFrame =====
+-- ракурс голема: yaw / pitch — градуси, fit — більше = менший, up — точка прицілу вище центру (частка висоти; модель нижче в слоті,
+-- щоб не налазила на назву); світло — спереду зліва (ззаду обличчя виходило темним)
+local GOLEM_VIEW = { yaw = 20, pitch = 8, fit = 0.8, up = 0.07 } -- fit 0.8 = на 10 % менше, ніж 0.72
+local GOLEM_AMBIENT = Color3.fromRGB(185, 185, 190)
+local GOLEM_LIGHT = Vector3.new(-0.4, -0.7, 0.6)
+local golemCache: { [string]: Model } = {}
+-- шаблон: модель без скриптів, стоїть у (0,0,0) обличчям до −Z; носій — без кірки, з ящичком біля ніг
+local function golemTemplate(g: any, cls: string): Model?
+	local ck = g.id .. ":" .. cls
+	if golemCache[ck] then return golemCache[ck] end
+	local assets = RS:FindFirstChild("PlotAssets")
+	local src = assets and assets:FindFirstChild(g.model)
+	if not src or not src:IsA("Model") then return nil end
+	local m = src:Clone()
+	for _, d in m:GetDescendants() do
+		if d:IsA("LuaSourceContainer") or d:IsA("ValueBase") then d:Destroy() end
+	end
+	if cls ~= "miner" then
+		local pick = m:FindFirstChild("Pickaxe"); if pick then pick:Destroy() end
+	end
+	m:PivotTo(CFrame.new())
+	if cls == "carrier" then
+		local box = assets:FindFirstChild("CarryBox")
+		if box and box:IsA("Model") then
+			local b = box:Clone()
+			for _, d in b:GetDescendants() do if d:IsA("LuaSourceContainer") then d:Destroy() end end
+			local _, gs = m:GetBoundingBox()
+			local _, bs = b:GetBoundingBox()
+			local k = math.min(1, gs.X * 0.55 / math.max(bs.X, bs.Z))
+			b:ScaleTo(b:GetScale() * k)
+			local _, bs2 = b:GetBoundingBox()
+			local gcf, gs2 = m:GetBoundingBox()
+			b:PivotTo(CFrame.new(gcf.Position.X + gs2.X * 0.18, gcf.Position.Y - gs2.Y / 2 + bs2.Y / 2, gcf.Position.Z - gs2.Z / 2 - bs2.Z * 0.15))
+			b.Parent = m
+		end
+	end
+	for _, d in m:GetDescendants() do if d:IsA("BasePart") then d.Anchored = true end end
+	golemCache[ck] = m
+	return m
+end
+
+local function golemViewport(parent: Instance, tpl: Model, z: number, silhouette: boolean, dx: number, dy: number): ViewportFrame
+	local vp = Instance.new("ViewportFrame")
+	vp.BackgroundTransparency = 1
+	vp.Size = UDim2.fromScale(1, 1)
+	vp.Position = UDim2.fromOffset(dx, dy)
+	vp.ZIndex = z
+	local m = tpl:Clone()
+	if silhouette then
+		vp.Name = "Outline"
+		vp.Ambient = Color3.new(0, 0, 0); vp.LightColor = Color3.new(0, 0, 0)
+		vp.ImageColor3 = INK
+		for _, d in m:GetDescendants() do
+			if d:IsA("BasePart") then
+				d.Color = Color3.new(0, 0, 0); d.Material = Enum.Material.SmoothPlastic; d.MaterialVariant = ""
+				if d.Transparency < 1 then d.Transparency = 0 end
+				for _, t in d:GetChildren() do if t:IsA("Decal") or t:IsA("Texture") then t:Destroy() end end
+			end
+		end
+	else
+		vp.Name = "Model"
+		vp.Ambient = GOLEM_AMBIENT
+		vp.LightColor = Color3.fromRGB(255, 252, 245)
+		vp.LightDirection = GOLEM_LIGHT
+	end
+	m.Parent = vp
+	local cf, size = m:GetBoundingBox()
+	local cam = Instance.new("Camera")
+	cam.FieldOfView = FOV
+	local r = size.Magnitude / 2
+	local dist = r / math.sin(math.rad(FOV / 2)) * GOLEM_VIEW.fit
+	-- обличчя дивиться в −Z: камера спереду (−Z), повернута на yaw і трохи згори
+	local dir = (CFrame.Angles(0, math.rad(180 + GOLEM_VIEW.yaw), 0) * CFrame.Angles(-math.rad(GOLEM_VIEW.pitch), 0, 0)).LookVector
+	local target = cf.Position + Vector3.new(0, size.Y * GOLEM_VIEW.up, 0)
+	cam.CFrame = CFrame.lookAt(target - dir * dist, target)
+	cam.Parent = vp
+	vp.CurrentCamera = cam
+	vp.Parent = parent
+	return vp
+end
+
+local function buildGolem(label: GuiObject, key: string, g: any, cls: string): Frame?
+	local tpl = golemTemplate(g, cls)
+	if not tpl then return nil end
+	local box = Instance.new("Frame")
+	box.Name = "ItemVP"
+	box.BackgroundTransparency = 1
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.fromScale(0.5, 0.5)
+	box.Size = UDim2.fromScale(SCALE, SCALE)
+	box.ZIndex = label.ZIndex
+	box:SetAttribute("Model", key)
+	box:SetAttribute("Golem", true)
+	for _, d in { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } } do
+		golemViewport(box, tpl, label.ZIndex, true, d[1] * OUTLINE, d[2] * OUTLINE)
+	end
+	golemViewport(box, tpl, label.ZIndex, false, 0, 0)
+	box.Parent = label
+	return box
 end
 
 local function viewport(parent: Instance, tpl: BasePart, name: string, z: number, silhouette: boolean, dx: number, dy: number): ViewportFrame
@@ -106,7 +225,8 @@ end
 
 -- scale (необов'язково) — розмір моделі відносно мітки; за замовчуванням SCALE (для плиток), 1 — рівно в межах мітки
 function M.set(label: ImageLabel, key: string?, scale: number?)
-	local name = key and MODELS[key]
+	local g, cls = golemSpec(key)
+	local name = (key and MODELS[key]) or (g and key)
 	local box = label:FindFirstChild("ItemVP") :: Frame?
 	if not name then
 		if box then box.Visible = false end
@@ -114,7 +234,9 @@ function M.set(label: ImageLabel, key: string?, scale: number?)
 	end
 	label.Image = "" -- стара PNG-картинка більше не показується
 	if box and box:GetAttribute("Model") ~= name then box:Destroy(); box = nil end
-	if not box then box = build(label, name) end
+	if not box then
+		if g then box = buildGolem(label, name :: string, g, cls or "miner") else box = build(label, name :: string) end
+	end
 	if not box then return end
 	box.Visible = true
 	local s = scale or SCALE

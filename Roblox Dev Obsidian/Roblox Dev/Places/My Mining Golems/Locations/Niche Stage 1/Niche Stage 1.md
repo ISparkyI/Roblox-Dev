@@ -33,7 +33,7 @@ updated: 2026-10-25
 
 **Станція ролу** — `NichePrefab_Stage1/RollSystem/RollLeverModel` тепер не голий важіль, а пульт з екраном вибору типу голема й тумба з важелем (див. Interactive Objects → Roll Station). Стоїть на тому ж місці між підставками, база `CFrame.new(-751.1, 2.6, 301) · rotY 90°` (фронт до `PlotSpawn`). Старий важіль — `ServerStorage/NicheBackup/RollLeverModel_old_v1`.
 
-**Вхід у печеру големів** — `NichePrefab_Stage1/GolemCave` (див. Interactive Objects → Cave Entrance): горб з темним проходом, жовте коло, напис CAVE, кнопка E · ENTER CAVE (поки COMING SOON). База `CFrame.new(-787, 1.2, 357) · rotY 134°`.
+**Вхід у печеру големів** — `NichePrefab_Stage1/GolemCave` (див. Interactive Objects → Cave Entrance): горб з темним проходом, жовте коло, напис CAVE, кнопка E · ENTER CAVE (затиск 0,9 с → печера-сховище цієї ніші). База `CFrame.new(-787, 1.2, 357) · rotY 134°`.
 
 Нові моделі ставляться в шаблон і в усі 6 живих ніш однаково: копія з шаблону, `ni:GetPivot() * templatePivot:ToObjectSpace(src:GetPivot())`.
 

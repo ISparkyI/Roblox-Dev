@@ -59,7 +59,8 @@ updated: 2026-10-25
 | Шаблони плоту: голем (аніматор з Carry і LOD), руда Coal / Copper / Iron, шматки руди, ящичок носія | `ReplicatedStorage/PlotAssets` | Folder |
 | Табло прокачки плоту (8 карток, Auto Sell — MAP 2) і вікно розстановки Place Golems | `StarterPlayerScripts/PlotBoard`, `PlotPlaceUI` | LocalScript |
 | Станція ролу: пульт з екраном вибору типу голема, лампи, тумба з важелем, кнопка E · ROLL (старий важіль — `NicheBackup/RollLeverModel_old_v1`) | `…/NichePrefab_Stage1/RollSystem/RollLeverModel`, `StarterPlayerScripts/RollStationClient`, `ServerScriptService/RollRoleService`, `Remotes/RollRole` | Model, LocalScript, Script |
-| Вхід у печеру големів: горб, темний прохід, жовте коло, напис CAVE, кнопка E · ENTER CAVE (COMING SOON) | `…/NichePrefab_Stage1/GolemCave`, `ServerScriptService/CaveEntrance` | Model, Script |
+| Вхід у печеру големів: горб, темний прохід, жовте коло, напис CAVE, кнопка E · ENTER CAVE (затиск 0,9 с) | `…/NichePrefab_Stage1/GolemCave`, `ServerScriptService/CaveEntrance` | Model, Script |
+| Печера-сховище големів: шаблон, копія на кожну зайняту нішу, права власника / гостя | `Workspace/Cave_Inside` (у грі → `ServerStorage/CaveInsideTemplate`, копії `Workspace/Caves/Cave_<N>`), `ServerScriptService/CaveService`, `ReplicatedStorage/Shared/CaveAccess` ([Golem Cave](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FGolem%20Cave%2FGolem%20Cave)) | Model, Script, ModuleScript |
 | Свої підказки E (`Style = Custom`) | `StarterPlayerScripts/CustomPrompts` | LocalScript |
 | Моделі руди й злитків (Union у стилі жил) | `ReplicatedStorage/Prefabs/ForgeProps` (`ChunkCoal/Copper/Iron`, `BarCopper/Iron`), вихідні — `ServerStorage/ForgeChunkSources` | UnionOperation |
 | 3D-іконки руди й злитків у слотах; один розмір і місце всіх вікон | `ReplicatedStorage/Shared/ItemViewport`, `WindowFit` | ModuleScript |

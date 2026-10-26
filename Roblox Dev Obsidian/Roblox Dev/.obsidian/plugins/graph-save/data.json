@@ -17,18 +17,18 @@
     },
     {
       "id": "Effects/Hit Chips/Hit Chips.md",
-      "x": -394,
-      "y": 255
+      "x": -390.3794250488281,
+      "y": 246.65060424804688
     },
     {
       "id": "Places/My Mining Golems/2D/Inventory/Inventory.md",
-      "x": 1822,
-      "y": -644
+      "x": 1863.17529296875,
+      "y": -612.1610107421875
     },
     {
       "id": "Places/My Mining Golems/2D/Main HUD/Main HUD.md",
-      "x": 1935,
-      "y": -631
+      "x": 1938.8433837890625,
+      "y": -636.0487670898438
     },
     {
       "id": "Places/My Mining Golems/2D/Money HUD/Money HUD.md",
@@ -122,83 +122,83 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Boss Events.md",
-      "x": 1004,
-      "y": -270
+      "x": 1018.8753051757812,
+      "y": -660.193359375
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Currencies and Rebirths.md",
-      "x": 892,
-      "y": -229
+      "x": 789.8309936523438,
+      "y": -738.8130493164062
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Data Saving.md",
-      "x": 894,
-      "y": -349
+      "x": 933.4110107421875,
+      "y": -702.3517456054688
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Diamonds Shop.md",
-      "x": 776,
-      "y": -368
+      "x": 911.7600708007812,
+      "y": -760.4619140625
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Golems.md",
-      "x": 837,
-      "y": -471
+      "x": 814.6876831054688,
+      "y": -1036.111572265625
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Interface.md",
-      "x": 743,
-      "y": -545
+      "x": 991.5255737304688,
+      "y": -833.1566772460938
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Leaderboards.md",
-      "x": 846,
-      "y": -606
+      "x": 1050.781982421875,
+      "y": -708.048828125
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Maps.md",
-      "x": 799,
-      "y": -716
+      "x": 1035.967041015625,
+      "y": -910.636962890625
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Marketplace.md",
-      "x": 919,
-      "y": -720
+      "x": 1086.107177734375,
+      "y": -760.4619140625
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Monetization.md",
-      "x": 932,
-      "y": -838
+      "x": 1105.2227783203125,
+      "y": -866.606201171875
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Mutation Machine.md",
-      "x": 1038,
-      "y": -784
+      "x": 1131.4317626953125,
+      "y": -816.471923828125
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Ores and Bars.md",
-      "x": 1107,
-      "y": -881
+      "x": 1173.8505859375,
+      "y": -907.446533203125
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Plots.md",
-      "x": 1173,
-      "y": -782
+      "x": 1173.8505859375,
+      "y": -772.9954833984375
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Quests and Index.md",
-      "x": 1281,
-      "y": -834
+      "x": 1270.7100830078125,
+      "y": -890.3552856445312
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Roll.md",
-      "x": 1290,
-      "y": -715
+      "x": 1252.2213134765625,
+      "y": -801.6595458984375
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Studio Scene.md",
-      "x": 1410,
-      "y": -708
+      "x": 1247.6632080078125,
+      "y": -750.3858642578125
     },
     {
       "id": "Places/My Mining Golems/GDD/My Mining Golems - GDD.md",
@@ -207,8 +207,8 @@
     },
     {
       "id": "Places/My Mining Golems/Interactive Objects/Cave Entrance/Cave Entrance.md",
-      "x": 2021.4463222828867,
-      "y": 332.4673865138211
+      "x": 2021.4462890625,
+      "y": 332.4673767089844
     },
     {
       "id": "Places/My Mining Golems/Interactive Objects/Forge/Forge.md",
@@ -389,9 +389,61 @@
       "id": "Style/Style.md",
       "x": -253,
       "y": -228
+    },
+    {
+      "id": "OREKO/OREKO.md",
+      "x": -16.810686111450195,
+      "y": -118.79178619384766
+    },
+    {
+      "id": "OREKO/Loading Screen/OREKO Loading Screen.md",
+      "x": -429.3352355957031,
+      "y": -862.27294921875
+    },
+    {
+      "id": "Places/My Mining Golems/2D/Loading Screen/Loading Screen.md",
+      "x": 2037.973388671875,
+      "y": -658.7977905273438
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Miner.md",
+      "x": 672.2214965820312,
+      "y": -1808.0699462890625
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Carrier.md",
+      "x": 399.6909484863281,
+      "y": -1794.10302734375
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Warrior.md",
+      "x": 252.95513916015625,
+      "y": -1553.623291015625
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Modules/GolemCatalog.md",
+      "x": 2854.713623046875,
+      "y": -417.67816162109375
+    },
+    {
+      "id": "Index",
+      "x": 1846.9871244394255,
+      "y": -503.3450371475844
+    },
+    {
+      "id": "Places/My Mining Golems/2D/Index/Index.md",
+      "x": 1988.014892578125,
+      "y": -951.6304931640625
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Golem Cave/Golem Cave.md",
+      "x": 1756.0330810546875,
+      "y": -761.96923828125
     }
   ],
-  "pinnedNodes": [],
+  "pinnedNodes": [
+    "Places/My Mining Golems/2D/Loading Screen/Loading Screen.md"
+  ],
   "snapshots": [],
   "globalOptions": {},
   "workspacesGraphData": {},

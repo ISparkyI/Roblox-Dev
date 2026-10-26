@@ -133,6 +133,7 @@ local function makeButton(parent, x, y, w, h, opt)
 	local b = StyleA.new(parent, { size = Vector2.new(w, h), position = Vector2.new(x, y), color = opt.color, text = opt.text,
 		textSize = opt.textSize, icon = opt.icon, iconPad = opt.iconPad, clickable = true, shine = opt.shine, zIndex = opt.z + 1 })
 	b.shadow = sh
+	StyleA.follow(b, sh) -- тінь масштабується й хитається разом з кнопкою
 	b.onClick = nil
 	StyleA.bind(b, { debounce = opt.debounce or 0.15, hoverAlways = true, onClick = function() if b.onClick then b.onClick(b) end end })
 	return b
@@ -264,6 +265,7 @@ local function makeSlot(parent, x, y, S, mini)
 	hit.InputEnded:Connect(function(inp) if isPress(inp) then s.down = false; wakeHover(s) end end)
 	hit.Activated:Connect(function()
 		if slotIsDragging and slotIsDragging() then return end
+		StyleA.tap() -- звук натискання (слот — не StyleA.bind)
 		if s.onClick then s.onClick(s) end
 	end)
 	function s.shake()
@@ -300,11 +302,11 @@ local function rebuild()
 	for _, g in decodeAttr("InvGolems", {}) do
 		local def = Items.GOLEMS[g.kind]
 		if def and type(g.id) == "number" then
-			local st = Cfg.stats(g.kind)
+			local st = Cfg.stats(g.kind, g.mut)
 			local cls = g.cls == "carrier" and "c" or "m"
-			local it = { id = g.id, kind = g.kind, cls = cls, name = def.name, icon = def.icon, tone = Items.RARITY[def.rarity] or WHITE,
-				stat = cls == "m" and string.format("%d dmg · %.1fs", st.dmg, st.int) or string.format("%d ore · %d sp", st.cap, st.spd),
-				power = cls == "m" and Cfg.minerPower(g.kind) or Cfg.carrierPower(g.kind) }
+			local it = { id = g.id, kind = g.kind, mut = g.mut, cls = cls, name = def.name, icon = def.icon, tone = Items.RARITY[def.rarity] or WHITE,
+				stat = cls == "m" and string.format("%d dmg · %.2fs", st.dmg, st.int) or string.format("%d ore · %.1f sp", st.cap, st.spd),
+				power = cls == "m" and Cfg.minerPower(g.kind, g.mut) or Cfg.carrierPower(g.kind, g.mut) }
 			table.insert(golems, it); byId[g.id] = it
 		end
 	end
@@ -365,10 +367,12 @@ local bAnim = new("CanvasGroup", { Name = "Anim", BackgroundTransparency = 1, An
 	Size = UDim2.fromOffset(300 + 2 * BPX, 120 + 2 * BPY), GroupTransparency = 1 }, bRoot)
 local bPop = new("UIScale", { Scale = 0.8 }, bAnim)
 local bTag = textAt(bAnim, BPX, BPY + 14, 300, 20, "", WHITE, 2.6, { FontFace = XBOLD })
-frame(bAnim, BPX, BPY + 38 + 7, 300, 80, BLACK, { BackgroundTransparency = 0.7 })
+local placeShadow = frame(bAnim, BPX, BPY + 38 + 7, 300, 80, BLACK, { BackgroundTransparency = 0.7 })
 -- anchor за замовчуванням (центр) — наведення й натискання масштабують кнопку від центру
 local placeBtn = StyleA.new(bAnim, { size = Vector2.new(300, 80), position = Vector2.new(BPX, BPY + 38), color = "green", text = "",
 	clickable = true, zIndex = 2 })
+StyleA.follow(placeBtn, placeShadow) -- тінь і надпис плоту над кнопкою масштабуються й хитаються разом з нею
+StyleA.follow(placeBtn, bTag)
 do
 	local fx, fy, fw, fh = StyleA.faceRect(300, 80)
 	new("ImageLabel", { BackgroundTransparency = 1, Image = Items.GOLEMS.stone.icon, ScaleType = Enum.ScaleType.Fit,
@@ -675,7 +679,18 @@ close = function()
 	end)
 end
 closeBtn.onClick = function() close() end
-backdrop.InputBegan:Connect(function(inp) if isPress(inp) then close() end end)
+-- затемнення закриває вікно лише кліком ПОЗА вікном (InputBegan затемнення спрацьовує й під самим вікном,
+-- winF.Active цього не зупиняє). Позиція кліку й AbsolutePosition — в одному просторі (без GetGuiInset; заміряно в Play).
+local function insideGui(p: Vector3, g: GuiObject?): boolean
+	if not (g and g.Visible) then return false end
+	local a, sz = g.AbsolutePosition, g.AbsoluteSize
+	return p.X >= a.X and p.X <= a.X + sz.X and p.Y >= a.Y and p.Y <= a.Y + sz.Y
+end
+backdrop.InputBegan:Connect(function(inp)
+	if not isPress(inp) then return end
+	if insideGui(inp.Position, winF) or insideGui(inp.Position, title) or insideGui(inp.Position, closeBtn.root) then return end
+	close()
+end)
 
 local curPlot = 0
 -- плавна поява (0,2 с, Back) і зникнення (0,15 с) кнопки PLACE GOLEMS

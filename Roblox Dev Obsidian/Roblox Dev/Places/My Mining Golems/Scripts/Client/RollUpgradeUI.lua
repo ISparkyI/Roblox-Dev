@@ -116,7 +116,9 @@ local function card(parent, x, y, kind, title)
 	frame(holder, o.X, o.Y + 14, CW, CH, Color3.new(0, 0, 0), { BackgroundTransparency = 0.65 })
 	local c = frame(holder, o.X, o.Y, CW, CH, WHITE); vgrad(c, th.grad); stroke(c, INK, 6)
 	-- studs на картці (ледь помітні)
-	local sg = new("CanvasGroup", { Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, GroupTransparency = 0.68 }, c)
+	-- шар studs — звичайний Frame (CanvasGroup у таблах на слабкій графіці не малювався); прозорість 0.68 — кожній пупочці
+	local sg = new("Frame", { Name = "Studs", Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, ClipsDescendants = true }, c)
+	task.defer(function() for _, d in sg:GetChildren() do if d:IsA("GuiObject") then d.BackgroundTransparency = 0.68 end end end)
 	local cell = 46
 	for cx = 0, math.ceil((CW - 20) / cell) - 1 do
 		for cy = 0, math.ceil((CH - 20) / cell) - 1 do
@@ -140,9 +142,10 @@ local function card(parent, x, y, kind, title)
 	-- кнопка купівлі — «стиль A» (Shared/StyleA): green — грошей вистачає, gray — не вистачає або MAX; напис — ціна / MAX.
 	-- Квадратна тінь під нею лишилася.
 	local bx, by, bw, bh = 95, 650, CW - 190, 102
-	frame(c, bx, by + 8, bw, bh, Color3.new(0, 0, 0), { BackgroundTransparency = 0.7 })
+	local saShadow = frame(c, bx, by + 8, bw, bh, Color3.new(0, 0, 0), { BackgroundTransparency = 0.7 })
 	local sa = StyleA.new(c, { size = Vector2.new(bw, bh), position = Vector2.new(bx, by), color = "green", text = "", textSize = 60,
 		clickable = true, zIndex = 2 })
+	StyleA.follow(sa, saShadow) -- тінь кнопки масштабується й хитається разом з нею
 	CardHover.attach(holder, c, nil, 0.95) -- картки на 5 % менші
 	return { card = c, value = value, btn = sa.button, sa = sa }
 end
@@ -236,7 +239,7 @@ local function build(niche: Model, screenPart: BasePart)
 	if mine then
 		-- наведення 1,04 завжди; натискання 0,92 + Back і запит, якщо можна; інакше (грошей нема / MAX) — хитання
 		local function hookButton(b, what, canBuy)
-			for _, cn in StyleA.bind(b.sa, { hoverAlways = true, canClick = canBuy, onClick = function() UISfx.play("BuySound"); remote:FireServer(what) end }) do
+			for _, cn in StyleA.bind(b.sa, { hoverAlways = true, tap = false, canClick = canBuy, onClick = function() UISfx.play("BuySound"); remote:FireServer(what) end }) do
 				table.insert(conns, cn)
 			end
 		end

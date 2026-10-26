@@ -11,6 +11,7 @@
 -- Налаштування (opts) можна також задати атрибутами на targetModel з префіксом "Chips":
 --   ChipsCount, ChipsSpeed, ChipsLift, ChipsGravity, ChipsLife, ChipsSize, ChipsRadius
 local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
 
 export type Options = {
 	count: number?,   -- скільки блоків (за замовчуванням 10)
@@ -106,6 +107,9 @@ function HitChips.spawn(target: Instance, point: Vector3, opts: Options?)
 		})
 	end
 	folder.Parent = workspace
+	-- страховка: якщо скрипт, що викликав spawn (напр. руда), знищать раніше — з'єднання PreRender порветься,
+	-- і уламки застигли б назавжди. Debris прибере папку в будь-якому разі.
+	Debris:AddItem(folder, life * 1.3 + 0.5)
 
 	local conn: RBXScriptConnection
 	conn = RunService.PreRender:Connect(function(dt)

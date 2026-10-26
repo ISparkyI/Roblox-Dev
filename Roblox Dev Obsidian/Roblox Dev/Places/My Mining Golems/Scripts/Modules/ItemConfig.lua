@@ -5,40 +5,48 @@
 -- Ключі предметів (атрибути гравця й записи в хотбарі / замках):
 --   Ore_<руда>, Bars_<руда> — кількість (атрибут гравця, стак);
 --   Pot_<зілля>            — кількість (атрибут гравця, стак);
---   Golem_<id>             — один голем (не стакається), список — атрибут InvGolems (JSON: { { id, kind, cls } }, cls = "miner" | "carrier").
+--   Golem_<id>             — один голем (не стакається), список — атрибут InvGolems (JSON: { { id, kind, cls, mut } }, cls = "miner" | "carrier",
+--                            kind — ID з Shared/GolemCatalog, mut — мутація 0..7 (Normal … Secret)).
 -- ЗІЛЛЯ ТА ГОЛЕМИ В ІНВЕНТАРІ ПОКИ ТЕСТОВІ: справжніх джерел ще немає (TEST_* нижче — лише в Studio). Ефекти зіль — пропозиція.
 
 local RS = game:GetService("ReplicatedStorage")
 local Forge = require(RS:WaitForChild("Shared"):WaitForChild("ForgeConfig"))
+local Catalog = require(RS.Shared:WaitForChild("GolemCatalog"))
 
 local Config = {}
 
+-- v11: іконки вікна інвентаря — з ЧОРНИМ контуром #14161a (було темно-синє #040435); PNG з alpha bleed — 2D/Inventory/Roblox/Import/inv_*_black.png.
+-- Старі сині: tab 125478992512505 / 97817560625726 / 91234342811407, trash 79551145743198, class 115946913940598 / 87884014503341 /
+-- 123455117137229 / 108036414056048, lock 122986621331664 (лишився в ключі lock — його беруть PlotPlaceUI та ін.; вікно інвентаря — lock_inv).
 Config.ICONS = {
-	tab_golems = "rbxassetid://125478992512505",
-	tab_orebars = "rbxassetid://97817560625726",
-	tab_potions = "rbxassetid://91234342811407",
-	trash = "rbxassetid://79551145743198",
-	lock = "rbxassetid://122986621331664",
+	tab_golems = "rbxassetid://132588280251317", -- Decal 87341965770671
+	tab_orebars = "rbxassetid://82803716444486", -- Decal 126024652571602
+	tab_potions = "rbxassetid://107838701777534", -- Decal 93090014428648
+	trash = "rbxassetid://120989908152671", -- Decal 139733127224132
+	lock = "rbxassetid://122986621331664", -- синій контур, спільний (PlotPlaceUI)
+	lock_inv = "rbxassetid://112378939202920", -- чорний контур, лише вікно інвентаря; Decal 124530810095799
+	-- іконки класів големів (фільтр і бейдж класу у вкладці Golems; чорний контур) — Decal 104042371086279 / 126226004587557 / 123113475648368 / 109371183196293
+	class_all = "rbxassetid://133379840933307",
+	class_miner = "rbxassetid://132282696885007",
+	class_carrier = "rbxassetid://113998728310073",
+	class_warrior = "rbxassetid://80087764058950",
 }
 -- іконки руди й злитків — ті самі, що у вікнах Forge / Sell (StyleA.ASSETS forge_*_v2 і старі ID злитків); їх бере клієнт
 
-Config.RARITY = {
-	Common = Color3.fromHex("9aa3ad"), Rare = Color3.fromHex("3aa6ff"), Epic = Color3.fromHex("c86bff"), Legendary = Color3.fromHex("ffc531"),
-}
+-- кольори рідкостей і големи — з каталогу (Shared/GolemCatalog). GOLEMS[kind] = { name, rarity, icon } — і для нових ID,
+-- і для старих тестових (wood, iron, gold, crystal → LEGACY каталогу).
+Config.RARITY = Catalog.RARITY_COLOR
+Config.GOLEMS = {}
+for id, g in Catalog.GOLEMS do Config.GOLEMS[id] = { id = id, name = g.name, rarity = g.rarity, icon = Catalog.icon(id) } end
+for old, id in Catalog.LEGACY do Config.GOLEMS[old] = Config.GOLEMS[id] end
 
-Config.GOLEMS = {
-	stone = { name = "Stone Golem", rarity = "Common", icon = "rbxassetid://97975821667403", rate = "1.0" },
-	wood = { name = "Wooden Golem", rarity = "Common", icon = "rbxassetid://118736528199973", rate = "0.8" },
-	iron = { name = "Iron Golem", rarity = "Rare", icon = "rbxassetid://133852237833502", rate = "1.6" },
-	gold = { name = "Gold Golem", rarity = "Epic", icon = "rbxassetid://85164603125451", rate = "2.4" },
-	crystal = { name = "Crystal Golem", rarity = "Legendary", icon = "rbxassetid://125678918437751", rate = "4.0" },
-}
-
+-- іконки зіль — чорний контур (v11; Decal 84992888615631 / 106371858172694 / 137160155648393 / 125716812647925;
+-- старі сині 77111033032321 / 122021343930732 / 119643786018694 / 132897787342374)
 Config.POTIONS = {
-	{ key = "Luck", name = "Luck Potion", icon = "rbxassetid://77111033032321", tone = Color3.fromHex("7ef05a"), desc = "+25% roll luck · 5 min" },
-	{ key = "Speed", name = "Speed Potion", icon = "rbxassetid://122021343930732", tone = Color3.fromHex("5cc8ff"), desc = "Golems mine 2× faster · 5 min" },
-	{ key = "Money", name = "Money Potion", icon = "rbxassetid://119643786018694", tone = Color3.fromHex("ffd23a"), desc = "×2 Money · 10 min" },
-	{ key = "Strength", name = "Strength Potion", icon = "rbxassetid://132897787342374", tone = Color3.fromHex("ff5c6e"), desc = "+50% damage to ore · 5 min" },
+	{ key = "Luck", name = "Luck Potion", icon = "rbxassetid://91725236109491", tone = Color3.fromHex("7ef05a"), desc = "+25% roll luck · 5 min" },
+	{ key = "Speed", name = "Speed Potion", icon = "rbxassetid://139490627845083", tone = Color3.fromHex("5cc8ff"), desc = "Golems mine 2× faster · 5 min" },
+	{ key = "Money", name = "Money Potion", icon = "rbxassetid://104193388781391", tone = Color3.fromHex("ffd23a"), desc = "×2 Money · 10 min" },
+	{ key = "Strength", name = "Strength Potion", icon = "rbxassetid://82686194310657", tone = Color3.fromHex("ff5c6e"), desc = "+50% damage to ore · 5 min" },
 }
 
 Config.ORE_TONE = { Coal = Color3.fromHex("6d737c"), Copper = Color3.fromHex("e0743c"), Iron = Color3.fromHex("d9b08a") }
@@ -47,8 +55,9 @@ Config.MAX_GOLEMS = 40
 
 -- ТЕСТ (лише Studio, лише коли в збереженні ще немає секції Inventory): зілля й големи для перевірки вкладок
 Config.TEST_POTIONS = { Luck = 2, Speed = 1, Money = 3, Strength = 1 }
--- запис "вид" або "вид:carrier" — клас голема (майнер за замовчуванням; GDD 4.1, плоти — GDD 5)
-Config.TEST_GOLEMS = { "stone", "stone", "wood", "wood:carrier", "wood", "iron", "iron:carrier", "gold", "crystal", "stone:carrier", "iron", "wood", "gold" }
+-- запис "ID", "ID:carrier", "ID@мутація" (0..7) — клас (майнер за замовчуванням) і мутація (Normal за замовчуванням)
+Config.TEST_GOLEMS = { "wooden", "wooden:carrier", "stone", "stone@3", "stone:carrier", "clay", "gravel:carrier", "mossback@1", "flint",
+	"rustbolt:carrier", "lantern", "ironclad@2", "quartzling", "silverjaw:carrier", "geode", "obsidian@5", "magmaheart", "aurelian", "astral@7" }
 
 -- усі стакові ключі (порядок = порядок у вкладках)
 function Config.stackKeys(): { string }

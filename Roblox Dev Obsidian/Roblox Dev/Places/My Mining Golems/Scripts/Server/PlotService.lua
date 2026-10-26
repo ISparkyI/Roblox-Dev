@@ -11,10 +11,13 @@
 --     не в ящику, не на рудах і големах, випадковий поворот). Руда: Coal / Copper / Iron за вагами 1/3, 1/9, 1/20,
 --     розмір жили S / M / L (60 / 30 / 10%): HP 5 / 15 / 30 × 1 / 1,25 / 1,5 (вгору). З руди падає 1–3 шматки (60 / 30 / 10%)
 --     × 1 / 1,5 / 2 за розміром (вниз) × картка Ore Drop (вниз).
---   * Майнер іде до найближчої вільної руди (її ніхто не б'є) і б'є її: шкода dmg раз на int с.
+--   * Майнер іде до найближчої вільної руди (її ніхто не б'є) і б'є її: шкода dmg раз на int с (числа — Shared/GolemCatalog
+--     через PlotConfig.stats(kind, mut): рух 8 × Швидкість стад/с, удар раз на 1,40 / Швидкість с).
 --     Вільної руди немає — приєднується до руди, яку вже б'ють, і стає по колу між іншими майнерами (до 3 на руду);
 --     з'явилась вільна — один із «зайвих» переходить на неї. Зламана руда → шматок падає на підлогу; шматки однієї руди поруч зливаються в стак (Count).
 --   * Носій (1 на плот) збирає стаки в ящичок (cap за ходку, швидкість spd × картка Carry), несе до ящика плоту й висипає.
+--     Стак, до якого він іде, зник (підібрав гравець / вийшов час) — носій одразу з поточного місця йде до іншого стака /
+--     ящика / додому, без анімації підбору.
 --     Руду на підлозі гравець-власник підбирає сам: підходить ближче PICKUP_R — шматки летять до нього й ідуть в інвентар.
 --     Стак, який ніхто не підібрав STACK_LIFE с (від останнього шматка), зникає (останні 5 с блимає).
 --     Ящик плоту вміщає crateOf(Crate) руди (10 → 1000); повний — носій чекає біля нього з рудою в ящичку.
@@ -54,7 +57,7 @@ type Ore = { model: Model, key: string, size: any, hp: number, max: number, pos:
 	angles: { [any]: number }, readyAt: number } -- angles: кут кожного майнера навколо руди (щоб спільна руда — по колу, а не один в одному)
 type Stack = { model: Model, key: string, n: number, pos: Vector3, label: TextLabel, dead: boolean, t: number }
 type Golem = {
-	id: number, kind: string, role: string, model: Model, pos: Vector3,
+	id: number, kind: string, mut: number, role: string, model: Model, pos: Vector3,
 	mode: string, until_: number, ore: Ore?, nextHit: number, stack: Stack?, load: { string },
 	from: Vector3, to: Vector3, t0: number, dur: number,
 }
@@ -310,10 +313,10 @@ local function setLoad(g: Golem)
 	g.model:SetAttribute("LoadOres", table.concat(g.load, ","))
 end
 
-local function spawnGolem(pl: Plot, id: number, kind: string, role: string): Golem
+local function spawnGolem(pl: Plot, id: number, kind: string, role: string, mut: number?): Golem
 	local m = ASSETS.Golem:Clone()
 	m.Name = (role == "carrier" and "Carrier_" or "Miner_") .. id
-	m:SetAttribute("GolemId", id); m:SetAttribute("Kind", kind); m:SetAttribute("Role", role)
+	m:SetAttribute("GolemId", id); m:SetAttribute("Kind", kind); m:SetAttribute("Role", role); m:SetAttribute("Mut", mut or 0)
 	m:SetAttribute("Carry", role == "carrier")
 	if role == "carrier" then
 		local pick = m:FindFirstChild("Pickaxe")
@@ -327,7 +330,7 @@ local function spawnGolem(pl: Plot, id: number, kind: string, role: string): Gol
 	m:PivotTo(CFrame.new(pos))
 	enableScripts(m)
 	local g: Golem = {
-		id = id, kind = kind, role = role, model = m, pos = pos, mode = "idle", until_ = 0, ore = nil, nextHit = 0,
+		id = id, kind = kind, mut = mut or 0, role = role, model = m, pos = pos, mode = "idle", until_ = 0, ore = nil, nextHit = 0,
 		stack = nil, load = {}, from = pos, to = pos, t0 = 0, dur = 0,
 	}
 	stand(g, "Idle", pos + (pl.cf.LookVector * -5))
@@ -405,7 +408,7 @@ local function standPoint(pl: Plot, g: Golem, o: Ore): Vector3
 end
 
 local function tickMiner(st: State, pl: Plot, g: Golem, t: number)
-	local s = Cfg.stats(g.kind)
+	local s = Cfg.stats(g.kind, g.mut)
 	if g.mode == "move" then
 		if g.ore and g.ore.dead then -- руду зламав інший майнер, поки цей ішов: зупиняємось там, де він зараз
 			g.ore = nil
@@ -436,7 +439,7 @@ local function tickMiner(st: State, pl: Plot, g: Golem, t: number)
 				releaseOre(g)
 				g.ore = f
 				f.miners += 1
-				local dur = setMove(g, standPoint(pl, g, f), Cfg.MINER_SPEED, "Walk")
+				local dur = setMove(g, standPoint(pl, g, f), s.mspd, "Walk")
 				g.mode = "move"
 				g.until_ = t + dur
 				return
@@ -467,7 +470,7 @@ local function tickMiner(st: State, pl: Plot, g: Golem, t: number)
 	g.ore = o
 	o.miners += 1
 	local dest = standPoint(pl, g, o)
-	local dur = setMove(g, dest, Cfg.MINER_SPEED, "Walk")
+	local dur = setMove(g, dest, s.mspd, "Walk")
 	g.mode = "move"
 	g.until_ = t + dur
 end
@@ -530,8 +533,16 @@ local function collect(st: State, pl: Plot)
 end
 
 local function tickCarrier(st: State, pl: Plot, g: Golem, t: number)
-	local s = Cfg.stats(g.kind)
+	local s = Cfg.stats(g.kind, g.mut)
 	local speed = s.spd * Cfg.carryOf(st.lv.Carry or 1)
+	-- цільовий стак зник, поки носій ішов (підібрав гравець / вийшов час): зупиняємось там, де він зараз,
+	-- і в цьому ж тіку обираємо нову ціль (інший стак / ящик / додому) — без анімації підбору на порожньому місці
+	if g.mode == "fetch" and (g.stack == nil or (g.stack :: Stack).dead) then
+		g.stack = nil
+		g.pos = g.from:Lerp(g.to, math.clamp((t - g.t0) / math.max(g.dur, 1e-3), 0, 1))
+		g.mode = "idle"
+		g.until_ = t
+	end
 	if t < g.until_ then return end
 	if g.mode == "fetch" then
 		g.pos = g.to
@@ -660,7 +671,7 @@ local function syncGolems(st: State)
 				want[g.id] = nil
 			end
 		end
-		for id, role in want do spawnGolem(pl, id, inv[id].kind, role) end
+		for id, role in want do spawnGolem(pl, id, inv[id].kind, role, inv[id].mut) end
 	end
 end
 
@@ -687,14 +698,14 @@ end
 local function equipBest(st: State)
 	local inv = invGolems(st.player)
 	local miners, carriers = {}, {}
-	for id, g in inv do table.insert(roleOf(g) == "carrier" and carriers or miners, { id = id, kind = g.kind }) end
+	for id, g in inv do table.insert(roleOf(g) == "carrier" and carriers or miners, { id = id, kind = g.kind, mut = g.mut }) end
 	table.sort(miners, function(a, b)
-		local pa, pb = Cfg.minerPower(a.kind), Cfg.minerPower(b.kind)
+		local pa, pb = Cfg.minerPower(a.kind, a.mut), Cfg.minerPower(b.kind, b.mut)
 		if pa ~= pb then return pa > pb end
 		return a.id < b.id
 	end)
 	table.sort(carriers, function(a, b)
-		local pa, pb = Cfg.carrierPower(a.kind), Cfg.carrierPower(b.kind)
+		local pa, pb = Cfg.carrierPower(a.kind, a.mut), Cfg.carrierPower(b.kind, b.mut)
 		if pa ~= pb then return pa > pb end
 		return a.id < b.id
 	end)

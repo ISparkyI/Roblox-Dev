@@ -21,6 +21,7 @@ local UIS = game:GetService("UserInputService")
 
 local NF = require(RS:WaitForChild("Shared"):WaitForChild("NumberFormat"))
 local MultiCfg = require(RS:WaitForChild("Shared"):WaitForChild("MultiConfig"))
+local UISounds = require(RS:WaitForChild("Shared"):WaitForChild("UISounds")) -- звук натискання «+»
 local player = Players.LocalPlayer
 
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
@@ -137,7 +138,7 @@ btn.MouseEnter:Connect(function() tw(btnScale, 0.12, { Scale = 1.06 }) end)
 btn.MouseLeave:Connect(function() tw(btnScale, 0.12, { Scale = 1 }) end)
 btn.MouseButton1Down:Connect(function() tw(btnScale, 0.08, { Scale = 0.92 }) end)
 btn.MouseButton1Up:Connect(function() tw(btnScale, 0.15, { Scale = 1.06 }, Enum.EasingStyle.Back) end)
-btn.Activated:Connect(function() plusEvent:Fire() end)
+btn.Activated:Connect(function() UISounds.play("tap", 0.08); plusEvent:Fire() end)
 
 -- ===== розміщення й масштаб =====
 local function isPhone(vp: Vector2): boolean

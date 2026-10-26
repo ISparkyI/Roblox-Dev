@@ -8,12 +8,24 @@
 --   над хотбаром «Coal ×25 · in hand»). Перемкнувся на інший — попередній слот лишається.
 --   Стандартний рюкзак Roblox вимкнено (StarterGui Backpack).
 -- Вікно: вкладки Golems / Ores·Bars / Potions (власні іконки), сітка слотів 5 у ряд (гортається колесом, перетягуванням і повзунком),
---   клік по предмету — картка внизу (Hold / Put Away, Hotbar / Unpin). Внизу ліворуч: червона кнопка з кошиком — режим видалення,
+--   клік по предмету — картка внизу (Hold / Put Away, Hotbar / Unpin). Нічого не вибрано (у режимах — нічого не
+--   позначено) — картка схована, сітка займає її місце (3 ряди); вибрали — картка виїжджає, сітка коротшає, вибраний слот лишається видимим. Внизу ліворуч: червона кнопка з кошиком — режим видалення,
 --   жовта із замком — режим блокування. У режимі інші вкладки ховаються, з'являються Select All (на все — Deselect All) і
 --   Delete (N) → вікно підтвердження / Lock (N) або Unlock (N). Заблоковане не видаляється (притемнене, «LOCKED»), але його можна
---   брати в руку. Cancel або Esc — вихід з режиму.
--- Наведення на слот: ×1,025 і нахил до 1,5° (нахиляється лише картка слота), натискання 0,96. Звук наведення слота —
---   SoundService/SlotHover (порожній SoundId — тиша; спільний з вікном Sell).
+--   брати в руку. Cancel або Esc — вихід з режиму. У режимах — вибір перетягуванням: затиснув на слоті й ведеш
+--   по інших (перший слот задає: позначати чи знімати), біля краю сітки — автопрокрутка.
+-- Заголовок INVENTORY — коричневий перелив і іконка рюкзака зліва (нахил −8°). Все, що належить кнопці (текст, іконка, лічильник, тінь),
+--   рухається разом із нею при наведенні / натисканні / хитанні.
+-- Фільтр класу (лише вкладка Golems, макет 2D/Inventory/Preview/inventory_filter_mock.html): у заголовку між «Golems» і лічильником —
+--   4 квадратні кнопки 48×48 All / Miners / Carriers / Warriors (іконки ItemConfig.ICONS.class_*), вибрана — зелена, решта — сірі,
+--   у кутку — кількість големів цього класу, наведення — підказка. Видно лише свій клас; лічильник «N / 40 golems» — усі големи;
+--   вибраний голем лишається вибраним, якщо він у фільтрі; Select All у режимах бере лише видимих; порожній клас — «No warriors yet».
+--   Фільтр скидається на All щоразу, коли відкривають вікно.
+-- Бейдж класу голема (кайло / ящик з рудою / меч): на слоті зліва посередині (30×30), на хотбарі — 22×22, у картці — біля іконки.
+--   Назва голема з номером хотбара звужується до S − 44 (TextScaled + UITextSizeConstraint), щоб не залазити під синій значок.
+-- Наведення на слот: ×1,025 і нахил до 1,5° (нахиляється лише картка слота), натискання 0,96. Звуки — Shared/UISounds:
+--   наведення на слот (сітка, хотбар) — "hover" (не частіше за 0,05 с), клік по слоту — "tap". Кнопки StyleA (вкладки, фільтр тощо)
+--   отримують tap централізовано (StyleA.bind), а hover — від UIHoverAuto; тут їх не дублюємо.
 -- Дані: атрибути гравця Ore_*, Bars_*, Pot_*, InvGolems, InvLocks, InvHotbar, InvHeld (ставить сервер InventoryService);
 --   дії — Remotes/InventoryAction ("Delete", "Lock", "Hotbar", "Hold"). Предмети — Shared/ItemConfig.
 
@@ -30,6 +42,7 @@ local HttpService = game:GetService("HttpService")
 
 local Forge = require(RS:WaitForChild("Shared"):WaitForChild("ForgeConfig"))
 local Items = require(RS.Shared:WaitForChild("ItemConfig"))
+local Catalog = require(RS.Shared:WaitForChild("GolemCatalog")) -- назви, рідкість, стати големів
 local NF = require(RS.Shared:WaitForChild("NumberFormat"))
 local StyleA = require(RS.Shared:WaitForChild("StyleA"))
 local ItemVP = require(RS.Shared:WaitForChild("ItemViewport")) -- 3D-моделі руди й злитків у слотах замість PNG
@@ -52,8 +65,9 @@ local ICON_BAR = { Coal = "rbxassetid://101473380326305", Copper = "rbxassetid:/
 local CANVAS_W, CANVAS_H = 1080, 640
 local WX, WY, WW, WH = 50, 74, 980, 528 -- вікно
 local TX, TW, TH = 40, 222, 92          -- вкладки
-local GX, GY, GW, GH = 288, 106, 636, 278 -- сітка
-local GS, GG, GCOLS, GP = 102, 24, 5, 12
+local GX, GY, GW, GH = 288, 106, 652, 278 -- сітка (GH — висота, коли внизу видно картку вибраного предмета)
+local GH_FULL = 392 + 100 - GY           -- сітка без картки (нічого не вибрано): до низу картки
+local GS, GG, GCOLS, GP = 100, 32, 5, 12 -- v9: проміжок між слотами 24 → 32 (слот 100, сітка ширша на 16)
 local HS, HG = 74, 8                    -- хотбар
 local HB_W = Items.HOTBAR * HS + (Items.HOTBAR - 1) * HG
 local GLOW_N = 16
@@ -155,6 +169,13 @@ local function makeButton(parent, x, y, w, h, opt)
 	local b = StyleA.new(parent, { size = Vector2.new(w, h), position = Vector2.new(x, y), color = opt.color, text = opt.text,
 		textSize = opt.textSize, icon = opt.icon, iconPad = opt.iconPad, clickable = true, shine = opt.shine, zIndex = opt.z + 1 })
 	b.shadow = sh
+	-- тінь рухається разом із кнопкою: той самий масштаб (наведення / натискання) і зсув (хитання)
+	local shScale = new("UIScale", {}, sh)
+	b.scale:GetPropertyChangedSignal("Scale"):Connect(function() shScale.Scale = b.scale.Scale end)
+	b.root:GetPropertyChangedSignal("Position"):Connect(function()
+		local p = b.root.Position
+		sh.Position = UDim2.new(p.X.Scale, p.X.Offset - w * b.anchor.X, p.Y.Scale, p.Y.Offset - h * b.anchor.Y + opt.shadowDy)
+	end)
 	b.base = opt.color
 	b.onClick = nil
 	if opt.noSound then b.root:SetAttribute("NoHoverSound", true) end
@@ -188,10 +209,10 @@ end
 local GLOW_ITEM = glowTable(0.85, 0.9)
 local GLOW_EMPTY = glowTable(0.16, 1.4)
 
-local function slotHoverSound()
-	local s = SoundService:FindFirstChild("SlotHover")
-	if s and s:IsA("Sound") and s.SoundId ~= "" then s.TimePosition = 0; s:Play() end
-end
+-- звуки слотів — спільний модуль Shared/UISounds (той самий звук наведення, що на кнопках і картках)
+local UISounds = require(RS.Shared:WaitForChild("UISounds"))
+local function slotHoverSound() UISounds.play("hover", 0.05) end
+local function slotTapSound() UISounds.play("tap", 0.08) end
 
 -- лаймова / червона / жовта галочка в колі: темне коло 30, кольоровий круг 24 з бліком, темна «пташка» з круглими кінцями.
 -- Без UIStroke (обвідка UIStroke у слоті давала чорний квадрат під кружком). Колір круга — check.Fill.BackgroundColor3.
@@ -209,6 +230,23 @@ local function makeCheck(parent, x, y, color)
 	seg(9.5, 15.5, 13.5, 19.5, 4)
 	seg(13.5, 19.5, 21, 10.5, 4)
 	return ring
+end
+
+-- значок класу голема: лише іконка класу (темний контур у неї свій), без підкладки; під нею легка тінь (та сама іконка чорним, +2 вниз).
+-- sz 30 (слот, картка) або 22 (хотбар). b.set(cls) — показує іконку класу ("miner" | "carrier" | "warrior"), nil — ховає.
+local CLASS_ICON = { all = Items.ICONS.class_all, miner = Items.ICONS.class_miner, carrier = Items.ICONS.class_carrier, warrior = Items.ICONS.class_warrior }
+local CLASS_NAME = { miner = "Miner", carrier = "Carrier", warrior = "Warrior" }
+local function classBadge(parent, x, y, sz, z)
+	local f = frame(parent, x, y, sz, sz, nil, { Name = "ClassBadge", BackgroundTransparency = 1, ZIndex = z, Visible = false })
+	local shadow = new("ImageLabel", { Name = "Shadow", BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(0, sz > 24 and 2 or 1.5),
+		Size = UDim2.fromOffset(sz, sz), ImageColor3 = BLACK, ImageTransparency = 0.6, ZIndex = 1 }, f)
+	local icon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(sz, sz), ZIndex = 2 }, f)
+	local b = { root = f, icon = icon, shadow = shadow }
+	function b.set(cls: string?)
+		f.Visible = cls ~= nil
+		if cls then icon.Image = CLASS_ICON[cls] or ""; shadow.Image = icon.Image end
+	end
+	return b
 end
 
 -- ===== наведення слотів (×1,025, нахил до 1,5°, натискання 0,96) =====
@@ -268,13 +306,16 @@ local function makeSlot(parent, x, y, S, mini)
 	local icon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(P + pad, P + pad * (mini and 0.8 or 0.75)),
 		Size = UDim2.fromOffset(iw, iw), ZIndex = 4, Visible = false }, card)
 	local name = textAt(card, P + 7, P + 16, S - 10, 14, "", WHITE, 2.2, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 5, Visible = false })
+	local nameMax = new("UITextSizeConstraint", { MaxTextSize = 14, MinTextSize = 8 }, name) -- для звуженої назви (поруч номер хотбара)
 	local cnt = textAt(card, P, P + S - (mini and 14 or 17), S - 8, mini and 19 or 22, "", WHITE, 2.6, { TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 5, Visible = false })
 	local rar = textAt(card, P, P + S - 14, S - 8, 13, "", WHITE, 2, { TextXAlignment = Enum.TextXAlignment.Right, FontFace = XBOLD, ZIndex = 5, Visible = false })
 	local keyNum = mini and textAt(card, P + 6, P + 13, 30, 15, "", C("c9ced4"), 2.2, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6 }) or nil
 	local ring = frame(card, P - 1, P - 1, S + 2, S + 2, nil, { BackgroundTransparency = 1, ZIndex = 7, Visible = false })
 	local ringStroke = stroke(ring, C("c8ff6a"), 4)
-	local lockImg = new("ImageLabel", { BackgroundTransparency = 1, Image = Items.ICONS.lock, ScaleType = Enum.ScaleType.Fit, ZIndex = 8, Visible = false,
+	local lockImg = new("ImageLabel", { BackgroundTransparency = 1, Image = Items.ICONS.lock_inv or Items.ICONS.lock, ScaleType = Enum.ScaleType.Fit, ZIndex = 8, Visible = false,
 		Position = UDim2.fromOffset(P + (mini and -5 or -8), P + S - (mini and 24 or 32)), Size = UDim2.fromOffset(mini and 26 or 36, mini and 26 or 36) }, holder)
+	-- бейдж класу голема: у сітці 30×30 зліва посередині (між назвою й замком), у хотбарі 22×22; у вікні підтвердження — без бейджа
+	local badge = (not mini and classBadge(holder, P - 7, P + 36, 30, 8)) or (S == HS and classBadge(holder, P - 5, P + 24, 22, 8)) or nil
 	local check = makeCheck(holder, P + S - 18, P - 10, C("ff4f5e"))
 	local hot = nil -- значок «у хотбарі N»
 	local hit = new("TextButton", { Name = "Hit", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Position = UDim2.fromOffset(P, P),
@@ -293,9 +334,18 @@ local function makeSlot(parent, x, y, S, mini)
 		toneStroke.Color = tc; toneStroke.Transparency = has and 0.67 or 0.94
 		icon.Visible = has
 		if has then icon.Image = it.icon end
-		ItemVP.set(icon, has and it.key or nil)
+		ItemVP.set(icon, has and (it.vp or it.key) or nil) -- голем з моделлю — it.vp ("GolemVP:<ID>:<клас>")
 		name.Visible = has and not mini
-		if has and not mini then name.Text = it.name; name.TextSize = (#it.name > 12) and 12 or 14 end
+		if has and not mini then
+			local ts = (#it.name > 12) and 12 or 14
+			name.Text = it.name
+			-- з номером хотбара (синій значок справа) назва звужується до S − 44 і зменшується, щоб не залазити під значок
+			local narrow = opt.hotIndex ~= nil
+			name.Size = UDim2.fromOffset(narrow and S - 44 or S - 10, name.Size.Y.Offset)
+			name.TextScaled = narrow
+			nameMax.MaxTextSize = ts
+			name.TextSize = ts
+		end
 		cnt.Visible = has and not it.golem
 		if has and not it.golem then cnt.Text = "×" .. NF.short(it.n) end
 		rar.Visible = has and it.golem == true and not mini
@@ -306,11 +356,13 @@ local function makeSlot(parent, x, y, S, mini)
 		check.Visible = opt.check ~= nil
 		if opt.check then check.Fill.BackgroundColor3 = opt.check end
 		lockImg.Visible = has and opt.locked == true
+		if badge then badge.set((has and it.golem) and it.cls or nil) end
 		card.Visible = true
 		holder.ZIndex = opt.top and 5 or 1
 		-- притемнення (заблоковане в режимі видалення)
 		local dim = opt.dim and 0.55 or 0
 		icon.ImageTransparency = dim; bg.BackgroundTransparency = dim * 0.6
+		if badge then badge.icon.ImageTransparency = dim; badge.shadow.ImageTransparency = 0.6 + dim * 0.4 end
 		if opt.hotIndex and not hot then
 			hot = StyleA.new(holder, { size = Vector2.new(34, 30), position = Vector2.new(P + S - 30, P - 10), anchor = Vector2.zero, color = "blue",
 				half = true, rows = 3, text = "", textSize = 17, zIndex = 9 })
@@ -322,13 +374,15 @@ local function makeSlot(parent, x, y, S, mini)
 		local c = holder.AbsolutePosition.X + holder.AbsoluteSize.X / 2
 		s.rel = math.clamp((px - c) / math.max(1, hit.AbsoluteSize.X / 2), -1, 1)
 	end
-	hit.MouseEnter:Connect(function(px)
+	-- звук наведення — один раз на вхід курсора (MouseMoved може прийти раніше за MouseEnter, тому окремий прапорець entered)
+	local function enter(px)
 		if s.blocked and s.blocked() then return end
-		if not s.hover and s.item then slotHoverSound() end
+		if not s.entered then s.entered = true; if s.item then slotHoverSound() end end
 		s.hover = true; aim(px); wakeHover(s)
-	end)
-	hit.MouseMoved:Connect(function(px) if s.blocked and s.blocked() then return end s.hover = true; aim(px); wakeHover(s) end)
-	hit.MouseLeave:Connect(function() s.hover = false; s.down = false; wakeHover(s) end)
+	end
+	hit.MouseEnter:Connect(enter)
+	hit.MouseMoved:Connect(enter)
+	hit.MouseLeave:Connect(function() s.entered = false; s.hover = false; s.down = false; wakeHover(s) end)
 	hit.InputBegan:Connect(function(inp)
 		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
 			s.down = true; wakeHover(s)
@@ -340,6 +394,7 @@ local function makeSlot(parent, x, y, S, mini)
 	end)
 	hit.Activated:Connect(function()
 		if slotIsDragging and slotIsDragging() then return end
+		if s.item and s.onClick and not (s.blocked and s.blocked()) then slotTapSound() end
 		if s.onClick then s.onClick(s) end
 	end)
 	s.hit = hit
@@ -396,10 +451,15 @@ local function rebuild()
 		add({ key = "Pot_" .. d.key, tab = "potions", name = d.name, sub = d.desc, n = num("Pot_" .. d.key), icon = d.icon, tone = d.tone })
 	end
 	for _, g in decodeAttr("InvGolems", {}) do
-		local def = Items.GOLEMS[g.kind]
+		local def = Catalog.get(g.kind)
 		if def and type(g.id) == "number" then
-			add({ key = "Golem_" .. g.id, tab = "golems", name = def.name, sub = def.rarity .. " · mines " .. def.rate .. " ore/s", n = 1, golem = true,
-				rar = def.rarity, icon = def.icon, tone = Items.RARITY[def.rarity] or WHITE })
+			local cls = Catalog.cls(g.cls)
+			local mut = Catalog.mut(g.mut)
+			local mutTxt = mut > 0 and (Catalog.mutation(mut).key .. " ") or ""
+			add({ key = "Golem_" .. g.id, tab = "golems", name = def.name, n = 1, golem = true,
+				sub = mutTxt .. def.rarity .. " " .. (CLASS_NAME[cls] or "Miner") .. " · " .. Catalog.statText(def.id, cls, mut),
+				kind = def.id, cls = cls, mut = mut, rar = def.rarity, icon = Catalog.icon(def.id), tone = Catalog.rarityColor(def.rarity),
+				vp = ItemVP.golemKey(def.id, cls) }) -- 3D-модель у слоті (поки лише Stone Golem); без моделі — іконка
 		end
 	end
 	lockSet = {}
@@ -508,17 +568,30 @@ local pop = new("Frame", { Name = "Pop", AnchorPoint = Vector2.new(0.5, 0.5), Po
 local popScale = new("UIScale", {}, pop)
 local _, content = windowFrame(pop, WX, WY, WW, WH, 1, 14)
 
--- заголовок INVENTORY (синій перелив + відблиск) і X
-textAt(pop, WX + 32, WY - 8 + 7, 640, 96, "INVENTORY", INK, 9, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
-local title = textAt(pop, WX + 32, WY - 8, 640, 96, "INVENTORY", WHITE, 8, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
+-- заголовок INVENTORY (коричневий перелив, як дерево / шкіра рюкзака, + відблиск) і X.
+-- Домовленість для всіх вікон: іконка зліва від тексту (тут — рюкзак hud_inventory), ≈ 2× висоти букв заголовка,
+-- нахил −8°, текст зсунуто праворуч. Обводка тексту й тіні (тексту й іконки, +7 вниз) — чорні (INK).
+-- v11: рюкзак — копія hud_inventory з чорним контуром (лише для цього вікна; HUD-кнопка лишає старий 107241982376806),
+-- центр піднято до WY − 20, щоб нижній край (≈ y 126) не налазив на вкладку Golems (верх y 140).
+local TITLE_ICON = "rbxassetid://91881350557556" -- inv_title_backpack_black (Decal 95036557169471)
+local TITLE_ICO = 128 -- ≈ 2× висоти великих літер (96 · 0,7)
+local TITLE_ICY = WY - 20
+local TITLE_X = WX + 32 + 136 - 28
+new("ImageLabel", { Name = "TitleIconShadow", BackgroundTransparency = 1, Image = TITLE_ICON, ImageColor3 = INK, ScaleType = Enum.ScaleType.Fit,
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(WX + 66, TITLE_ICY + 7), Size = UDim2.fromOffset(TITLE_ICO, TITLE_ICO), Rotation = -8, ZIndex = 3 }, pop)
+new("ImageLabel", { Name = "TitleIcon", BackgroundTransparency = 1, Image = TITLE_ICON, ScaleType = Enum.ScaleType.Fit,
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(WX + 66, TITLE_ICY), Size = UDim2.fromOffset(TITLE_ICO, TITLE_ICO), Rotation = -8, ZIndex = 4 }, pop)
+local titleSh = textAt(pop, TITLE_X, WY - 8 + 7, 640, 96, "INVENTORY", INK, 9, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
+local title = textAt(pop, TITLE_X, WY - 8, 640, 96, "INVENTORY", WHITE, 8, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
+
 local titleGrad = new("UIGradient", { Rotation = 0 }, title)
-local titleShine = textAt(pop, WX + 32, WY - 8, 640, 96, "INVENTORY", WHITE, 0, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
+local titleShine = textAt(pop, TITLE_X, WY - 8, 640, 96, "INVENTORY", WHITE, 0, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
 local titleShineGrad = new("UIGradient", { Rotation = 25, Offset = Vector2.new(-1.3, 0),
 	Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.32, 1), NumberSequenceKeypoint.new(0.40, 0.2),
 		NumberSequenceKeypoint.new(0.48, 1), NumberSequenceKeypoint.new(0.51, 1), NumberSequenceKeypoint.new(0.55, 0.45),
 		NumberSequenceKeypoint.new(0.59, 1), NumberSequenceKeypoint.new(1, 1) }) }, titleShine)
 do
-	local P = { C("e6f6ff"), C("7fd0ff"), C("1c7fd8"), C("7fd0ff") }
+	local P = { C("f7e1bf"), C("d9944f"), C("7a4219"), C("d9944f") } -- коричневий перелив (світла шкіра → темне дерево)
 	local function sample(u)
 		local x = (u % 1) * #P
 		local i = math.floor(x)
@@ -546,12 +619,21 @@ local picked = {} -- ключ → true
 local selKey = nil
 local isOpen = false
 local MODE_COL = { delete = C("ff4f5e"), lock = C("ffd23a") }
+local filt = "all" -- фільтр класу на вкладці Golems: "all" | "miner" | "carrier" | "warrior"
 local refreshAll -- нижче
 local function pickedCount() local n = 0 for _ in picked do n += 1 end return n end
 local function tabItems(k: string)
 	local t = {}
 	for _, it in items do if it.tab == k and it.n > 0 then table.insert(t, it) end end
 	return t
+end
+-- що видно в сітці: предмети поточної вкладки; на вкладці Golems — лише вибраного класу (фільтр)
+local function visibleItems()
+	local t = tabItems(tab)
+	if tab ~= "golems" or filt == "all" then return t end
+	local f = {}
+	for _, it in t do if it.cls == filt then table.insert(f, it) end end
+	return f
 end
 
 -- ===== вкладки =====
@@ -564,42 +646,102 @@ for i, spec in TABS do
 	local hold = frame(content, TX, tabY(i), TW, TH + 8, nil, { BackgroundTransparency = 1, ZIndex = 4 })
 	local b = makeButton(hold, 0, 0, TW, TH, { shadowDy = 7, color = "gray", z = 1, shine = false })
 	b.onClick = function() setTab(k) end
-	new("ImageLabel", { BackgroundTransparency = 1, Image = spec[3], ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(8, 2), Size = UDim2.fromOffset(74, 74), ZIndex = 4 }, hold)
-	textAt(hold, 86, 32, 132, #spec[2] > 8 and 21 or 25, spec[2], WHITE, 2.6, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
-	local c = textAt(hold, 86, 58, 132, 15, "", SUB_TXT, 2, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 5 })
+	-- іконка й написи — всередині кнопки (b.root), щоб масштабувалися разом із нею при наведенні / натисканні
+	-- іконка — у грані кнопки з відступом ≈ 8 % висоти (не вилазить на рамку й нижній бортик), по центру по вертикалі грані
+	do
+		local fx, fy, _, fh = StyleA.faceRect(TW, TH)
+		local pad = math.floor(TH * 0.08 + 0.5)
+		local sz = fh - 2 * pad + 8 -- трохи більше грані з відступом: PNG має власне прозоре поле
+		new("ImageLabel", { BackgroundTransparency = 1, Image = spec[3], ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(fx + pad, fy + (fh - sz) / 2),
+			Size = UDim2.fromOffset(sz, sz), ZIndex = 4 }, b.root)
+	end
+	textAt(b.root, 86, 32, 132, #spec[2] > 8 and 21 or 25, spec[2], WHITE, 2.6, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
+	local c = textAt(b.root, 86, 58, 132, 15, "", SUB_TXT, 2, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 5 })
 	tabBtns[k] = { hold = hold, b = b, c = c, i = i }
 end
 
 -- ===== заголовок вмісту, сітка зі смугою прокрутки =====
-local hdr = textAt(content, 290, 86, 400, 32, "", WHITE, 3.2, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
-local cap = textAt(content, 640, 86, 296, 18, "", SUB_TXT, 2, { TextXAlignment = Enum.TextXAlignment.Right, FontFace = XBOLD, ZIndex = 3 })
+local hdr = textAt(content, 290, 72, 400, 32, "", WHITE, 3.2, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
+local cap = textAt(content, 640, 72, 296, 18, "", SUB_TXT, 2, { TextXAlignment = Enum.TextXAlignment.Right, FontFace = XBOLD, ZIndex = 3 })
+
+-- ===== фільтр класу (лише вкладка Golems): 4 квадратні кнопки StyleA між «Golems» і лічильником =====
+-- кнопки 48×48 на x 490 / 554 / 618 / 682, верх 46 (тінь +5 не заходить на сітку з y 106; «Golems» і лічильник — по центру кнопок, cy 72); вибрана — зелена, решта — сірі. У правому верхньому куті — кількість
+-- (просто цифри з темною обводкою, без підкладки; у вибраної — лаймові). Наведення — підказка 120×26 над кнопкою.
+local FILT = { { "all", "All golems" }, { "miner", "Miners" }, { "carrier", "Carriers" }, { "warrior", "Warriors" } }
+local FILT_EMPTY = { all = "No golems yet", miner = "No miners yet", carrier = "No carriers yet", warrior = "No warriors yet" }
+local FX, FY, FB, FG = 490, 46, 48, 16
+local fBar = frame(content, FX, FY, 4 * FB + 3 * FG, FB + 6, nil, { Name = "ClassFilter", BackgroundTransparency = 1, ZIndex = 5, Visible = false })
+local fBtns = {}
+local setFilt -- нижче
+-- підказка — одна спільна, у Pop поверх усього (і заголовка INVENTORY), над кнопкою, на яку навели
+-- підказка квадратна (без UICorner, як решта UI): суцільна заливка + рівна обводка з гострими кутами (Miter)
+local fTip = frame(pop, 0, 0, 120, 26, INK, { Name = "FilterTip", ZIndex = 50, Visible = false }); stroke(fTip, INK, 2)
+local fTipText = label(fTip, 0, 0, 120, 26, 15, "", WHITE, 0, { FontFace = XBOLD, ZIndex = 2 })
+for i, spec in FILT do
+	local k = spec[1]
+	local hold = frame(fBar, (i - 1) * (FB + FG), 0, FB, FB + 6, nil, { BackgroundTransparency = 1, ZIndex = 1 })
+	local b = makeButton(hold, 0, 0, FB, FB, { shadowDy = 5, color = "gray", icon = CLASS_ICON[k], iconPad = 0.1, z = 1, shine = false }) -- іконка всередині квадрата з відступом 10 %
+	b.onClick = function() setFilt(k) end
+	local pt = textAt(b.root, FB - 34, -1, 40, 17, "0", WHITE, 2.6, { TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 6 }) -- кількість у правому верхньому куті (рухається разом із кнопкою)
+	b.root.MouseEnter:Connect(function()
+		fTipText.Text = spec[2]
+		fTip.Position = UDim2.fromOffset(WX + FX + (i - 1) * (FB + FG) + FB / 2 - 60, WY + FY - 40)
+		fTip.Visible = true
+	end)
+	b.root.MouseLeave:Connect(function() if fTipText.Text == spec[2] then fTip.Visible = false end end)
+	fBtns[k] = { b = b, pt = pt }
+end
+-- кнопки фільтра: видно лише на вкладці Golems (і в режимах видалення / блокування), колір і кількість кожного класу
+local function refreshFilt()
+	fBar.Visible = tab == "golems"
+	local g = tabItems("golems")
+	for _, spec in FILT do
+		local k = spec[1]
+		local f = fBtns[k]
+		local on = k == filt
+		f.b:recolor(on and "green" or "gray")
+		local n = 0
+		for _, it in g do if k == "all" or it.cls == k then n += 1 end end
+		f.pt.Text = tostring(n)
+		f.pt.TextColor3 = on and C("c8ff6a") or WHITE
+	end
+end
 local gvp = frame(content, GX, GY, GW, GH, nil, { Name = "Grid", BackgroundTransparency = 1, ClipsDescendants = true, Active = true, ZIndex = 2 })
 local gstrip = frame(gvp, 0, 0, GW, 10, nil, { BackgroundTransparency = 1, ZIndex = 1 })
+local emptyTxt = textAt(gvp, 0, GH / 2, GW, 22, "", SUB_TXT, 2.4, { FontFace = XBOLD, ZIndex = 5, Visible = false }) -- порожній клас: «No warriors yet»
 local vsb = frame(content, GX + GW + 3, GY + GP, 10, GH - 2 * GP, WHITE, { Active = true, ZIndex = 3 })
 new("UIGradient", { Color = cseq(TRACK), Rotation = 0 }, vsb); stroke(vsb, INK, 3)
 local vth = frame(vsb, 0, 0, 10, 60, WHITE, { Active = true, ZIndex = 2 }); vgrad(vth, LIME)
 local gscroll, gH = 0, 0
-local function gmax() return math.max(0, gH - GH) end
+local gh = GH -- поточна висота сітки (GH з карткою, GH_FULL без неї; міняється плавно)
+local function gmax() return math.max(0, gH - gh) end
+-- повзунок (розмір і положення бігунка) — окремо: його оновлює й зміна висоти сітки, не чіпаючи вміст
+local function setThumb()
+	local th = math.max(40, (gh - 2 * GP) * gh / math.max(gh, gH))
+	vth.Size = UDim2.fromOffset(10, th)
+	vth.Position = UDim2.fromOffset(0, gmax() > 0 and gscroll / gmax() * (gh - 2 * GP - th) or 0)
+	vsb.Visible = gmax() > 0
+end
 local function setG(v: number)
 	gscroll = math.clamp(v, 0, gmax())
 	gstrip.Position = UDim2.fromOffset(0, -gscroll)
-	local th = math.max(40, (GH - 2 * GP) * GH / math.max(GH, gH))
-	vth.Size = UDim2.fromOffset(10, th)
-	vth.Position = UDim2.fromOffset(0, gmax() > 0 and gscroll / gmax() * (GH - 2 * GP - th) or 0)
-	vsb.Visible = gmax() > 0
+	setThumb()
 end
 local drag, dragEndAt = nil, -1
-local function unitsPerPx() local a = gvp.AbsoluteSize.Y return a > 0 and GH / a or 1 end
+local paint, paintEndAt = nil, -1 -- вибір перетягуванням у режимах видалення / блокування (нижче)
+local hitMap = {} -- Hit-кнопка слота сітки → слот
+local beginPaint -- нижче
+local function unitsPerPx() local a = gvp.AbsoluteSize.Y return a > 0 and gh / a or 1 end
 local function beginDrag(inp, thumb) if isPress(inp) then drag = { y = inp.Position.Y, s = gscroll, moved = false, thumb = thumb } end end
 local function wheel(inp) if inp.UserInputType == Enum.UserInputType.MouseWheel and gmax() > 0 then setG(gscroll - inp.Position.Z * 70) end end
-slotIsDragging = function() return (drag ~= nil and drag.moved) or os.clock() - dragEndAt < 0.15 end
+slotIsDragging = function() return (drag ~= nil and drag.moved) or os.clock() - dragEndAt < 0.15 or paint ~= nil or os.clock() - paintEndAt < 0.3 end
 gvp.InputBegan:Connect(function(inp) beginDrag(inp, false) end)
 gvp.InputChanged:Connect(wheel)
 vth.InputBegan:Connect(function(inp) beginDrag(inp, true) end)
 UIS.InputChanged:Connect(function(inp)
 	if not drag or not (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) or gmax() <= 0 then return end
 	local dy = (inp.Position.Y - drag.y) * unitsPerPx()
-	if drag.thumb then setG(drag.s + dy * gmax() / math.max(1, GH - 2 * GP - vth.Size.Y.Offset))
+	if drag.thumb then setG(drag.s + dy * gmax() / math.max(1, gh - 2 * GP - vth.Size.Y.Offset))
 	else
 		if math.abs(dy) > 6 then drag.moved = true end
 		if drag.moved then setG(drag.s - dy) end
@@ -616,7 +758,9 @@ local function gridSlot(i: number)
 	local s = gslots[i]
 	if not s then
 		s = makeSlot(gstrip, 0, 0, GS, false)
-		s.onPress = function(inp) beginDrag(inp, false) end
+		-- у режимах — вибір перетягуванням (сітка не гортається), інакше — гортання сітки перетягуванням
+		s.onPress = function(inp) if mode then beginPaint(s, inp) else beginDrag(inp, false) end end
+		hitMap[s.hit] = s
 		s.hit.InputChanged:Connect(wheel)
 		s.onClick = function() if s.item then slotClick(s) end end
 		s.blocked = function() return not isOpen end
@@ -626,13 +770,28 @@ local function gridSlot(i: number)
 end
 
 -- ===== картка вибраного предмета =====
-local info = frame(content, 290, 392, 646, 100, WHITE, { ZIndex = 3 })
+-- v12: картка — у масці InfoClip (обрізає по низу вікна): виїжджає знизу й ховається вниз, верх картки йде за низом сітки
+-- (той самий tween висоти сітки, див. applyGh). Схована маска невидима, щоб не забирати наведення в нижнього ряду слотів.
+local infoClip = frame(content, 284, 386, 658, 110, nil, { Name = "InfoClip", BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 3 })
+local info = frame(infoClip, 6, 6, 646, 100, WHITE, { ZIndex = 3 })
 new("UIGradient", { Rotation = 90, Color = cseq({ { 0, "353b43" }, { 1, "1b1e23" } }),
 	Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 0.4) }) }, info)
 stroke(info, INK, 3)
 local infoIcon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(14, 7), Size = UDim2.fromOffset(86, 86), ZIndex = 2 }, info)
-local infoName = textAt(info, 112, 32, 270, 28, "", WHITE, 3, { TextXAlignment = Enum.TextXAlignment.Left, RichText = true, ZIndex = 2 })
-local infoSub = textAt(info, 112, 64, 270, 16, "", SUB_TXT, 1.8, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 2 })
+local infoBadge = classBadge(info, 8, 60, 30, 3) -- бейдж класу голема біля іконки (лівий нижній кут)
+-- текст картки — від іконки до кнопки Hold з відступом INFO_PAD: назва зменшується, щоб влізти; підпис переноситься (до 2 рядків)
+local INFO_PAD = 14
+local INFO_TW = 384 - INFO_PAD - 112
+local infoName = textAt(info, 112, 32, INFO_TW, 28, "", WHITE, 3, { TextXAlignment = Enum.TextXAlignment.Left, RichText = true, ZIndex = 2 })
+local infoSub = label(info, 112, 55, INFO_TW, 40, 16, "", SUB_TXT, 1.8, { TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
+	TextWrapped = true, LineHeight = 1.05, FontFace = XBOLD, ZIndex = 2 })
+-- зменшує шрифт мітки, поки текст не влізе по ширині (і по висоті — для перенесеного тексту)
+local function fitText(t: TextLabel, maxSize: number, minSize: number)
+	for sz = maxSize, minSize, -1 do
+		t.TextSize = sz
+		if t.TextFits then return end
+	end
+end
 local infoHint = textAt(info, 0, 50, 646, 20, "Tap an item to see it here", C("c9ced4"), 2, { RichText = true, FontFace = XBOLD, ZIndex = 2 })
 local bHold = makeButton(info, 384, 12, 132, 72, { shadowDy = 6, color = "green", text = "Hold", textSize = 23, z = 3 })
 local bPin = makeButton(info, 526, 12, 108, 72, { shadowDy = 6, color = "blue", text = "Hotbar", textSize = 22, z = 3 })
@@ -641,12 +800,128 @@ local function showInfoItem(on: boolean)
 	for _, b in { bHold, bPin } do b.root.Visible = on; b.shadow.Visible = on end
 end
 
+-- ===== картка внизу ховається, коли нічого не вибрано: сітка тоді займає її місце (видно більше рядів) =====
+-- Вибрали предмет (у режимах видалення / блокування — позначили хоч один) — картка виїжджає знизу, сітка плавно
+-- коротшає, вибраний слот прокручується у видиму частину. Зняли вибір / перемкнули вкладку — картка ховається.
+-- v12: поява й зникнення — один tween (CARD_T, Quad Out) висоти сітки; від неї ж — положення картки, повзунок і автопрокрутка
+-- (покадрово, тому без стрибка). Поки картка ховається, на ній лишається попередній вміст.
+local gridIndex = {} -- ключ предмета → номер слота в сітці (заповнює renderGrid)
+local cardOn = true
+local lastPickKey = nil -- останній позначений у режимах видалення / блокування (його теж не ховаємо під карткою)
+local ghVal = new("NumberValue", { Value = GH }, nil)
+local CARD_T = 0.2
+local ghTw = nil
+local function wantCard(): boolean
+	if mode then return pickedCount() > 0 end
+	return selKey ~= nil and live(selKey) ~= nil
+end
+local function keepSelVisible()
+	local key = selKey or (mode and lastPickKey and picked[lastPickKey] and lastPickKey) or nil
+	local i = key and gridIndex[key]
+	if not i then return end
+	local y = math.floor((i - 1) / GCOLS) * (GS + GG) + GP + 4
+	if y + GS + GP > gscroll + gh then setG(y + GS + GP - gh) elseif y - GP < gscroll then setG(y - GP) end
+end
+local function applyGh(v: number)
+	gh = v
+	gvp.Size = UDim2.fromOffset(GW, v)
+	vsb.Size = UDim2.fromOffset(10, v - 2 * GP)
+	emptyTxt.Position = UDim2.fromOffset(0, v / 2 - 22 * 0.6)
+	local d = v - GH -- 0 (картка видна) … GH_FULL − GH (схована): верх картки на 8 нижче низу сітки
+	info.Position = UDim2.fromOffset(6, 6 + d)
+	infoClip.Visible = d < GH_FULL - GH - 0.5
+	-- прокрутку чіпаємо лише якщо треба (обмеження або вибраний слот) — інакше лише повзунок, щоб не збивати анімацію вмісту
+	if gscroll > gmax() then setG(gscroll) else setThumb() end
+	if cardOn then keepSelVisible() end
+end
+ghVal.Changed:Connect(applyGh)
+local function setCard(on: boolean)
+	if on == cardOn then
+		if on then keepSelVisible() end
+		return
+	end
+	cardOn = on
+	if ghTw then ghTw:Cancel(); ghTw = nil end
+	local target = on and GH or GH_FULL
+	if not modalRoot.Visible then -- вікно ще не показане — без анімації
+		if ghVal.Value ~= target then ghVal.Value = target else applyGh(target) end
+		return
+	end
+	-- і поява, і зникнення — той самий tween: висота сітки, картка, повзунок і автопрокрутка міняються покадрово разом
+	ghTw = tween(ghVal, CARD_T, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Value = target })
+end
+
+-- ===== вибір перетягуванням у режимах видалення / блокування =====
+-- Затиснув мишку / палець на слоті й ведеш по інших — вони теж позначаються. Якщо перший слот уже був позначений —
+-- ведучи, знімаєш позначку (режим задає перший слот). Заблоковане в режимі видалення не позначається.
+-- Поки ведеш, сітка не гортається перетягуванням (гортається з порожнього місця, колесом і повзунком); біля верхнього /
+-- нижнього краю сітки — автопрокрутка. Поза режимами вибір як раніше (кліком).
+local paintConn = nil
+-- точка всередині видимої частини сітки (та сама система координат, що й у InputObject.Position): обрізані слоти під карткою не рахуються
+local function overGrid(x: number, y: number): boolean
+	for _, o in playerGui:GetGuiObjectsAtPosition(x, y) do if o == gvp then return true end end
+	return false
+end
+local function paintAt(pos: Vector2)
+	if not paint or not overGrid(pos.X, pos.Y) then return end
+	for _, o in playerGui:GetGuiObjectsAtPosition(pos.X, pos.Y) do
+		local s = hitMap[o]
+		if s then
+			local it = s.item
+			if it and s.holder.Visible then
+				local was = picked[it.key] == true
+				if paint.add and not was and not (mode == "delete" and lockSet[it.key]) then
+					picked[it.key] = true; lastPickKey = it.key; renderAllRef()
+				elseif not paint.add and was then
+					picked[it.key] = nil; renderAllRef()
+				end
+			end
+			return
+		end
+	end
+end
+beginPaint = function(s, inp)
+	local it = s.item
+	if not it or not isPress(inp) then return end
+	if mode == "delete" and lockSet[it.key] then s.shake(); s.toast("LOCKED") end -- заблокований не позначається, але вести далі можна
+	paint = { add = not picked[it.key], pos = Vector2.new(inp.Position.X, inp.Position.Y) }
+	slotTapSound()
+	paintAt(paint.pos)
+	if paintConn then return end
+	paintConn = RunService.Heartbeat:Connect(function(dt)
+		if not paint then paintConn:Disconnect(); paintConn = nil; return end
+		-- автопрокрутка: палець / курсор у верхніх або нижніх 12 % сітки (або трохи за нею). Краї шукаємо тим самим
+		-- overGrid (та сама система координат, що й у InputObject.Position), без перерахунку відступу GuiInset
+		local e = gvp.AbsoluteSize.Y * 0.12
+		local x, y = paint.pos.X, paint.pos.Y
+		local v = 0
+		if overGrid(x, y) then
+			if not overGrid(x, y - e) then v = -1 elseif not overGrid(x, y + e) then v = 1 end
+		elseif overGrid(x, y + 3 * e) then v = -1
+		elseif overGrid(x, y - 3 * e) then v = 1 end
+		if v ~= 0 and gmax() > 0 then
+			local before = gscroll
+			setG(gscroll + v * 520 * dt)
+			if gscroll ~= before then paintAt(paint.pos) end
+		end
+	end)
+end
+UIS.InputChanged:Connect(function(inp)
+	if paint and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
+		paint.pos = Vector2.new(inp.Position.X, inp.Position.Y)
+		paintAt(paint.pos)
+	end
+end)
+UIS.InputEnded:Connect(function(inp)
+	if isPress(inp) and paint then paint = nil; paintEndAt = os.clock() end
+end)
+
 -- ===== інструменти: видалення / блокування / Cancel; кнопки режиму на місці прихованих вкладок =====
 -- три кнопки в ряд під вкладками: кошик (видалення), замок (блокування), рюкзак — все з поточної вкладки з хотбара назад у інвентар
 local TOOL_W, TOOL_G = 66, 12
 local toolTrash = makeButton(content, TX, 404, TOOL_W, 72, { shadowDy = 6, color = "red", icon = Items.ICONS.trash, iconPad = 0.02, z = 4 })
-local toolLock = makeButton(content, TX + TOOL_W + TOOL_G, 404, TOOL_W, 72, { shadowDy = 6, color = "yellow", icon = Items.ICONS.lock, iconPad = 0.02, z = 4 })
-local toolBack = makeButton(content, TX + 2 * (TOOL_W + TOOL_G), 404, TOOL_W, 72, { shadowDy = 6, color = "blue", icon = "rbxassetid://107241982376806", iconPad = 0.08, z = 4 }) -- hud_inventory (рюкзак)
+local toolLock = makeButton(content, TX + TOOL_W + TOOL_G, 404, TOOL_W, 72, { shadowDy = 6, color = "yellow", icon = Items.ICONS.lock_inv or Items.ICONS.lock, iconPad = 0.02, z = 4 })
+local toolBack = makeButton(content, TX + 2 * (TOOL_W + TOOL_G), 404, TOOL_W, 72, { shadowDy = 6, color = "blue", icon = TITLE_ICON, iconPad = 0.08, z = 4 }) -- рюкзак з чорним контуром (як у заголовку)
 local toolCancel = makeButton(content, TX, 404, TW, 72, { shadowDy = 6, color = "gray", text = "Cancel", textSize = 28, z = 4 })
 local function showBtn(b, on) b.root.Visible = on; b.shadow.Visible = on end
 showBtn(toolCancel, false)
@@ -654,8 +929,8 @@ local mAh = frame(content, TX, tabY(2), TW, TH + 8, nil, { BackgroundTransparenc
 local mBh = frame(content, TX, tabY(3), TW, TH + 8, nil, { BackgroundTransparency = 1, ZIndex = 4, Visible = false })
 local mA = makeButton(mAh, 0, 0, TW, TH, { shadowDy = 7, color = "blue", text = "Select All", textSize = 28, z = 1 })
 local mB = makeButton(mBh, 0, 0, TW, TH, { shadowDy = 7, color = "red", z = 1 })
-local mBicon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(10, 6), Size = UDim2.fromOffset(64, 64), ZIndex = 4 }, mBh)
-local mBtext = textAt(mBh, 82, 40, 136, 26, "", WHITE, 2.8, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
+local mBicon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(10, 6), Size = UDim2.fromOffset(64, 64), ZIndex = 4 }, mB.root) -- у кнопці: рухається разом з нею
+local mBtext = textAt(mB.root, 82, 40, 136, 26, "", WHITE, 2.8, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
 
 -- ===== вікно підтвердження видалення =====
 local cfDim = frame(content, 0, 0, WW, WH, C("0d0f12"), { BackgroundTransparency = 0.45, Active = true, Visible = false, ZIndex = 40 })
@@ -675,7 +950,18 @@ local function closeConfirm()
 	cfDim.Visible = false; cfRoot.Visible = false
 	if mode == nil then table.clear(picked) end -- підтвердження одного предмета (смітник без режиму)
 end
-cfDim.InputBegan:Connect(function(inp) if isPress(inp) then closeConfirm() end end)
+-- закриває лише клік ПОЗА вікном підтвердження (InputBegan затемнення спрацьовує й під самим вікном — як у Forge / Sell),
+-- а також Cancel. inp.Position і AbsolutePosition — в одному просторі (обидва без смуги GuiInset, навіть з IgnoreGuiInset;
+-- перевірено в Play), тому координати порівнюються напряму, без + GetGuiInset()
+cfDim.InputBegan:Connect(function(inp)
+	if not isPress(inp) then return end
+	if cfRoot.Visible then
+		local p = Vector2.new(inp.Position.X, inp.Position.Y)
+		local a, s = cfRoot.AbsolutePosition, cfRoot.AbsoluteSize
+		if p.X >= a.X and p.X <= a.X + s.X and p.Y >= a.Y and p.Y <= a.Y + s.Y then return end
+	end
+	closeConfirm()
+end)
 cfCancel.onClick = function() closeConfirm() end
 
 -- =====================================================================
@@ -683,23 +969,27 @@ cfCancel.onClick = function() closeConfirm() end
 -- =====================================================================
 local function selectable()
 	local t = {}
-	for _, it in tabItems(tab) do if not (mode == "delete" and lockSet[it.key]) then table.insert(t, it) end end
+	for _, it in visibleItems() do if not (mode == "delete" and lockSet[it.key]) then table.insert(t, it) end end -- лише видимі (фільтр класу)
 	return t
 end
 
 local function renderGrid()
-	local list = tabItems(tab)
-	local total = math.max(#list + (tab == "golems" and 2 or 4), GCOLS * 2)
+	local list = visibleItems()
+	table.clear(gridIndex)
+	local total = math.max(#list + (tab == "golems" and 2 or 4), GCOLS * (wantCard() and 2 or 3)) -- без картки видно 3 ряди
 	local rows = math.ceil(total / GCOLS)
 	local count = rows * GCOLS
 	gH = rows * (GS + GG) - GG + 2 * GP + 8
 	gstrip.Size = UDim2.fromOffset(GW, gH)
+	emptyTxt.Visible = #list == 0 and tab == "golems"
+	if emptyTxt.Visible then emptyTxt.Text = FILT_EMPTY[filt] or "No golems yet" end
 	for i = 1, count do
 		local s = gridSlot(i)
 		s.holder.Visible = true
 		s.place(((i - 1) % GCOLS) * (GS + GG) + GP, math.floor((i - 1) / GCOLS) * (GS + GG) + GP + 4)
 		local it = list[i]
 		if it then
+			gridIndex[it.key] = i
 			local opt = { locked = lockSet[it.key] == true }
 			if mode then
 				local on = picked[it.key] == true
@@ -721,13 +1011,14 @@ local function renderGrid()
 	hdr.Text = tab == "golems" and "Golems" or tab == "ores" and "Ores / Bars" or "Potions"
 	local n = 0
 	for _, it in list do n += it.n end
-	cap.Text = tab == "golems" and (#list .. " / " .. Items.MAX_GOLEMS .. " golems") or tab == "ores" and (#list .. " kinds · " .. NF.full(n) .. " items") or (#list .. " kinds")
+	cap.Text = tab == "golems" and (#tabItems("golems") .. " / " .. Items.MAX_GOLEMS .. " golems") or tab == "ores" and (#list .. " kinds · " .. NF.full(n) .. " items") or (#list .. " kinds")
 	for k, t in tabBtns do
 		local l = tabItems(k)
 		local c = 0
 		for _, it in l do c += it.n end
 		t.c.Text = k == "golems" and (#l .. " golems") or (NF.full(c) .. " items")
 	end
+	refreshFilt()
 	-- кнопки режиму
 	if mode then
 		local sel = selectable()
@@ -752,7 +1043,10 @@ end
 local function renderInfo()
 	local it = selKey and live(selKey) or nil
 	local show = mode == nil and it ~= nil
+	-- картка ховається — вміст не міняємо (з'їжджає вниз з попереднім текстом, без миготіння підказки)
+	if not wantCard() then setCard(false); return end
 	showInfoItem(show)
+	infoBadge.set((show and it and it.golem) and it.cls or nil)
 	if mode == "delete" then
 		infoHint.Text = 'Tap items to delete · <font color="#ff8a96">' .. pickedCount() .. " selected</font> · locked can't be deleted"
 	elseif mode == "lock" then
@@ -760,11 +1054,14 @@ local function renderInfo()
 	else
 		infoHint.Text = "Tap an item to see it here"
 	end
+	setCard(wantCard())
 	if not show or not it then return end
 	infoIcon.Image = it.icon
-	ItemVP.set(infoIcon, it.key, 1.13) -- у панелі опису: у межах іконки, не налазить на текст
+	ItemVP.set(infoIcon, it.vp or it.key, 1.13) -- у панелі опису: у межах іконки, не налазить на текст
 	infoName.Text = it.name .. (it.golem and "" or (' <font size="22" color="#c9ced4">×' .. NF.full(it.n) .. "</font>"))
 	infoSub.Text = it.sub .. (lockSet[it.key] and " · locked" or "")
+	fitText(infoName, 28, 16)
+	fitText(infoSub, 16, 12)
 	local hi = tableFind(hotbar, it.key)
 	local inHand = heldKey == it.key
 	bHold:setText(inHand and "Put Away" or "Hold"); bHold:recolor(inHand and "red" or "green")
@@ -793,8 +1090,10 @@ slotClick = function(s)
 		renderGrid(); renderInfo()
 		return
 	end
+	-- мишка / дотик уже оброблені при натисканні (beginPaint); сюди доходить лише активація без натискання (геймпад)
 	if mode == "delete" and lockSet[it.key] then s.shake(); s.toast("LOCKED"); return end
 	if picked[it.key] then picked[it.key] = nil else picked[it.key] = true end
+	lastPickKey = it.key
 	renderGrid(); renderInfo()
 end
 
@@ -834,6 +1133,21 @@ bPin.onClick = function()
 	refreshHotbar(); renderGrid(); renderInfo()
 end
 
+-- фільтр класу: вибраний голем лишається вибраним, якщо він у фільтрі; у режимах видалення / блокування з прихованих вибір знімається
+setFilt = function(k: string)
+	if k == filt then return end
+	filt = k; gscroll = 0
+	local sel = selKey and byKey[selKey]
+	if sel and k ~= "all" and sel.cls ~= k then selKey = nil end
+	for key in picked do
+		local it = byKey[key]
+		if it and k ~= "all" and it.cls ~= k then picked[key] = nil end
+	end
+	renderGrid(); renderInfo()
+	gstrip.Position = UDim2.fromOffset(0, 10)
+	tween(gstrip, 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Position = UDim2.fromOffset(0, 0) })
+end
+
 setTab = function(k: string)
 	if mode and k ~= tab then return end
 	tab = k; selKey = nil; table.clear(picked); gscroll = 0
@@ -855,7 +1169,7 @@ setMode = function(m)
 	end
 	mAh.Visible = m ~= nil; mBh.Visible = m ~= nil
 	if m then
-		mBicon.Image = m == "delete" and Items.ICONS.trash or Items.ICONS.lock
+		mBicon.Image = m == "delete" and Items.ICONS.trash or (Items.ICONS.lock_inv or Items.ICONS.lock)
 		for _, h in { mAh, mBh } do
 			h.Position = UDim2.fromOffset(TX - 24, h.Position.Y.Offset)
 			tween(h, 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Position = UDim2.fromOffset(TX, h.Position.Y.Offset) })
@@ -1022,6 +1336,8 @@ open = function()
 	local my = animToken
 	refreshAll()
 	fit()
+	filt = "all" -- фільтр класу — щоразу All, коли відкривають вікно
+	fTip.Visible = false
 	setTab(tab)
 	hbGui.DisplayOrder = 11 -- хотбар над затемненням вікна
 	-- вікна Forge / Sell (якщо гравець у колі) ховаємо, поки відкритий інвентар — щоб не накладалися
@@ -1060,8 +1376,9 @@ backdrop.InputBegan:Connect(function(inp)
 	if not isPress(inp) then return end
 	if cfRoot.Visible or os.clock() - cfClosedAt < 0.3 then return end -- клік по Cancel / Delete / затемненню підтвердження
 	-- закриває лише клік ПОЗА вікном: клік по порожній частині вікна (панель зі studs, проміжки між слотами)
-	-- провалювався в тло і закривав інвентар
-	local p = Vector2.new(inp.Position.X, inp.Position.Y) + GuiService:GetGuiInset()
+	-- провалювався в тло і закривав інвентар. Без + GetGuiInset(): inp.Position і AbsolutePosition в одному просторі
+	-- (з поправкою на смугу клік біля низу вікна — картка, кнопки інструментів — помилково закривав інвентар)
+	local p = Vector2.new(inp.Position.X, inp.Position.Y)
 	local a, s = content.AbsolutePosition, content.AbsoluteSize
 	local top = s.Y * 0.18 -- заголовок INVENTORY і X над рамкою
 	if p.X >= a.X and p.X <= a.X + s.X and p.Y >= a.Y - top and p.Y <= a.Y + s.Y then return end
