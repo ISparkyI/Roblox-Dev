@@ -36,6 +36,10 @@
 | `CustomPrompts.lua` | `StarterPlayer/StarterPlayerScripts/CustomPrompts` (LocalScript) | власний вигляд підказок E для `ProximityPrompt` зі `Style = Custom` (кнопка «стиль A», клавіша E, іконка); атрибути `UIText`, `UIColor`, `UIIcon`, `UIOffsetY`, `UIWidth`, `ComingSoon`; підказки з `HoldDuration` > 0 — затемнена кнопка, блакитне заповнення під час утримання (миша / дотик / E); анімація напису CAVE (градієнт + блиск) |
 | `BackgroundMusic.lua` | `StarterPlayer/StarterPlayerScripts/BackgroundMusic` (LocalScript) | фонова музика `SoundService/BackgroundMusic`, зациклена, локально в кожного; з 27.10.2026 чекає атрибут `SoundService.LoadingMusicOK` від загрузочного екрана (тайм-аут 30 с), далі fade-in 1 с до гучності з Sound. Бекап: `NicheBackup/BackgroundMusic_v1` |
 | `FootstepVolume.lua` | `StarterPlayer/StarterPlayerScripts/FootstepVolume` (LocalScript) | гучність кроків 75 % від стандартної |
+| `QuestsWindow.lua` | `StarterPlayer/StarterPlayerScripts/QuestsWindow` (LocalScript) | вікно QUESTS: вкладки DAILY / WEEKLY / SPECIAL, картки з прогресом і CLAIM, CLAIM ALL, таймер оновлення, червоні лічильники (вкладки й кнопка Quests у HUD) |
+| `RebirthWindow.lua` | `StarterPlayer/StarterPlayerScripts/RebirthWindow` (LocalScript) | вікно REBIRTH: множник x1 → x2, ціна зі смугою, ліміт мапи, кнопка з підтвердженням «ARE YOU SURE?», список наступних 8 ребітхів |
+| `ShopWindow.lua` | `StarterPlayer/StarterPlayerScripts/ShopWindow` (LocalScript) | вікно SHOP: геймпаси (`MonetizationConfig.Passes`), велика картка + сітка 2 у ряд, перемикач ROBUX / TICKETS, падаючі іконки на фоні карток, CardHover |
+| `SettingsWindow.lua` | `StarterPlayer/StarterPlayerScripts/SettingsWindow` (LocalScript) | вікно SETTINGS (шестерня в HUD) і застосування: повзунки MUSIC / SOUND EFFECTS (SoundGroup `MusicGroup` / `SfxGroup`), MUTATION AURAS, HIDE OTHER PLAYERS, LOW GRAPHICS, AUTO EQUIP BEST (замкнено, GAMEPASS) |
 | `AdminPanel.lua` | `ServerStorage/AdminUI/AdminPanelGui/AdminPanel` (LocalScript, видається лише адмінам) | вікно адмін-панелі F2: вкладки PLAYERS, GOLEMS, GLOBAL, ME, SERVERS, LOGS, ADMINS; пікер големів з картинками, степери, івенти з чергою. [[GDD - Admin Panel]] |
 | `AdminBroadcastClient.lua` | `StarterPlayer/StarterPlayerScripts/AdminBroadcastClient` (LocalScript) | банер оголошень, тости «+N Money!», плашки активних івентів; текст з чорною тінню 50% і фейдом від центру |
 
@@ -183,3 +187,13 @@
 - Копія: хеш 1548374643, 48 361 байт. Бекап — `NicheBackup/Backend_v1/InfoWindows_v4`.
 
 **Оновлено 28.10.2026 (адмінка):** нові `AdminPanel`, `AdminBroadcastClient`.
+
+**Оновлено 28.10.2026 (Settings):** новий `SettingsWindow`; `MutationAuraClient` — аури вимикаються атрибутом `Set_AurasLocal` / `Set_Auras`.
+
+**Оновлено 28.10.2026 (Quests, Rebirth):** нові `QuestsWindow`, `RebirthWindow`; `SettingsWindow` — список вікон для хотбара.
+
+**Оновлено 28.10.2026 (Shop):** новий `ShopWindow`; `SettingsWindow` — AUTO EQUIP BEST з геймпасом (без нього GAMEPASS → SHOP).
+
+**Оновлено 28.10.2026 (Shop v2):** `ShopWindow` — розділи MONEY MULTIPLIER / GAMEPASSES / BUNDLES / PRODUCTS / COMING SOON, візерунок як на кнопках, без накладання при наведенні; `AdminPanel` — секція GAMEPASSES з вікном вибору.
+
+**Оновлено 28.10.2026 (Shop v4):** `ShopWindow` — нові товари, розділ MUTATION SPEED, prewrap описів; `InventoryUI` / `CaveStandsClient` / `RollRevealClient` — ліміт `Items.maxGolems(player)`.

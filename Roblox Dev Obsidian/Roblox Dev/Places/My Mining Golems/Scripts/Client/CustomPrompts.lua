@@ -81,6 +81,33 @@ local function holdFx(prompt: ProximityPrompt, btn: any, conns: { any })
 	table.insert(conns, { Disconnect = function() if conn then conn:Disconnect(); conn = nil end end }) -- перебудова: зупинити анімацію
 end
 
+-- Масштаб умісту білбордів рахуємо самі щокадру з камери (до рендеру). bb.AbsoluteSize оновлюється із запізненням, і на 1 кадр
+-- кнопка могла намалюватись зі старим величезним масштабом на весь екран (поява, різкий рух камери).
+-- Камера майже всередині кнопки або позаду — уміст ховаємо.
+local fits: { [BillboardGui]: { holder: Frame, fit: UIScale, w: number } } = {}
+local function adorneePos(a: Instance?): Vector3?
+	if not a then return nil end
+	if a:IsA("BasePart") then return a.Position end
+	if a:IsA("Attachment") then return a.WorldPosition end
+	if a:IsA("Model") then return a:GetPivot().Position end
+	return nil
+end
+game:GetService("RunService"):BindToRenderStep("CustomPromptFit", Enum.RenderPriority.Camera.Value + 2, function()
+	local cam = workspace.CurrentCamera
+	if not cam then return end
+	local k = cam.ViewportSize.Y / (2 * math.tan(math.rad(cam.FieldOfView) / 2))
+	for bb, f in fits do
+		if not bb.Parent then fits[bb] = nil continue end
+		if not bb.Enabled then continue end
+		local p = adorneePos(bb.Adornee)
+		if not p then continue end
+		local depth = (p + bb.StudsOffsetWorldSpace - cam.CFrame.Position):Dot(cam.CFrame.LookVector)
+		if depth < 2 then f.holder.Visible = false continue end
+		f.fit.Scale = math.min(f.w * k / depth / W, 6)
+		f.holder.Visible = true
+	end
+end)
+
 local function build(prompt: ProximityPrompt, conns: { any })
 	local widthStuds = (prompt:GetAttribute("UIWidth") :: number?) or 8.8
 	local bb = Instance.new("BillboardGui")
@@ -95,7 +122,7 @@ local function build(prompt: ProximityPrompt, conns: { any })
 	local holder = Instance.new("Frame")
 	holder.BackgroundTransparency = 1; holder.Size = UDim2.fromOffset(W, H); holder.Parent = bb
 	local fit = Instance.new("UIScale"); fit.Parent = holder
-	bb:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() fit.Scale = bb.AbsoluteSize.X / W end)
+	fits[bb] = { holder = holder, fit = fit, w = widthStuds }
 	local anim = Instance.new("Frame")
 	anim.BackgroundTransparency = 1; anim.AnchorPoint = Vector2.new(0.5, 0.5)
 	anim.Position = UDim2.fromOffset(W / 2, H / 2); anim.Size = UDim2.fromOffset(W, H); anim.Parent = holder

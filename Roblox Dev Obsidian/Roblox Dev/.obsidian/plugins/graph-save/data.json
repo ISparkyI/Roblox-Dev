@@ -162,8 +162,8 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Monetization.md",
-      "x": 1105.2227783203125,
-      "y": -866.606201171875
+      "x": 1101.896728515625,
+      "y": -874.8204956054688
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Mutation Machine.md",
@@ -391,9 +391,9 @@
       "y": -118.83167266845703
     },
     {
-      "id": "OREKO/Loading Screen/OREKO Loading Screen.md",
-      "x": -40.88399887084961,
-      "y": -249.33740234375
+      "id": "OREKO/Loading Screen/OSIRIUS Loading Screen.md",
+      "x": -27.032915115356445,
+      "y": -306.2664794921875
     },
     {
       "id": "Places/My Mining Golems/2D/Loading Screen/Loading Screen.md",
@@ -417,8 +417,8 @@
     },
     {
       "id": "Places/My Mining Golems/Scripts/Modules/GolemCatalog.md",
-      "x": 1211.0648193359375,
-      "y": -126.56181335449219
+      "x": 1075.9913330078125,
+      "y": -238.14320373535156
     },
     {
       "id": "Index",
@@ -437,8 +437,8 @@
     },
     {
       "id": "Places/My Mining Golems/Scripts/Modules/MutationAura.md",
-      "x": 1082.172607421875,
-      "y": 27.557754516601562
+      "x": 1026.5618896484375,
+      "y": -224.08096313476562
     },
     {
       "id": "OREKO",
@@ -452,8 +452,8 @@
     },
     {
       "id": "Places/My Mining Golems/3D Models/Instruments/Item Prefabs/Item Prefabs.md",
-      "x": 2174.025390625,
-      "y": 223.311279296875
+      "x": 2085.954345703125,
+      "y": 452.03729248046875
     },
     {
       "id": "Places/My Mining Golems/3D Models/Golems/Clay Golem/Clay Golem.md",
@@ -479,6 +479,11 @@
       "id": "Places/My Mining Golems/GDD/GDD - Golem UID.md",
       "x": 1069.8133544921875,
       "y": -467.1277770996094
+    },
+    {
+      "id": "OREKO Loading Screen",
+      "x": 137.2772216796875,
+      "y": -130.2307586669922
     }
   ],
   "pinnedNodes": [

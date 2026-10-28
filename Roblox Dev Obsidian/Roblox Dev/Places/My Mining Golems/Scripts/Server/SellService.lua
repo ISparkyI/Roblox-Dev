@@ -10,6 +10,11 @@
 -- Анімація продажу: Sell.SellSeq += 1, Sell.SellAmount = сума (клієнт SellClient показує ваги, монети, «+$»).
 -- ТЕСТ: інвентар — атрибути гравця (як у ForgeService). Коли з'явиться справжній інвентар — замінити invGet / invAdd.
 
+-- квести (QuestService): лічильник дій гравця; require ліниво — без циклів між модулями
+local function questAdd(p: Player, stat: string, n: number?)
+	local okQ, QS = pcall(require, script.Parent:FindFirstChild("QuestService"))
+	if okQ and QS and QS.Add then QS.Add(p, stat, n) end
+end
 local RS = game:GetService("ReplicatedStorage")
 
 local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("ForgeConfig"))
@@ -54,6 +59,7 @@ local function onAction(p: Player, action: any, arg: any)
 	if not s or not inRing(p, s) then return end
 	lastSell[p] = t
 	local base = 0
+	local units = 0
 	local locked = lockedSet(p)
 	for _, o in Cfg.ORES do
 		for _, kind in { "Ore_", "Bars_" } do
@@ -63,6 +69,7 @@ local function onAction(p: Player, action: any, arg: any)
 				n = math.clamp(math.floor(n), 0, invGet(p, key))
 				if n > 0 then
 					invAdd(p, key, -n)
+					units += n
 					base += n * o.price * (kind == "Bars_" and Cfg.BAR_MULT or 1)
 				end
 			end
@@ -71,6 +78,7 @@ local function onAction(p: Player, action: any, arg: any)
 	if base <= 0 then return end
 	local amount = MultiService.Apply(p, base)
 	invAdd(p, "Money", amount)
+	questAdd(p, "Sell", units)
 	s:SetAttribute("SellAmount", amount)
 	s:SetAttribute("SellSeq", ((s:GetAttribute("SellSeq") :: number?) or 0) + 1)
 end

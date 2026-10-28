@@ -1,5 +1,5 @@
 -- InventoryUI — інвентар гравця: хотбар унизу (9 слотів «C · Сяйво») і вікно INVENTORY (кнопка рюкзака в HUD або клавіша B).
--- Де: StarterPlayer/StarterPlayerScripts/InventoryUI (LocalScript). Інтерфейс будується кодом (ScreenGui Hotbar і InventoryWindow).
+-- Де: StarterPlayer/StarterPlayerScripts/InventoryUI (LocalScript). Слот хотбара можна перетягнути у відкрите вікно — предмет повертається в інвентар (у свою вкладку). Інтерфейс будується кодом (ScreenGui Hotbar і InventoryWindow).
 -- Макет: 2D/Inventory (веб-макет v3, затверджений). Стиль — як вікна Forge / Sell (studs, «стиль A», квадратне).
 --
 -- Хотбар: показує ЛИШЕ зайняті слоти, по центру, нумерація 1..n без пропусків. Слот з'являється, коли предмет беруть у руку
@@ -540,7 +540,7 @@ end
 local refreshTip: () -> () -- нижче (у блоці do — без нових локальних верхнього рівня, ліміт 200)
 do
 local TIP_W = 250
-local tipGui = new("ScreenGui", { Name = "HotbarTip", ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 6 }, playerGui)
+local tipGui = new("ScreenGui", { Name = "HotbarTip", ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 12 }, playerGui)
 local tip = new("Frame", { Name = "Tip", BackgroundColor3 = C("1b1e23"), BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 1),
 	Size = UDim2.fromOffset(TIP_W, 0), AutomaticSize = Enum.AutomaticSize.Y, Visible = false, ZIndex = 50 }, tipGui)
 stroke(tip, INK, 3)
@@ -684,6 +684,12 @@ end
 toggleHeld = function(i: number)
 	local key = hotbar[i]
 	if not key or not live(key) then return end
+	-- зілля в руку не береться: клік по слоту / цифра — випити одне (InventoryService "Use")
+	if string.sub(key, 1, 4) == "Pot_" then
+		Action:FireServer("Use", key)
+		UISounds.play("claim", 0.1)
+		return
+	end
 	if heldKey == key then -- прибрав з рук → слот зникає (сервер теж прибирає), решта зсуваються; закріплений (Hotbar) — лишається
 		if not pinSet[key] then table.remove(hotbar, i) end
 		sendHold("")
@@ -770,7 +776,9 @@ local function tabItems(k: string)
 end
 -- що видно в сітці: предмети поточної вкладки; на вкладці Golems — лише вибраного класу (фільтр)
 local function visibleItems()
-	local t = tabItems(tab)
+	-- предмет у слоті хотбара в сітці інвентаря не показується (v27): повертається, коли його прибрали з хотбара
+	local t = {}
+	for _, it in tabItems(tab) do if not tableFind(hotbar, it.key) then table.insert(t, it) end end
 	if tab ~= "golems" then return t end
 	local f = {}
 	for _, it in t do if filt == "all" or it.cls == filt then table.insert(f, it) end end
@@ -1203,7 +1211,7 @@ local function renderGrid()
 		local l = tabItems(k)
 		local c = 0
 		for _, it in l do c += it.n end
-		t.c.Text = k == "golems" and (#l .. " / " .. Items.MAX_GOLEMS .. " golems") or (NF.full(c) .. " items") -- лише інвентар (без големів на плотах), як ліміт на сервері
+		t.c.Text = k == "golems" and (#l .. " / " .. Items.maxGolems(player) .. " golems") or (NF.full(c) .. " items") -- лише інвентар (без големів на плотах), як ліміт на сервері
 	end
 	refreshFilt()
 	-- кнопки режиму
@@ -1266,7 +1274,13 @@ local function renderInfo()
 	fitText(infoSub, 16, 12)
 	local hi = tableFind(hotbar, it.key)
 	local inHand = heldKey == it.key
-	bHold:setText(inHand and "Put Away" or "Hold"); bHold:recolor(inHand and "red" or "green")
+	-- зілля: лише Use (п'ють одразу, кнопки Hotbar немає)
+	showBtn(bPin, it.tab ~= "potions")
+	if it.tab == "potions" then
+		bHold:setText("Use"); bHold:recolor("green")
+	else
+		bHold:setText(inHand and "Put Away" or "Hold"); bHold:recolor(inHand and "red" or "green")
+	end
 	bPin:setText(pinSet[it.key] and "Unpin" or "Hotbar")
 end
 
@@ -1302,6 +1316,11 @@ end
 bHold.onClick = function()
 	local it = selKey and live(selKey)
 	if not it then return end
+	if it.tab == "potions" then -- зілля: кнопка Use — випити одне
+		Action:FireServer("Use", it.key)
+		UISounds.play("claim", 0.1)
+		return
+	end
 	if heldKey == it.key then -- Put Away: прибрати з рук — слот зникає (крім закріплених кнопкою Hotbar)
 		local hi = tableFind(hotbar, it.key)
 		if hi and not pinSet[it.key] then table.remove(hotbar, hi) end
@@ -1586,7 +1605,18 @@ backdrop.InputBegan:Connect(function(inp)
 	local a, s = content.AbsolutePosition, content.AbsoluteSize
 	local top = s.Y * 0.18 -- заголовок INVENTORY і X над рамкою
 	if p.X >= a.X and p.X <= a.X + s.X and p.Y >= a.Y - top and p.Y <= a.Y + s.Y then return end
-	close()
+	-- клік / затиск по слоту хотбара (взяти в руку або потягнути у вікно) — не закриває інвентар
+	for _, hs in hot do
+		if hs.holder.Visible then
+			local ha, hz = hs.hit.AbsolutePosition, hs.hit.AbsoluteSize
+			if p.X >= ha.X and p.X <= ha.X + hz.X and p.Y >= ha.Y and p.Y <= ha.Y + hz.Y then return end
+		end
+	end
+	-- той самий натиск влучив у слот хотбара (атрибут PressAt ставить блок перетягування) — не закриваємо
+	task.delay(0, function()
+		if os.clock() - ((hbGui:GetAttribute("PressAt") :: number?) or 0) < 0.2 then return end
+		close()
+	end)
 end)
 
 -- одне вікно на екрані (Shared/WindowManager): відкрилось інше вікно — інвентар закривається
@@ -1613,6 +1643,80 @@ CAS:BindActionAtPriority("InventoryBackquote", function(_, state)
 	if isOpen then close() else open() end
 	return Enum.ContextActionResult.Sink
 end, false, Enum.ContextActionPriority.High.Value + 100, Enum.KeyCode.Backquote)
+
+-- ===== перетягування слота хотбара у відкрите вікно INVENTORY (v26, 28.10.2026) =====
+-- Затиснув слот хотбара й потягнув (> 10 px) — під пальцем / мишкою їде напівпрозора копія слота. Відпустив над вікном —
+-- предмет іде назад в інвентар: зникає з хотбара, знімається закріплення (Pin) і з руки (сервер — InventoryAction "Clear"),
+-- вікно перемикається на вкладку предмета (голем — Golems, руда / злитки — Ores / Bars, зілля — Potions) і виділяє його.
+-- Відпустив поза вікном — слот повертається на місце. Звичайний клік (без руху) — як і раніше, взяти / прибрати з рук.
+task.spawn(function() -- окрема функція: у головній уже ~200 локальних (ліміт регістрів)
+	local dragGui = new("ScreenGui", { Name = "HotbarDrag", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 30 }, playerGui)
+	local drag = nil
+	local suppressUntil = 0
+	local function insideOf(o: GuiObject, p: Vector2): boolean
+		local a, z = o.AbsolutePosition, o.AbsoluteSize
+		return p.X >= a.X and p.X <= a.X + z.X and p.Y >= a.Y and p.Y <= a.Y + z.Y
+	end
+	local function endGhost()
+		if drag and drag.ghost then drag.ghost:Destroy() end
+		if drag and drag.src then drag.src.Visible = true end
+	end
+	for idx, sl in hot do
+		local old = sl.onClick
+		sl.onClick = function(...) if os.clock() < suppressUntil then return end; if old then old(...) end end
+		sl.hit.InputBegan:Connect(function(inp)
+			if not isPress(inp) then return end
+			hbGui:SetAttribute("PressAt", os.clock())
+			if not isOpen then return end
+			local key = hotbar[idx]
+			if not key or not live(key) then return end
+			drag = { i = idx, key = key, start = Vector2.new(inp.Position.X, inp.Position.Y), moved = false }
+		end)
+	end
+	UIS.InputChanged:Connect(function(inp)
+		if not drag then return end
+		if inp.UserInputType ~= Enum.UserInputType.MouseMovement and inp.UserInputType ~= Enum.UserInputType.Touch then return end
+		local p = Vector2.new(inp.Position.X, inp.Position.Y)
+		if not drag.moved then
+			if (p - drag.start).Magnitude < 10 then return end
+			drag.moved = true
+			local sl = hot[drag.i]
+			local g = new("CanvasGroup", { Name = "Ghost", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), GroupTransparency = 0.15,
+				Size = UDim2.fromOffset(sl.holder.AbsoluteSize.X * 1.1, sl.holder.AbsoluteSize.Y * 1.1), ZIndex = 50 }, dragGui)
+			local c = sl.holder:Clone()
+			c.AnchorPoint = Vector2.new(0.5, 0.5); c.Position = UDim2.fromScale(0.5, 0.5); c.Rotation = 0
+			local sc = c:FindFirstChildOfClass("UIScale") or new("UIScale", {}, c)
+			sc.Scale = hbScale.Scale * 1.1
+			c.Parent = g
+			drag.ghost = g
+			drag.src = sl.holder
+			sl.holder.Visible = false
+		end
+		drag.ghost.Position = UDim2.fromOffset(p.X, p.Y)
+		drag.ghost.Rotation = isOpen and insideOf(content, p) and 0 or -6
+	end)
+	UIS.InputEnded:Connect(function(inp)
+		if not drag or not isPress(inp) then return end
+		local d = drag
+		if not d.moved then drag = nil; return end
+		suppressUntil = os.clock() + 0.3
+		local p = Vector2.new(inp.Position.X, inp.Position.Y)
+		endGhost()
+		drag = nil
+		if not (isOpen and insideOf(content, p)) then refreshHotbar(); return end
+		local k = d.key
+		local hi = tableFind(hotbar, k)
+		if hi then table.remove(hotbar, hi) end
+		pinSet[k] = nil
+		if heldKey == k then heldKey = "" end
+		Action:FireServer("Clear", { k })
+		UISounds.play("tap", 0.05)
+		local it = live(k)
+		if it and it.tab and it.tab ~= tab and not mode then setTab(it.tab) end
+		if it then selKey = k end
+		refreshHotbar(); renderGrid(); renderInfo()
+	end)
+end)
 
 -- дані: будь-яка зміна інвентаря → оновлення (раз за кадр)
 local pending = false

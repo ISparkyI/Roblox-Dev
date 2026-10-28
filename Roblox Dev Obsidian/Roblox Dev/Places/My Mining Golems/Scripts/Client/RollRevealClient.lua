@@ -341,7 +341,8 @@ local function refresh(stand: Model)
 	local cy = tonumber(seq.cy) or CYCLE
 	local endT = t0 + cy * #fakes
 	if t0 <= 0 or #fakes == 0 or now() >= endT then
-		placeFinal(stand, v, seq, false, owner)
+		-- Fast Roll (геймпас): фейків немає, але рол свіжий — результат з'являється з анімацією і спалахом
+		placeFinal(stand, v, seq, #fakes == 0 and t0 > 0 and now() - t0 < 1, owner)
 		return
 	end
 	local tok = v.token
@@ -376,7 +377,7 @@ local function paintPrompt(stand: Model)
 	local price = (stand:GetAttribute("RollPrice") :: number?) or 0
 	local money = (player:GetAttribute("Money") :: number?) or 0
 	local text, disabled
-	if invCount() >= Items.MAX_GOLEMS then
+	if invCount() >= Items.maxGolems(player) then
 		text, disabled = "INVENTORY FULL", true
 	elseif price <= 0 then
 		text, disabled = "FREE", false

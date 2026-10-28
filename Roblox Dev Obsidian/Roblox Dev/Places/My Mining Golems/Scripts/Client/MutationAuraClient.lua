@@ -7,11 +7,18 @@
 local MutationAura = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("MutationAura"))
 
 local watched: { [Model]: boolean } = {}
+local player = game:GetService("Players").LocalPlayer
+-- вимикач у SETTINGS: Set_AurasLocal (миттєво, з клієнта) або Set_Auras (збережене); за замовчуванням увімкнено
+local function aurasOn(): boolean
+	local v = player:GetAttribute("Set_AurasLocal")
+	if v == nil then v = player:GetAttribute("Set_Auras") end
+	return v ~= false
+end
 
 local function refresh(m: Model)
 	if not m:IsDescendantOf(workspace) then MutationAura.clear(m); return end
 	local mut = tonumber(m:GetAttribute("Mut")) or 0
-	if mut > 0 and m:FindFirstChild("Root") then
+	if mut > 0 and m:FindFirstChild("Root") and aurasOn() then
 		MutationAura.apply(m, math.floor(mut))
 	else
 		MutationAura.clear(m)
@@ -40,3 +47,6 @@ end
 
 for _, d in workspace:GetDescendants() do consider(d) end
 workspace.DescendantAdded:Connect(consider)
+local function refreshAll() for m in watched do refresh(m) end end
+player:GetAttributeChangedSignal("Set_AurasLocal"):Connect(refreshAll)
+player:GetAttributeChangedSignal("Set_Auras"):Connect(refreshAll)

@@ -24,6 +24,7 @@
 --   "Hotbar", { ключі }       — новий список хотбара;
 --   "Pin",    { key, on }      — кнопка Hotbar / Unpin: закріплений слот лишається після Put Away (InvPinned);
 --   "Clear",  { ключі }       — кнопка «в інвентар»: ці предмети зникають з хотбара й руки;
+--   "Use",    "Pot_<зілля>"   — випити зілля: −1, атрибут Boost_<зілля> = кінець дії (ItemConfig.boostLeft);
 --   "Sort",   ключ (Shared/GolemSort.LIST) — сортування големів (атрибут InvSort, спільний для інвентаря й вікна плоту; зберігається в секції, поле sort);
 --   "Hold",   ключ або ""     — взяти в руку (створює слот) / прибрати з рук (слот зникає). Модель у руці й табличку над
 --                             големом показує HeldItemService (за атрибутом InvHeld).
@@ -183,6 +184,17 @@ local function onAction(p: Player, action: any, arg: any)
 		encode(p, "InvHotbar", h); encode(p, "InvPinned", pl)
 	elseif action == "Sort" then
 		if type(arg) == "string" and GolemSort.VALID[arg] then p:SetAttribute("InvSort", arg) end
+	elseif action == "Use" and type(arg) == "string" and string.sub(arg, 1, 4) == "Pot_" then
+		-- випити зілля: −1 і + час дії (Boost_<зілля> — коли скінчиться, час сервера; ще раз — додається)
+		local def = Items.potion(string.sub(arg, 5))
+		local n = (tonumber(p:GetAttribute(arg)) or 0) :: number
+		if not def or n <= 0 then return end
+		local now = workspace:GetServerTimeNow()
+		if now - ((p:GetAttribute("PotUseT") :: number?) or 0) < 0.25 then return end -- не частіше 4 разів на секунду
+		p:SetAttribute("PotUseT", now)
+		p:SetAttribute(arg, n - 1)
+		local cur = (tonumber(p:GetAttribute("Boost_" .. def.key)) or 0) :: number
+		p:SetAttribute("Boost_" .. def.key, math.max(cur, now) + (def.dur or 300))
 	elseif action == "Hold" then
 		if arg == "" or arg == nil then -- прибрав з рук → слот цього предмета зникає (якщо він не закріплений кнопкою Hotbar)
 			local held = p:GetAttribute("InvHeld")
@@ -198,7 +210,12 @@ local function sectionOf(p: Player, old: any): any
 	if p:GetAttribute("InvReady") ~= true then return old end
 	local pot = {}
 	for _, d in Items.POTIONS do pot[d.key] = (p:GetAttribute("Pot_" .. d.key) :: number?) or 0 end
-	return { golems = golems(p), locks = locks(p), hotbar = hotbar(p), pinned = pins(p), potions = pot, sort = GolemSort.current(p) }
+	local boosts = {} -- скільки секунд дії зіль лишилось (офлайн час не йде)
+	for _, d in Items.POTIONS do
+		local left = Items.boostLeft(p, d.key)
+		if left > 1 then boosts[d.key] = math.floor(left) end
+	end
+	return { golems = golems(p), locks = locks(p), hotbar = hotbar(p), pinned = pins(p), potions = pot, boosts = boosts, sort = GolemSort.current(p) }
 end
 
 local function onPlayer(p: Player)
@@ -227,6 +244,8 @@ local function onPlayer(p: Player)
 		for _, d in Items.POTIONS do
 			local n = type(sec.potions) == "table" and tonumber(sec.potions[d.key]) or 0
 			p:SetAttribute("Pot_" .. d.key, math.max(0, math.floor(n or 0)))
+			local left = type(sec.boosts) == "table" and tonumber(sec.boosts[d.key]) or 0
+			if left and left > 0 then p:SetAttribute("Boost_" .. d.key, workspace:GetServerTimeNow() + math.min(left, 7 * 86400)) end
 		end
 	else
 		local gl = {}
@@ -283,7 +302,7 @@ end
 function InventoryService.AddGolem(p: Player, id: number, kind: string, cls: string, mut: number, reason: string?, force: boolean?): (boolean, string?)
 	if p:GetAttribute("InvReady") ~= true then return false end
 	local gl = golems(p)
-	if not force and Items.invGolemCount(gl, decode(p, "PlotPlaced", {})) >= Items.MAX_GOLEMS then return false end -- без големів на плотах
+	if not force and Items.invGolemCount(gl, decode(p, "PlotPlaced", {})) >= Items.maxGolems(p) then return false end -- без големів на плотах
 	for _, g in gl do if type(g) == "table" and g.id == id then return false end end
 	local rec = GolemRegistry.Mint(p, { id = id, kind = Catalog.id(kind) or kind, cls = Catalog.cls(cls), mut = Catalog.mut(mut) }, reason or "buy")
 	table.insert(gl, rec)
@@ -325,6 +344,19 @@ function InventoryService.Start()
 	ev.OnServerEvent:Connect(onAction)
 	Players.PlayerAdded:Connect(function(p) task.spawn(onPlayer, p) end)
 	for _, p in Players:GetPlayers() do task.spawn(onPlayer, p) end
+	-- дія зілля скінчилась → атрибут Boost_<зілля> = nil (на нього підписані MultiService і BoostsHUD)
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			local now = workspace:GetServerTimeNow()
+			for _, p in Players:GetPlayers() do
+				for _, d in Items.POTIONS do
+					local u = p:GetAttribute("Boost_" .. d.key)
+					if u ~= nil and (tonumber(u) or 0) <= now then p:SetAttribute("Boost_" .. d.key, nil) end
+				end
+			end
+		end
+	end)
 end
 
 return InventoryService

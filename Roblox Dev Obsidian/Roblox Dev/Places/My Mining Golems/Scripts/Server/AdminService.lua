@@ -17,7 +17,11 @@
 -- Ідемпотентність: кожна видача має tx; профіль гравця (секція "AdminTx") пам'ятає останні TX_KEEP tx — повтор
 --   (подвійне повідомлення, пошта + живе повідомлення) не дасть видачу двічі.
 -- Нагороди (what): Money | Diamonds | Tickets | LuckLvl | Potion (item = ключ зілля) | Golem (item = "stone@3:carrier",
---   amount = кількість) | RemoveGolem (item = UID). amount < 0 для Money / Diamonds / Tickets / LuckLvl — забрати (не нижче 0).
+--   amount = кількість) | RemoveGolem (item = UID) | Pass (item = ключ геймпаса з MonetizationConfig.Passes або "*" — усі;
+--   amount 1 — видати, −1 — забрати; атрибут Pass_<ключ>). amount < 0 для Money / Diamonds / Tickets / LuckLvl — забрати (не нижче 0).
+--   LuckRoll10 / LuckRoll99 (amount = скільки Lucky Roll у запас) — як ресурси.
+--   MoneyTier / MutTier (amount = ступінь драбини x2 Money — MultiConfig.DONATE_TIERS / Fast Mutations — MonetizationConfig.MUT_SPEED_TIERS):
+--     «до ступеня» — DonateTier / MutSpeedTier = max(поточний, amount); хто вже має ступінь не нижче — без змін (і без тосту).
 -- Події: workspace атрибути EventLuck / EventLuckUntil (Roll Luck — рідкість голема), EventMutLuck / EventMutLuckUntil
 --   (Mutation Luck — шанс мутації), EventMoney / EventMoneyUntil (os.time). Читають RollService і MultiService.
 --
@@ -45,6 +49,7 @@ local TeleportService = game:GetService("TeleportService")
 
 local Catalog = require(RS:WaitForChild("Shared"):WaitForChild("GolemCatalog"))
 local Items = require(RS.Shared:WaitForChild("ItemConfig"))
+local MonCfg = require(RS.Shared:WaitForChild("MonetizationConfig"))
 local RollConfig = require(RS.Shared:WaitForChild("RollConfig"))
 local NumberFormat = require(RS.Shared:WaitForChild("NumberFormat"))
 local DataService = require(script.Parent:WaitForChild("DataService"))
@@ -64,7 +69,10 @@ local STATE_SEC = 15
 local REPLY_WAIT = 5
 local TX_KEEP = 200
 local START_T = os.time()
-local RESOURCES = { Money = true, Diamonds = true, Tickets = true, LuckLvl = true }
+local RESOURCES = { Money = true, Diamonds = true, Tickets = true, LuckLvl = true, LuckRoll10 = true, LuckRoll99 = true }
+local MultiCfg = require(RS.Shared:WaitForChild("MultiConfig"))
+local TIER_MAX = { MoneyTier = function() return MultiCfg.maxDonateTier() end, MutTier = function() return #MonCfg.MUT_SPEED_TIERS end }
+local TIER_ATTR = { MoneyTier = "DonateTier", MutTier = "MutSpeedTier" }
 local MAX_AMOUNT = 1e60 -- межа видачі за раз (NumberFormat показує до Vg); точність double — ~15 значущих цифр
 local MAX_GOLEMS_GRANT = 50
 
@@ -150,8 +158,35 @@ local function toast(p: Player, text: string, color: string?)
 	if broadcast and p.Parent == Players then broadcast:FireClient(p, "toast", { text = text, color = color or "green" }) end
 end
 
+-- важливі дії — ще й у Google-таблицю (аркуш AdminLog через BackendService): цей запис не стирається з гри
+local SHEET = { give = true, grantall = true, role = true, ban = true, unban = true, shutdown = true, event = true, kick = true }
+local function sheetLog(ev: any)
+	local mod = script.Parent:FindFirstChild("BackendService")
+	if not mod then return end
+	local ok, B = pcall(require, mod)
+	if ok and type(B) == "table" and B.AdminLog then B.AdminLog(ev) end
+end
 local function audit(by: any, what: string, data: any)
 	GolemRegistry.Log({ e = "admin", u = tonumber(by) or 0, r = what, x = data })
+	if SHEET[what] then sheetLog({ t = os.time(), e = "admin", by = tonumber(by) or 0, what = what, data = data, job = JOB_SHORT }) end
+end
+
+-- запит до панелі без ролі. Звичайному гравцю F2 нічого не шле (панелі в нього немає), тож такий запит — лише підробка
+-- клієнта: подія SUSPECT у журнал і в таблицю (не частіше разу на 5 с), після SUSPECT_KICK спроб за 10 хв — кік.
+local SUSPECT_KICK = 3
+local suspects: { [number]: any } = {}
+local function suspect(p: Player, action: any)
+	local now = os.clock()
+	local s = suspects[p.UserId]
+	if not s or now - s.t0 > 600 then s = { n = 0, t0 = now, last = -math.huge }; suspects[p.UserId] = s end
+	s.n += 1
+	if now - s.last >= 5 or s.n >= SUSPECT_KICK then
+		s.last = now
+		local what = string.sub(tostring(action), 1, 40)
+		GolemRegistry.Log({ e = "suspect", u = p.UserId, r = what, x = { name = p.Name, n = s.n, job = JOB_SHORT } })
+		sheetLog({ t = os.time(), e = "suspect", by = p.UserId, name = p.Name, what = what, n = s.n, job = JOB_SHORT })
+	end
+	if s.n >= SUSPECT_KICK then p:Kick("Unauthorized request") end
 end
 
 -- ===== відповіді між серверами =====
@@ -221,6 +256,14 @@ local function packGolems(inv: { any }, placed: { number }, cave: { [string]: an
 	return out
 end
 
+-- геймпаси гравця (ключі MonetizationConfig.Passes), get(attr) — атрибут
+local function passList(get): { string }
+	local out = {}
+	for key in MonCfg.Passes do if get("Pass_" .. key) == true then table.insert(out, key) end end
+	table.sort(out)
+	return out
+end
+
 local function infoLocal(p: Player): any
 	local a = function(n) return p:GetAttribute(n) end
 	return {
@@ -228,6 +271,8 @@ local function infoLocal(p: Player): any
 		money = a("Money") or 0, diamonds = a("Diamonds") or 0, tickets = a("Tickets") or 0, stage = a("Stage") or 1,
 		luck = a("RollLuckLvl") or 1, rebirths = a("Rebirths") or 0, multi = a("TotalMulti") or 1,
 		suspect = a("SuspectDupe") == true,
+		passes = passList(a),
+		tiers = { MoneyTier = a("DonateTier") or 0, MutTier = a("MutSpeedTier") or 0, LuckRoll10 = a("LuckRoll10") or 0, LuckRoll99 = a("LuckRoll99") or 0 },
 		golems = packGolems(decodeAttr(p, "InvGolems", {}), decodeAttr(p, "PlotPlaced", {}), decodeAttr(p, "CaveStandGolems", {}), decodeAttr(p, "InvLocks", {})),
 	}
 end
@@ -252,6 +297,8 @@ local function infoOffline(userId: number): any
 		u = userId, name = okN and name or "?", status = "offline", lastSeen = d.stats and d.stats.lastSeen,
 		money = at.Money or 0, diamonds = at.Diamonds or 0, tickets = at.Tickets or 0, stage = at.Stage or 1,
 		luck = at.RollLuckLvl or 1, rebirths = at.Rebirths or 0,
+		passes = passList(function(k) return at[k] end),
+		tiers = { MoneyTier = at.DonateTier or 0, MutTier = at.MutSpeedTier or 0, LuckRoll10 = at.LuckRoll10 or 0, LuckRoll99 = at.LuckRoll99 or 0 },
 		golems = packGolems(inv, placed, cave, locks),
 	}
 end
@@ -288,6 +335,8 @@ local function validGrant(g: any): (boolean, string?)
 		return parseGolem(g.item) ~= nil and n > 0 and n <= MAX_GOLEMS_GRANT, "golem"
 	end
 	if g.what == "RemoveGolem" then return GolemRegistry.IsUid(g.item), "uid" end
+	if g.what == "Pass" then return (g.item == "*" or MonCfg.Passes[tostring(g.item)] ~= nil) and (n == 1 or n == -1), "pass" end
+	if TIER_MAX[g.what] then return n >= 1 and n <= TIER_MAX[g.what]() and n == math.floor(n), "level" end
 	return false, "what"
 end
 
@@ -308,10 +357,19 @@ local function grantText(g: any): string
 		local mu = Catalog.MUTATIONS[(mut or 0) + 1]
 		local mname = (mu and mu.key ~= "Normal") and (mu.key .. " ") or ""
 		return "+" .. (n > 1 and (n .. " ") or "") .. mname .. ((def and def.name) or "Golem")
+	elseif g.what == "Pass" then
+		local nm = g.item == "*" and "All Gamepasses" or (((MonCfg.Passes[tostring(g.item)] or {}).name or tostring(g.item)) .. " Gamepass")
+		return (n > 0 and "+" or "Removed: ") .. nm
 	elseif g.what == "Potion" then
 		return "+" .. f(n) .. " " .. (potionKey(g.item) or "") .. " Potion"
 	elseif g.what == "LuckLvl" then
 		return (n >= 0 and "+" or "") .. f(n) .. " Roll Luck"
+	elseif g.what == "MoneyTier" then
+		return "x" .. NumberFormat.full(MultiCfg.donateMult(n)) .. " Money"
+	elseif g.what == "MutTier" then
+		return "x" .. tostring(MonCfg.mutSpeedMult(n)) .. " Fast Mutations"
+	elseif g.what == "LuckRoll10" or g.what == "LuckRoll99" then
+		return (n >= 0 and "+" or "") .. f(n) .. (g.what == "LuckRoll10" and " x10" or " x99") .. " Lucky Roll"
 	end
 	return (n >= 0 and "+" or "") .. f(n) .. " " .. tostring(g.what)
 end
@@ -341,6 +399,15 @@ local function applyGrant(p: Player, g: any, tx: string, silent: boolean?): (boo
 				return false, "inventory"
 			end
 		end
+	elseif g.what == "Pass" then
+		for key in MonCfg.Passes do
+			if g.item == "*" or g.item == key then p:SetAttribute("Pass_" .. key, n > 0 and true or nil) end
+		end
+	elseif TIER_ATTR[g.what] then
+		-- «до ступеня»: вищий або такий самий вже є — нічого не міняємо і не показуємо тост
+		local attr = TIER_ATTR[g.what]
+		local cur = tonumber(p:GetAttribute(attr)) or 0
+		if cur >= n then silent = true else p:SetAttribute(attr, math.floor(n)) end
 	elseif g.what == "RemoveGolem" then
 		local rec = InventoryService.RemoveByUid(p, g.item, "admin:" .. tostring(g.by or 0))
 			or CaveStandService.RemoveByUid(p, g.item, "admin:" .. tostring(g.by or 0))
@@ -952,13 +1019,21 @@ function A.SetRole(p, arg)
 	return { ok = true, text = r == "none" and ("@" .. name .. " is no longer staff") or ("@" .. name .. " is now " .. string.upper(r)) }
 end
 
-function A.Logs(p)
-	local out = {}
-	for _, e in GolemRegistry.RecentLogs(150) do
+-- arg.scope = "all" — увесь журнал дня (UTC) з усіх серверів, arg.back — скільки днів тому (0 — сьогодні); інакше — цей сервер
+function A.Logs(p, arg)
+	local out, list, day = {}, nil, nil
+	if arg.scope == "all" then
+		local back = math.clamp(math.floor(tonumber(arg.back) or 0), 0, 3650)
+		day = os.date("!%Y%m%d", os.time() - back * 86400)
+		list = GolemRegistry.History(day, 2000)
+	else
+		list = GolemRegistry.RecentLogs(150)
+	end
+	for _, e in list do
 		table.insert(out, { t = e.t, e = e.e, u = e.u, g = e.g, k = e.k, m = e.m, r = e.r,
 			x = type(e.x) == "table" and HttpService:JSONEncode(e.x) or (e.x ~= nil and tostring(e.x) or nil) })
 	end
-	return { ok = true, logs = out }
+	return { ok = true, logs = out, day = day }
 end
 
 -- мінімальна роль для дії (усе, чого тут немає, — лише owner)
@@ -969,7 +1044,7 @@ local PERM = {
 	Shutdown = "owner", Roles = "owner", SetRole = "owner",
 }
 local function onInvoke(p: Player, action: any, arg: any)
-	if not isAdmin(p) then return { ok = false, error = "denied" } end
+	if not isAdmin(p) then suspect(p, action); return { ok = false, error = "denied" } end
 	if limited(p) then return { ok = false, error = "Too fast" } end
 	local fn = type(action) == "string" and A[action]
 	if not fn then return { ok = false, error = "Unknown action" } end

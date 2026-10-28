@@ -12,6 +12,8 @@
 -- Використання (у fit() вікна):
 --   WindowFit.place(modalRoot, fitScale, { canvasW, canvasH, winX, winY, winW, winH, extraH? })
 --   extraH — додаткова висота рамки знизу (Forge: 4-й рядок Money); розмір рахується від базової winH, вікно лише дорастає вниз.
+--   leftExtra — що стирчить ліворуч від рамки (SHOP: закладки): враховується в ширину й зсуває рамку правіше, коли тісно.
+-- SHRINK (28.10.2026): усі вікна на 5 % менші (айпади: закладки SHOP виходили за екран).
 
 local GuiService = game:GetService("GuiService")
 local UIS = game:GetService("UserInputService")
@@ -22,6 +24,7 @@ M.TARGET_W = 0.68 -- рамка: частка ширини екрана
 M.TARGET_H = 0.72 -- заголовок + рамка: частка висоти екрана
 M.TITLE_K = 0.14  -- заголовок над рамкою, частка висоти рамки
 M.MAX = 3
+M.SHRINK = 0.95 -- усі вікна на 5 % менші
 
 -- хотбар (InventoryUI перезаписує своїми константами): вікна стоять над ним
 M.HS = 74
@@ -51,17 +54,18 @@ function M.place(modalRoot: GuiObject, fitScale: UIScale, o: { [string]: number 
 	local bottom = M.bottomInset(vw, vh)
 	local H = vh - top - bottom -- вільна висота
 	local winW, winH, extra = o.winW, o.winH, o.extraH or 0
+	local left = o.leftExtra or 0
 	local phone = H < 460 or (UIS.TouchEnabled and not UIS.MouseEnabled)
 	-- розмір і місце рахуються від БАЗОВОЇ рамки (без extra) — тож усі вікна однакові й стоять в одному місці;
 	-- extra (Forge: рядок Money) лише подовжує вікно вниз. Якщо нижній край виходить за екран — зменшуємо.
 	local s: number
 	if phone then
-		s = math.min((vw - 24) / (winW * 1.08), (H - 8) / (winH * (1 + M.TITLE_K)))
+		s = math.min((vw - 24) / (winW * 1.08 + left), (H - 8) / (winH * (1 + M.TITLE_K)))
 	else
 		s = math.min(M.TARGET_W * vw / winW, M.TARGET_H * vh / (winH * (1 + M.TITLE_K)))
-		s = math.min(s, (vw - 24) / (winW * 1.08), (H - 12) / (winH * (1 + M.TITLE_K)))
+		s = math.min(s, (vw - 24) / (winW * 1.08 + left), (H - 12) / (winH * (1 + M.TITLE_K)))
 	end
-	s = math.clamp(s, 0.1, M.MAX)
+	s = math.clamp(s * M.SHRINK, 0.1, M.MAX)
 	local titlePx, blockTop
 	for _ = 1, 30 do
 		titlePx = winH * M.TITLE_K * s
@@ -71,6 +75,11 @@ function M.place(modalRoot: GuiObject, fitScale: UIScale, o: { [string]: number 
 	end
 	fitScale.Scale = s
 	local frameCX = vw / 2
+	-- щоб те, що ліворуч (закладки), вмістилось: лівий край закладок не лівіше 12 px
+	if left > 0 then
+		local need = 12 + (left + winW / 2) * s
+		if frameCX < need then frameCX = math.min(need, vw - 12 - winW * s / 2) end
+	end
 	local frameCY = blockTop + titlePx + winH * s / 2
 	-- ModalRoot (AnchorPoint 0,5; розмір = полотно): зсув центру рамки відносно центру полотна
 	local dx = (o.winX + winW / 2 - o.canvasW / 2) * s

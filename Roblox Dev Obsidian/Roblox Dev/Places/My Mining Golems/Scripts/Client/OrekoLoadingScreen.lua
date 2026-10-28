@@ -11,14 +11,33 @@ local ReplicatedFirst = game:GetService("ReplicatedFirst")
 
 ReplicatedFirst:RemoveDefaultLoadingScreen()
 
+-- тиша гри під час завантаження (v6, 28.10.2026): «вуха» гравця далеко вгорі — 3D-звуки світу (удари големів по руді,
+-- кузня тощо) не чутно; 2D-звуки логотипа грають як є. Повертаємо камеру, коли екран повністю темний перед грою
+-- (або через CONFIG.maxWait — аварійно).
+pcall(function() game:GetService("SoundService"):SetListener(Enum.ListenerType.CFrame, CFrame.new(0, 1e6, 0)) end)
+-- 2D-звуки інтерфейсу (Shared/UISounds) теж мовчать. Через _G, а не атрибут: атрибути SoundService
+-- затирає перша реплікація з сервера (ReplicatedFirst стартує раніше)
+_G.LoadingMute = true
+local worldMuted = true
+local function unmuteWorld()
+	if not worldMuted then return end
+	worldMuted = false
+	pcall(function() game:GetService("SoundService"):SetListener(Enum.ListenerType.Camera) end)
+	_G.LoadingMute = nil
+end
+task.delay(30, unmuteWorld)
+
 ----------------------------------------------------------------- CONFIG (на кожному плейсі своє)
 local CONFIG = {
 	bgColor = Color3.fromHex("22262d"),
 	bgDrift = Vector2.new(-16, 30), -- юнітів/сек: вниз і трохи вліво
 	barFill = { Color3.fromHex("d8ff7a"), Color3.fromHex("7fe23a"), Color3.fromHex("38ad24") },
-	fillSpeed = 0.45, -- максимальна швидкість шкали (частка/сек) → 0→100 % не швидше ніж за ~2.2 с
+	fillSpeed = 3, -- максимальна швидкість шкали (частка/сек, реальний час) → 0→100 % за ~0,33 с, якщо гра вже завантажилась (v5; було 0.45 → ~2.2 с)
 	waitCharacter = true, -- 100 % лише коли з'явився персонаж
 	maxWait = 30, -- аварійний вихід (с)
+	-- швидкість анімації логотипу (v5, 28.10.2026): 1.4 — на 40 % швидше за початкову. Множиться весь час сцени (поп-ап, удари кірки,
+	-- тріщини, уламки, звуки, зникнення) — пропорції й ритм ті самі; шкала завантаження — окремо (fillSpeed), фон — з тією ж швидкістю
+	animSpeed = 1.4,
 }
 
 ----------------------------------------------------------------- ASSETS (логотип студії OSIRIUS, спільні для всіх плейсів)
@@ -580,7 +599,7 @@ local function frameAt(t, dt, elapsed)
 	end
 	local dk, undk = k(t, OUT + 0.45, OUT + 0.75), k(t, OUT + 0.9, OUT + 1.3)
 	dark.BackgroundTransparency = 1 - dk * (1 - undk)
-	if t >= OUT + 0.75 then bg.Visible = false; stage.Visible = false end
+	if t >= OUT + 0.75 then bg.Visible = false; stage.Visible = false; unmuteWorld() end
 	if t >= OUT + 1.3 then finished = true end
 end
 
@@ -632,16 +651,17 @@ task.spawn(function()
 	conn = RunService.RenderStepped:Connect(function(dt)
 		-- час анімації йде кроками не довшими за 1/30 с: якщо кадр підлагне, анімація сповільниться, а не перескочить
 		local t0 = t
-		t += math.min(dt, 1 / 30)
+		t += math.min(dt, 1 / 30) * CONFIG.animSpeed
 		layout(t)
 		local dbg = script:GetAttribute("DebugT") -- тест: заморозити кадр на часі t (атрибут прибрати перед публікацією)
 		if dbg then shown = script:GetAttribute("DebugP") or 0 readyAt = script:GetAttribute("DebugReadyAt") frameAt(dbg, 0, 0) return end
 		for _, e in ipairs(SFX) do
 			if t0 < e[1] and t >= e[1] then playHitSfx(e[2], e[3], e[4]) end
 		end
-		frameAt(t, dt, os.clock() - startClock)
+		frameAt(t, dt, os.clock() - startClock) -- dt — реальний час (шкала), t — час сцени × animSpeed
 		if finished then
 			allowMusic() -- на випадок, якщо шкала так і не дійшла до 50 %
+			unmuteWorld()
 			conn:Disconnect()
 			gui:Destroy()
 		end

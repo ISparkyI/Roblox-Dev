@@ -194,6 +194,20 @@ for i, s in MultiCfg.SOURCES do
 	upd()
 end
 
+-- рядок доходу (v10, 28.10.2026): скільки гравець заробляє за хвилину (атрибут IncomePerMin, IncomeService на сервері)
+do
+	local row = frame(tipList, { LayoutOrder = 100, Size = UDim2.fromOffset(TIP_W, ROW_H), ZIndex = 2 })
+	local name = new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.new(1, -110, 1, 0), FontFace = HEAVY, TextSize = 16,
+		TextColor3 = C("e6edf5"), TextXAlignment = Enum.TextXAlignment.Left, Text = "INCOME", ZIndex = 3 }, row)
+	new("UIStroke", { Color = INK, Thickness = 2, LineJoinMode = Enum.LineJoinMode.Round }, name)
+	local val = new("TextLabel", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.new(0, 140, 1, 0),
+		FontFace = HEAVY, TextSize = 19, TextColor3 = C("7ef05a"), TextXAlignment = Enum.TextXAlignment.Right, Text = "", ZIndex = 3 }, row)
+	new("UIStroke", { Color = INK, Thickness = 2.5, LineJoinMode = Enum.LineJoinMode.Round }, val)
+	local function upd() val.Text = NF.money(tonumber(player:GetAttribute("IncomePerMin")) or 0) .. "/min" end
+	player:GetAttributeChangedSignal("IncomePerMin"):Connect(upd)
+	upd()
+end
+
 -- анімація наведення: плашка виростає з лівого нижнього кута (AnchorPoint 0,1) в бік правого верхнього
 local TIP_FROM = 0.35
 local tipAnim = new("NumberValue", { Value = TIP_FROM })

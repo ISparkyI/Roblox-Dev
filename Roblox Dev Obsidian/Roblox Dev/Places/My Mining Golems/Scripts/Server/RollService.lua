@@ -21,10 +21,20 @@
 --   Сервер перевіряє: власник, є результат, анімація скінчилась, відстань, інвентар не повний, Money >= ціна.
 --   Успіх: −Money, новий id = CaveStandService.MaxId + 1 → InventoryService.AddGolem (Index відкриється сам) →
 --   InventoryService.Pin (закріплений слот хотбара, як кнопка Hotbar в інвентарі; в руку НЕ дається, 27.10.2026 v2).
+-- Геймпаси (28.10.2026): Fast Roll (Pass_FastRoll) — без фейків, результат одразу; Auto Roll (Pass_AutoRoll і Set_AutoRoll ~= false) —
+--   цикл у Start смикає важіль через RollLever/AutoPull, пауза AUTO_GAP після кінця ролу (з Fast Roll — AUTO_GAP_FAST).
+--   Fast Roll також прискорює анімацію важеля вдвічі (LeverScript), тож і ручні роли частіші.
+--   Фільтр (SETTINGS → AUTO ROLL FILTER, wanted): мутації Set_RollMuts і мінімум шкоди Set_RollMinDmg. Під фільтр і є Auto Buy
+--   (Pass_AutoBuy, Set_AutoBuy) — купується сам (buyAt; спершу в хотбар, повний — в інвентар); немає Auto Buy / Money / місця — Auto Roll стоїть (AutoRollHold).
 -- Збереження: атрибут гравця RollPending — JSON { ["<номер підставки>"] = { kind, cls, mut } }, секція "Roll" у DataService
 --   ({ pending = … }). При вході результати стають на підставки без анімації. Скидається лише новим ролом,
 --   купівлею, новою мапою (DataService.StageReset) і коли підставки немає (номер > RollStands).
 
+-- квести (QuestService): лічильник дій гравця; require ліниво — без циклів між модулями
+local function questAdd(p: Player, stat: string, n: number?)
+	local okQ, QS = pcall(require, script.Parent:FindFirstChild("QuestService"))
+	if okQ and QS and QS.Add then QS.Add(p, stat, n) end
+end
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -46,6 +56,10 @@ local REACH = 14         -- сервер: максимальна відстан�
 local BTN_FWD = 2.9      -- кнопка: від центру підставки в бік проходу (перед големом ×0,5, біля краю плити 6,4 стада), стад
 local BTN_UP = 1.2       -- кнопка: над точкою підставки, стад
 local BUSY_PAD = 0.15    -- запас після анімації, с
+-- Auto Roll (геймпас Pass_AutoRoll, перемикач Set_AutoRoll): пауза між кінцем ролу і наступним автоматичним — щоб устигнути
+-- роздивитись і купити (з Fast Roll — коротша). Важіль смикає LeverScript через BindableEvent RollLever/AutoPull.
+local AUTO_GAP = 2.5
+local AUTO_GAP_FAST = 0.5 -- Fast Roll + Auto Roll (28.10.2026: було 1,5; важіль з Fast Roll ще й вдвічі швидший — LeverScript)
 
 local rnd = Random.new()
 local NicheService: any = nil
@@ -236,6 +250,7 @@ end
 
 -- ===== рол =====
 local busyUntil: { [Player]: number } = {}
+local nextAuto: { [Player]: number } = {} -- Auto Roll: не раніше цього часу
 
 local function onPull(p: Player, role: any, niche: Model)
 	if not (p and p.Parent == Players) then return end
@@ -251,19 +266,36 @@ local function onPull(p: Player, role: any, niche: Model)
 	-- глобальні події удачі з адмін-панелі (AdminService, атрибути workspace = множник, …Until = os.time кінця):
 	--   EventLuck — Roll Luck: шанс рідкісних ГОЛЕМІВ × множник; EventMutLuck — Mutation Luck: шанс МУТАЦІЙ × множник.
 	--   Обидві — поверх власного Roll Luck гравця (він діє і на голема, і на мутацію).
-	local function boosted(attr: string): number
-		local ev = tonumber(workspace:GetAttribute(attr)) or 1
-		if ev > 1 and os.time() < (tonumber(workspace:GetAttribute(attr .. "Until")) or 0) then
-			return ((1 + luck / 100) * ev - 1) * 100
+	-- геймпаси: x2 Roll Luck (Pass_Lucky) — рідкість голема; x2 Mutation Luck (Pass_MutLucky) — мутація
+	-- Luck Potion (Boost_Luck): Roll Luck ×1,25 — і для голема, і для мутації
+	local potL = Items.boostOn(p, "Luck") and 1.25 or 1
+	-- Lucky Roll (продукт SHOP): один рол ×99 або ×10 на всіх підставках — береться найсильніший з запасу
+	for _, k in { 99, 10 } do
+		local a = "LuckRoll" .. k
+		local n = tonumber(p:GetAttribute(a)) or 0
+		if n > 0 then
+			p:SetAttribute(a, n - 1)
+			potL *= k
+			p:SetAttribute("LuckRollUsed", k); p:SetAttribute("LuckRollT", os.clock())
+			break
 		end
-		return luck
 	end
-	local luckGolem, luckMut = boosted("EventLuck"), boosted("EventMutLuck")
-	local count = math.clamp(tonumber(p:GetAttribute("RollStands")) or 1, 1, RollConfig.STANDS_MAX)
+	local passGolem = ((p:GetAttribute("Pass_Lucky") == true) and 2 or 1) * potL
+	local passMut = ((p:GetAttribute("Pass_MutLucky") == true) and 2 or 1) * potL
+	local function boosted(attr: string, passMul: number): number
+		local ev = tonumber(workspace:GetAttribute(attr)) or 1
+		if not (ev > 1 and os.time() < (tonumber(workspace:GetAttribute(attr .. "Until")) or 0)) then ev = 1 end
+		if ev == 1 and passMul == 1 then return luck end
+		return ((1 + luck / 100) * ev * passMul - 1) * 100
+	end
+	local luckGolem, luckMut = boosted("EventLuck", passGolem), boosted("EventMutLuck", passMut)
+	local count = RollConfig.totalStands(p) -- за Money + геймпаси Roll Stand
 	local stands = standsOf(niche)
 	local pend = {}
 	local n = 0
 	local cy = RollConfig.cycle(count) -- цикл фейка: остання підставка закінчує рівно на RollConfig.TOTAL
+	-- геймпас Fast Roll: без фейків — результат одразу з'являється на всіх підставках (RollRevealClient: поява + спалах)
+	local fast = p:GetAttribute("Pass_FastRoll") == true
 	for i = 1, count do
 		local stand = stands[i]
 		if stand then
@@ -281,20 +313,88 @@ local function onPull(p: Player, role: any, niche: Model)
 				table.insert(fakes, f)
 				prev = f
 			end
-			local t0 = t + RollConfig.STAGGER * (i - 1)
-			local readyAt = t0 + cy * RollConfig.FAKES + RollConfig.RESULT_APPEAR
-			showStand(stand, rec, fakes, t0, readyAt, cy)
+			if fast then
+				showStand(stand, rec, {}, t, t + RollConfig.RESULT_APPEAR, nil)
+			else
+				local t0 = t + RollConfig.STAGGER * (i - 1)
+				local readyAt = t0 + cy * RollConfig.FAKES + RollConfig.RESULT_APPEAR
+				showStand(stand, rec, fakes, t0, readyAt, cy)
+			end
 		end
 	end
 	if n == 0 then return end
 	-- некуплені результати попереднього ролу замінюються (у тому числі на підставках, яких уже немає)
 	setPending(p, pend)
-	busyUntil[p] = t + RollConfig.revealTime(n) + BUSY_PAD
+	busyUntil[p] = t + (fast and RollConfig.RESULT_APPEAR or RollConfig.revealTime(n)) + BUSY_PAD
 	niche:SetAttribute("RollBusyUntil", busyUntil[p])
+	questAdd(p, "Roll", 1)
 end
 
 -- ===== купівля =====
 local lastBuy: { [Player]: number } = {}
+
+-- купити результат підставки idx (ручна покупка — onBuy, автоматична — геймпас Auto Buy); false — не вийшло (немає / місця / Money)
+local function buyAt(p: Player, stand: Model, idx: number, auto: boolean): boolean
+	local pend = pendingOf(p)
+	local g = clean(pend[tostring(idx)])
+	if not g then return false end
+	if Items.invGolemCount(decode(p, "InvGolems", {}), decode(p, "PlotPlaced", {})) >= Items.maxGolems(p) then return false end -- без големів на плотах
+	local price = Catalog.stats(g.kind, g.cls, g.mut).price
+	local money = (tonumber(p:GetAttribute("Money")) or 0)
+	if money < price then return false end
+	local id = CaveStandService.MaxId(p) + 1
+	if not InventoryService.AddGolem(p, id, g.kind, g.cls, g.mut, "roll") then return false end -- UID видається тут (Mint), не при ролі
+	if price > 0 then p:SetAttribute("Money", money - price) end
+	pend[tostring(idx)] = nil
+	setPending(p, pend)
+	clearStand(stand)
+	stand:SetAttribute("RollBoughtT", now())
+	p:SetAttribute("RollBuyT", now()) -- LeverScript не ролить у той самий момент
+	questAdd(p, "Buy", 1)
+	-- закріплений слот хотбара, як кнопка Hotbar (не в руку; хотбар повний — лише в інвентар).
+	-- Автопокупки (Auto Buy) — теж спершу в хотбар, поки він не заповниться (28.10.2026; раніше йшли лише в інвентар).
+	InventoryService.Pin(p, "Golem_" .. id)
+	return true
+end
+
+-- фільтр AUTO ROLL у SETTINGS: Set_RollMuts — біти мутацій (1 << mut; 0 — будь-яка мутація),
+-- Set_RollRars — біти рідкостей (0 — будь-яка), Set_RollMinDmg — мінімум шкоди голема з мутацією (носій — місткість).
+-- Підходить = мутація вибрана І рідкість вибрана І сила >= мінімуму.
+local function wanted(p: Player, g: any): boolean
+	-- мутацій не вибрано — будь-яка мутація; не вибрано нічого і MIN DAMAGE = 0 — фільтр вимкнено
+	local mask = math.floor(tonumber(p:GetAttribute("Set_RollMuts")) or 0)
+	local minD = tonumber(p:GetAttribute("Set_RollMinDmg")) or 0
+	-- рідкість (Set_RollRars — біти за Catalog.RARITIES: Common = 1 << 0 …; 0 — будь-яка)
+	local rars = math.floor(tonumber(p:GetAttribute("Set_RollRars")) or 0)
+	if mask <= 0 and rars <= 0 and minD <= 0 then return false end
+	if mask > 0 and bit32.band(mask, bit32.lshift(1, g.mut)) == 0 then return false end
+	if rars > 0 then
+		local def = Catalog.get(g.kind)
+		local ri = def and table.find(Catalog.RARITIES, def.rarity)
+		if not ri or bit32.band(rars, bit32.lshift(1, ri - 1)) == 0 then return false end
+	end
+	local st = Catalog.stats(g.kind, g.cls, g.mut)
+	local power = (g.cls == "carrier") and (st.cap or 0) or (st.dmg or 0)
+	return power >= minD
+end
+
+-- після ролу: результати під фільтр — з Auto Buy (Pass_AutoBuy і Set_AutoBuy ~= false) купуються самі; що не купилось
+-- (немає геймпаса / Money / місця) — Auto Roll стоїть (true), поки гравець не забере або не зролить сам
+local function filterHold(p: Player, niche: Instance): boolean
+	local autobuy = p:GetAttribute("Pass_AutoBuy") == true and p:GetAttribute("Set_AutoBuy") ~= false
+	local stands = standsOf(niche)
+	local hold = false
+	for k, rec in pendingOf(p) do
+		local g = clean(rec)
+		local i = tonumber(k)
+		if g and i and wanted(p, g) then
+			local st = stands[i]
+			if not (autobuy and st and buyAt(p, st, i, true)) then hold = true end
+		end
+	end
+	if (p:GetAttribute("AutoRollHold") == true) ~= hold then p:SetAttribute("AutoRollHold", hold or nil) end
+	return hold
+end
 
 local function onBuy(prompt: ProximityPrompt, p: Player)
 	if prompt.Name ~= "RollBuyPrompt" then return end
@@ -319,28 +419,13 @@ local function onBuy(prompt: ProximityPrompt, p: Player)
 	if type(pullT) == "number" and now() - pullT < 0.6 then return end
 	local busyT = niche:GetAttribute("RollBusyUntil")
 	if type(busyT) == "number" and now() < busyT then return end
-	local pend = pendingOf(p)
-	local g = clean(pend[tostring(idx)])
-	if not g then return end
-	if Items.invGolemCount(decode(p, "InvGolems", {}), decode(p, "PlotPlaced", {})) >= Items.MAX_GOLEMS then return end -- без големів на плотах
-	local price = Catalog.stats(g.kind, g.cls, g.mut).price
-	local money = (tonumber(p:GetAttribute("Money")) or 0)
-	if money < price then return end
-	local id = CaveStandService.MaxId(p) + 1
-	if not InventoryService.AddGolem(p, id, g.kind, g.cls, g.mut, "roll") then return end -- UID видається тут (Mint), не при ролі
-	if price > 0 then p:SetAttribute("Money", money - price) end
-	pend[tostring(idx)] = nil
-	setPending(p, pend)
-	clearStand(stand)
-	stand:SetAttribute("RollBoughtT", now())
-	p:SetAttribute("RollBuyT", now()) -- LeverScript не ролить у той самий момент
-	InventoryService.Pin(p, "Golem_" .. id) -- закріплений слот хотбара, як кнопка Hotbar (не в руку; хотбар повний — лише в інвентар)
+	buyAt(p, stand, idx, false)
 end
 
 -- ===== гравці =====
 local function dropMissing(p: Player)
 	-- результати на підставках, яких більше немає (номер > RollStands, напр. нова мапа), зникають
-	local count = tonumber(p:GetAttribute("RollStands")) or 1
+	local count = RollConfig.totalStands(p)
 	local pend = pendingOf(p)
 	local changed = false
 	for k in pend do
@@ -363,10 +448,12 @@ local function onPlayer(p: Player)
 	setPending(p, pend)
 	dropMissing(p)
 	p:SetAttribute("RollReady", true)
-	p:GetAttributeChangedSignal("RollStands"):Connect(function()
-		dropMissing(p)
-		task.defer(applyNiche, NicheService.GetNiche(p))
-	end)
+	for _, a in { "RollStands", "Pass_RollStand1", "Pass_RollStand2" } do
+		p:GetAttributeChangedSignal(a):Connect(function()
+			dropMissing(p)
+			task.defer(applyNiche, NicheService.GetNiche(p))
+		end)
+	end
 	applyNiche(NicheService.GetNiche(p))
 end
 
@@ -409,7 +496,32 @@ function RollService.Start()
 	PPS.PromptTriggered:Connect(onBuy)
 	Players.PlayerAdded:Connect(function(p) task.spawn(onPlayer, p) end)
 	for _, p in Players:GetPlayers() do task.spawn(onPlayer, p) end
-	Players.PlayerRemoving:Connect(function(p) busyUntil[p] = nil; lastBuy[p] = nil end)
+	Players.PlayerRemoving:Connect(function(p) busyUntil[p] = nil; lastBuy[p] = nil; nextAuto[p] = nil end)
+	-- Auto Roll: раз на 0,1 с — кому пора, смикаємо його важіль (та сама анімація й перевірки, що й від E)
+	task.spawn(function()
+		while true do
+			task.wait(0.1)
+			local t = now()
+			for _, p in Players:GetPlayers() do
+				local niche0 = (p:GetAttribute("RollReady") == true and t >= (busyUntil[p] or 0)) and NicheService.GetNiche(p) or nil
+				-- Auto Buy працює і на ручних ролах; Auto Roll стоїть, поки під фільтр є некуплений результат
+				local hold = niche0 ~= nil and filterHold(p, niche0)
+				if not hold and p:GetAttribute("Pass_AutoRoll") == true and p:GetAttribute("Set_AutoRoll") ~= false and p:GetAttribute("RollReady") == true then
+					local gap = (p:GetAttribute("Pass_FastRoll") == true) and AUTO_GAP_FAST or AUTO_GAP
+					if t >= (busyUntil[p] or 0) + gap and t >= (nextAuto[p] or 0) then
+						local niche = NicheService.GetNiche(p)
+						local rsys = niche and niche:FindFirstChild("RollSystem")
+						local lever = rsys and rsys:FindFirstChild("RollLever", true)
+						local ap = lever and lever:FindFirstChild("AutoPull")
+						if ap and ap:IsA("BindableEvent") then
+							nextAuto[p] = t + ((p:GetAttribute("Pass_FastRoll") == true) and 0.6 or 1.2) -- поки важіль іде до удару (≈0,5 с; з Fast Roll ≈0,25 с), не стріляємо вдруге
+							ap:Fire(p)
+						end
+					end
+				end
+			end
+		end
+	end)
 end
 
 return RollService

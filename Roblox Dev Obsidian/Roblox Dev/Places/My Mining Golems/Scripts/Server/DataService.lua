@@ -53,6 +53,11 @@ local ATTRS = {
 	{ name = "Tickets", default = 0, scope = "global" },
 	{ name = "Rebirths", default = 0, scope = "global" },
 	{ name = "DonateTier", default = 0, scope = "global" },     -- ступінь купленого x2 Money (0 = x1), MultiConfig
+	{ name = "ExtraSlots", default = 0, scope = "global" },     -- +слоти големів (Extra Storage, MonetizationService)
+	{ name = "MutSpeedTier", default = 0, scope = "global" },
+	{ name = "IncomeRate", default = 0, scope = "global" },     -- останній дохід $/хв (IncomeService; тайм-скіп одразу після входу)
+	{ name = "LuckRoll10", default = 0, scope = "global" },     -- Lucky Roll x10: скільки ролів у запасі (MonetizationService, RollService)
+	{ name = "LuckRoll99", default = 0, scope = "global" },     -- Lucky Roll x99   -- ступінь Fast Mutations (MonetizationConfig.MUT_SPEED_TIERS)
 	{ name = "RollRole", default = "Miner", scope = "global" }, -- який тип голема ролить станція (Miner / Carrier), RollRoleService
 	-- скидаються на новому етапі
 	{ name = "Money", default = nil, scope = "stage", reset = 0 },
@@ -63,6 +68,7 @@ local PREFIXES = {
 	{ prefix = "Ore_", scope = "stage", reset = 0 },   -- руда в інвентарі
 	{ prefix = "Bars_", scope = "stage", reset = 0 },  -- злитки в інвентарі
 	{ prefix = "Pass_", scope = "global" },            -- куплені геймпаси (Pass_VIP і т.д.)
+	{ prefix = "Set_", scope = "global" },             -- налаштування гравця (SettingsService)
 }
 -- секції, які скидаються на новому етапі (Forge — GDD 6, пропозиція)
 local STAGE_SECTIONS = { Forge = true }

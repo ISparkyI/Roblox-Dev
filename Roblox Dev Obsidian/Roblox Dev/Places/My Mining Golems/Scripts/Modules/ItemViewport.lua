@@ -17,7 +17,18 @@ local M = {}
 local MODELS: { [string]: string } = {
 	Ore_Coal = "ChunkCoal", Ore_Copper = "ChunkCopper", Ore_Iron = "ChunkIron",
 	Bars_Copper = "BarCopper", Bars_Iron = "BarIron",
+	-- зілля (v2, 28.10.2026) — 3D-моделі з Prefabs/IconModels (колба з рідиною, різниться лише колір)
+	Pot_Luck = "Icon:PotionLuck", Pot_Speed = "Icon:PotionSpeed", Pot_Money = "Icon:PotionMoney", Pot_Strength = "Icon:PotionStrength",
 }
+-- Моделі-іконки (v2): ключ "Icon:<ім'я>" — Model з ReplicatedStorage/Prefabs/IconModels (зілля, конюшина, магазинні іконки).
+-- Ракурс — атрибути моделі: Yaw / Pitch (градуси, камера спереду, з боку −Z), Fit (більше — менша), Up (зсув прицілу вгору, частка висоти).
+local function iconSpec(key: string?): Model?
+	if not key or string.sub(key, 1, 5) ~= "Icon:" then return nil end
+	local p = RS:FindFirstChild("Prefabs")
+	local f = p and p:FindFirstChild("IconModels")
+	local m = f and f:FindFirstChild(string.sub(key, 6))
+	return (m and m:IsA("Model")) and m or nil
+end
 -- ракурс: { поворот навколо Y, нахил камери (градуси), FIT (більше — модель менша), зсув угору (частка висоти) }
 local VIEW: { [string]: { number } } = {
 	ChunkCoal = { 30, 30, 0.8, 0 }, ChunkCopper = { 30, 24, 0.842, 0.07 }, ChunkIron = { 30, 30, 0.842, 0.07 }, -- −5 % від 0.8
@@ -49,7 +60,7 @@ local function golemSpec(key: string?): (any, string?)
 end
 
 function M.has(key: string?): boolean
-	return key ~= nil and (MODELS[key] ~= nil or golemSpec(key) ~= nil)
+	return key ~= nil and (MODELS[key] ~= nil or golemSpec(key) ~= nil or iconSpec(key) ~= nil)
 end
 
 -- ===== голем у ViewportFrame =====
@@ -90,7 +101,8 @@ local function golemTemplate(g: any, cls: string): Model?
 	return m
 end
 
-local function golemViewport(parent: Instance, tpl: Model, z: number, silhouette: boolean, dx: number, dy: number): ViewportFrame
+local function golemViewport(parent: Instance, tpl: Model, z: number, silhouette: boolean, dx: number, dy: number, view: any?): ViewportFrame
+	local V = view or GOLEM_VIEW
 	local vp = Instance.new("ViewportFrame")
 	vp.BackgroundTransparency = 1
 	vp.Size = UDim2.fromScale(1, 1)
@@ -119,10 +131,10 @@ local function golemViewport(parent: Instance, tpl: Model, z: number, silhouette
 	local cam = Instance.new("Camera")
 	cam.FieldOfView = FOV
 	local r = size.Magnitude / 2
-	local dist = r / math.sin(math.rad(FOV / 2)) * GOLEM_VIEW.fit
+	local dist = r / math.sin(math.rad(FOV / 2)) * V.fit
 	-- обличчя дивиться в −Z: камера спереду (−Z), повернута на yaw і трохи згори
-	local dir = (CFrame.Angles(0, math.rad(180 + GOLEM_VIEW.yaw), 0) * CFrame.Angles(-math.rad(GOLEM_VIEW.pitch), 0, 0)).LookVector
-	local target = cf.Position + Vector3.new(0, size.Y * GOLEM_VIEW.up, 0)
+	local dir = (CFrame.Angles(0, math.rad(180 + V.yaw), 0) * CFrame.Angles(-math.rad(V.pitch), 0, 0)).LookVector
+	local target = cf.Position + Vector3.new(0, size.Y * V.up, 0)
 	cam.CFrame = CFrame.lookAt(target - dir * dist, target)
 	cam.Parent = vp
 	vp.CurrentCamera = cam
@@ -146,6 +158,35 @@ local function buildGolem(label: GuiObject, key: string, g: any, cls: string): F
 		golemViewport(box, tpl, label.ZIndex, true, d[1] * OUTLINE, d[2] * OUTLINE)
 	end
 	golemViewport(box, tpl, label.ZIndex, false, 0, 0)
+	box.Parent = label
+	return box
+end
+
+-- модель-іконка (Prefabs/IconModels): та сама побудова, що й голем, контур — 8 силуетів
+local iconCache: { [string]: Model } = {}
+local function buildIcon(label: GuiObject, key: string, src: Model): Frame?
+	local tpl = iconCache[key]
+	if not tpl then
+		tpl = src:Clone()
+		for _, d in tpl:GetDescendants() do
+			if d:IsA("LuaSourceContainer") then d:Destroy() elseif d:IsA("BasePart") then d.Anchored = true end
+		end
+		iconCache[key] = tpl
+	end
+	local view = { yaw = tonumber(src:GetAttribute("Yaw")) or 0, pitch = tonumber(src:GetAttribute("Pitch")) or 10,
+		fit = tonumber(src:GetAttribute("Fit")) or 0.8, up = tonumber(src:GetAttribute("Up")) or 0 }
+	local box = Instance.new("Frame")
+	box.Name = "ItemVP"
+	box.BackgroundTransparency = 1
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.fromScale(0.5, 0.5)
+	box.Size = UDim2.fromScale(SCALE, SCALE)
+	box.ZIndex = label.ZIndex
+	box:SetAttribute("Model", key)
+	for _, d in { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 }, { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } } do
+		golemViewport(box, tpl, label.ZIndex, true, d[1] * OUTLINE, d[2] * OUTLINE, view)
+	end
+	golemViewport(box, tpl, label.ZIndex, false, 0, 0, view)
 	box.Parent = label
 	return box
 end
@@ -222,7 +263,7 @@ end
 -- scale (необов'язково) — розмір моделі відносно мітки; за замовчуванням SCALE (для плиток), 1 — рівно в межах мітки
 function M.set(label: ImageLabel, key: string?, scale: number?)
 	local g, cls = golemSpec(key)
-	local name = (key and MODELS[key]) or (g and key)
+	local name = (key and MODELS[key]) or (g and key) or (iconSpec(key) and key)
 	local box = label:FindFirstChild("ItemVP") :: Frame?
 	if not name then
 		if box then box.Visible = false end
@@ -231,7 +272,9 @@ function M.set(label: ImageLabel, key: string?, scale: number?)
 	label.Image = "" -- стара PNG-картинка більше не показується
 	if box and box:GetAttribute("Model") ~= name then box:Destroy(); box = nil end
 	if not box then
-		if g then box = buildGolem(label, name :: string, g, cls or "miner") else box = build(label, name :: string) end
+		local ic = iconSpec(name)
+		if ic then box = buildIcon(label, name :: string, ic)
+		elseif g then box = buildGolem(label, name :: string, g, cls or "miner") else box = build(label, name :: string) end
 	end
 	if not box then return end
 	box.Visible = true

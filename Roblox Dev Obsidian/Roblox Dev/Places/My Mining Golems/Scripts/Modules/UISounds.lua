@@ -8,6 +8,8 @@
 -- tap грає наприкінці кадру (task.defer): якщо той самий клік скінчився відмовою (deny за ±0,12 с), tap не звучить — лише deny.
 -- speed (необов'язково) — множник PlaybackSpeed копії (висота тону), напр. 1,08 — ледь вище (автоповтор +/− у Sell).
 -- Кожен play — копія звуку (PlayOnRemove), тож швидкі повтори не обривають один одного.
+-- Поки йде завантаження (_G.LoadingMute = true ставить ReplicatedFirst/OrekoLoadingScreen) — тиша:
+-- наприклад ClaimReward від Auto Collect, коли големи кладуть руду в ящик.
 
 local SoundService = game:GetService("SoundService")
 
@@ -25,6 +27,7 @@ local function emit(s: Sound, speed: number?)
 end
 
 function M.play(kind: string, minGap: number?, speed: number?)
+	if _G.LoadingMute then return end
 	local name = NAMES[kind] or kind
 	local s = SoundService:FindFirstChild(name)
 	if not s or not s:IsA("Sound") or s.SoundId == "" then return end

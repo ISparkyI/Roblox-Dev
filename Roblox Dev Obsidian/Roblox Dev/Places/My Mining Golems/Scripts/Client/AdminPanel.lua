@@ -18,7 +18,7 @@
 --     15 хв / 1 год / 1 дня); Admin Abuse: ROLL LUCK (рідкість голема) / MUTATION LUCK (шанс мутації) / MONEY
 --     × 2 / 3 / 5 / 10 або свій множник (Money — до x1000, удача — без межі) на 5 хв … 3 год, STOP.
 --   ME — свій персонаж (лише на цьому сервері): швидкість, стрибок, політ (WASD, Space / Ctrl), noclip, мій профіль.
---   SERVERS — сервери (гравців, аптайм, версія), SHUTDOWN ALL (owner). LOGS — журнал сервера з фільтрами (адмін, видачі,
+--   SERVERS — сервери (гравців, аптайм, версія), SHUTDOWN ALL (owner). LOGS — журнал: THIS SERVER (живий) або ALL HISTORY (усі сервери, по днях), фільтри (SUSPECT, адмін, видачі,
 --     нові, видалені, дюпи). ADMINS (owner) — персонал: додати за ім'ям / з онлайн-списку (ADMIN / MODERATOR), змінити, прибрати.
 
 local Players = game:GetService("Players")
@@ -37,6 +37,8 @@ local UISounds = require(Shared:WaitForChild("UISounds"))
 local WindowManager = require(Shared:WaitForChild("WindowManager"))
 local Catalog = require(Shared:WaitForChild("GolemCatalog"))
 local Items = require(Shared:WaitForChild("ItemConfig"))
+local MonCfg = require(Shared:WaitForChild("MonetizationConfig"))
+local MultiCfg = require(Shared:WaitForChild("MultiConfig"))
 local NumberFormat = require(Shared:WaitForChild("NumberFormat"))
 local ItemViewport = require(Shared:WaitForChild("ItemViewport"))
 local player = Players.LocalPlayer
@@ -646,6 +648,168 @@ do
 	function Picker.close() layer.Visible = false end
 	Picker.layer = layer
 end
+-- ===== вибір геймпаса (вікно з іконками, як вибір голема): ALL — усі геймпаси; OWNED — уже є в гравця =====
+local PassPicker = {}
+-- особливі пункти вибору (v2, 28.10.2026) — не геймпаси, а продукти: драбини «до ступеня» (x2 Money, Fast Mutations;
+-- ступінь — вікно LevelPicker) і Lucky Roll x10 / x99 (кількість). Сервер: what = MoneyTier | MutTier | LuckRoll10 | LuckRoll99.
+local SPECIAL = {
+	["@MoneyTier"] = { name = "x2 Money (levels)", icon = "rbxassetid://103015355952567", tone = "7ef05a", what = "MoneyTier", level = true },
+	["@MutTier"] = { name = "Fast Mutations (levels)", icon = "rbxassetid://90173095287975", tone = "c99bff", what = "MutTier", level = true },
+	["@LuckRoll10"] = { name = "x10 Lucky Roll", icon = "rbxassetid://124578338510174", tone = "ffd23a", what = "LuckRoll10" },
+	["@LuckRoll99"] = { name = "x99 Lucky Roll", icon = "rbxassetid://120776574619004", tone = "c99bff", what = "LuckRoll99" },
+}
+local SPECIAL_ORDER = { "@MoneyTier", "@MutTier", "@LuckRoll10", "@LuckRoll99" }
+local function passName(key: string): string
+	if key == "*" then return "ALL GAMEPASSES" end
+	if SPECIAL[key] then return SPECIAL[key].name end
+	local d = MonCfg.Passes[key]
+	return d and d.name or tostring(key)
+end
+local function passIcon(key: string): string
+	if key == "*" then return "rbxassetid://91791061262477" end -- іконка Shop
+	if SPECIAL[key] then return SPECIAL[key].icon end
+	local d = MonCfg.Passes[key]
+	return d and d.icon or ""
+end
+-- ступені драбини: { { lv, "x512" }, … }
+local function tierLevels(what: string): { any }
+	local out = {}
+	local function mx(m: number): string return "x" .. (m >= 1e5 and NumberFormat.short(m) or U.num(m)) end
+	if what == "MoneyTier" then
+		for i = 1, MultiCfg.maxDonateTier() do table.insert(out, { i, mx(MultiCfg.donateMult(i)) }) end
+	else
+		for i, t in MonCfg.MUT_SPEED_TIERS do table.insert(out, { i, mx(t.mult) }) end
+	end
+	return out
+end
+local function levelText(what: string, lv: number): string
+	if not lv or lv <= 0 then return "none" end
+	for _, l in tierLevels(what) do if l[1] == lv then return l[2] end end
+	return "?"
+end
+do
+	local layer = frame(content, 0, 0, WW, WH, BLACK, { Name = "PassPicker", BackgroundTransparency = 0.35, Visible = false, ZIndex = 50, Active = true })
+	local card = U.slotBg(layer, 170, 60, 640, 408, 51)
+	label(card, 18, 10, 500, 36, 26, "CHOOSE GAMEPASS", GOLD, 3, { TextXAlignment = LEFT, ZIndex = 52 })
+	local grid = U.scroller(card, 14, 54, 612, 290, "Grid")
+	grid.ZIndex = 52
+	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	new("UIGridLayout", { CellSize = UDim2.fromOffset(136, 136), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	local st = { key = "*", cb = nil, owned = {} }
+	local cells = {}
+	local keys = { "*" }
+	local tmp = {}
+	for k, d in MonCfg.Passes do table.insert(tmp, { k = k, o = d.order or 99 }) end
+	table.sort(tmp, function(a, b) return a.o < b.o end)
+	for _, t in tmp do table.insert(keys, t.k) end
+	for _, k in SPECIAL_ORDER do table.insert(keys, k) end
+	local function paint()
+		for k, c in cells do
+			c.stroke.Color = k == st.key and GOLD or INK
+			c.stroke.Thickness = k == st.key and 5 or 3
+			c.own.Visible = k ~= "*" and st.owned[k] == true
+		end
+	end
+	for i, k in keys do
+		local d = MonCfg.Passes[k] or SPECIAL[k]
+		local tone = d and C(d.tone) or C("ff5a6e")
+		local cell = new("ImageButton", { Name = k, BackgroundColor3 = WHITE, AutoButtonColor = false, LayoutOrder = i, ZIndex = 53 }, grid)
+		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(tone:Lerp(BLACK, 0.3), tone:Lerp(BLACK, 0.7)) }, cell)
+		local s = stroke(cell, INK, 3)
+		new("ImageLabel", { BackgroundTransparency = 1, Image = passIcon(k), ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(28, 10),
+			Size = UDim2.fromOffset(80, 80), ZIndex = 54 }, cell)
+		label(cell, 4, 92, 128, 38, 15, k == "*" and "ALL" or passName(k), WHITE, 1.8, { TextWrapped = true, ZIndex = 55 })
+		local own = label(cell, 4, 4, 124, 18, 12, "OWNED", GOOD, 1.6, { TextXAlignment = RIGHT, ZIndex = 55, Visible = false })
+		cells[k] = { stroke = s, own = own }
+		cell.Activated:Connect(function() StyleA.tap(); st.key = k; paint() end)
+	end
+	button(card, 640 - 14 - 300, 354, 140, 44, "CANCEL", "gray", function() layer.Visible = false end, { z = 53, textSize = 18 })
+	button(card, 640 - 14 - 150, 354, 150, 44, "SELECT", "green", function()
+		layer.Visible = false
+		if st.cb then st.cb(st.key) end
+	end, { z = 53, textSize = 18 })
+	function PassPicker.open(init, owned, cb)
+		st.key = init or st.key
+		st.cb = cb
+		st.owned = {}
+		for _, k in owned or {} do st.owned[k] = true end
+		paint()
+		layer.Visible = true
+	end
+	PassPicker.layer = layer
+end
+-- ===== вибір ступеня драбини (x2 Money / Fast Mutations): «до ступеня», той самий стиль, що й вибір геймпаса =====
+local LevelPicker = {}
+do
+	local layer = frame(content, 0, 0, WW, WH, BLACK, { Name = "LevelPicker", BackgroundTransparency = 0.35, Visible = false, ZIndex = 60, Active = true })
+	local card = U.slotBg(layer, 170, 60, 640, 408, 61)
+	local title = label(card, 18, 10, 604, 36, 24, "GIVE UP TO LEVEL", GOLD, 3, { TextXAlignment = LEFT, ZIndex = 62 })
+	local grid = U.scroller(card, 14, 54, 612, 290, "Grid")
+	grid.ZIndex = 62
+	grid.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	new("UIGridLayout", { CellSize = UDim2.fromOffset(110, 74), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+	local st = { cb = nil, sel = 1, strokes = {} }
+	local function paint()
+		for lv, s in st.strokes do s.Color = lv == st.sel and GOLD or INK; s.Thickness = lv == st.sel and 5 or 3 end
+	end
+	button(card, 640 - 14 - 300, 354, 140, 44, "CANCEL", "gray", function() layer.Visible = false end, { z = 63, textSize = 18 })
+	button(card, 640 - 14 - 150, 354, 150, 44, "SELECT", "green", function()
+		layer.Visible = false
+		if st.cb then st.cb(st.sel) end
+	end, { z = 63, textSize = 18 })
+	function LevelPicker.open(what: string, init: number?, cb)
+		for _, c in grid:GetChildren() do if c:IsA("GuiObject") then c:Destroy() end end
+		st.strokes = {}
+		st.cb = cb
+		st.sel = init or 1
+		title.Text = (what == "MoneyTier" and "x2 MONEY" or "FAST MUTATIONS") .. " — GIVE UP TO LEVEL"
+		local sp = SPECIAL["@" .. what]
+		local tone = C(sp and sp.tone or "7ef05a")
+		for _, l in tierLevels(what) do
+			local lv = l[1]
+			local cell = new("ImageButton", { Name = "L" .. lv, BackgroundColor3 = WHITE, AutoButtonColor = false, LayoutOrder = lv, ZIndex = 63 }, grid)
+			new("UIGradient", { Rotation = 90, Color = ColorSequence.new(tone:Lerp(BLACK, 0.3), tone:Lerp(BLACK, 0.7)) }, cell)
+			st.strokes[lv] = stroke(cell, INK, 3)
+			new("ImageLabel", { BackgroundTransparency = 1, Image = sp and sp.icon or "", ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(6, 6),
+				Size = UDim2.fromOffset(30, 30), ZIndex = 64 }, cell)
+			label(cell, 38, 6, 66, 30, 13, "LV " .. lv, MUTED, 1.4, { TextXAlignment = RIGHT, ZIndex = 64 })
+			local t = label(cell, 4, 38, 102, 30, 22, l[2], WHITE, 2, { ZIndex = 64 })
+			U.fit(t, 22)
+			cell.Activated:Connect(function() StyleA.tap(); st.sel = lv; paint() end)
+		end
+		paint()
+		layer.Visible = true
+	end
+end
+-- поле «вибраний геймпас»: іконка й назва, клік — вікно вибору
+function U.passField(parent, x, y, w, h, sel, ownedList, onChange)
+	local bg = U.slotBg(parent, x, y, w, h, 4)
+	local btn = new("TextButton", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Text = "", ZIndex = 7 }, bg)
+	local icon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(8, 4),
+		Size = UDim2.fromOffset(h - 8, h - 8), ZIndex = 5 }, bg)
+	local nm = label(bg, h + 8, 4, w - h - 16, h * 0.5, 18, "", WHITE, 2, { TextXAlignment = LEFT, ZIndex = 6, TextTruncate = Enum.TextTruncate.AtEnd })
+	local sub = label(bg, h + 8, h * 0.5, w - h - 16, h * 0.4, 13, "", MUTED, 1.4, { TextXAlignment = LEFT, ZIndex = 6 })
+	local own, n = {}, 0
+	for _, k in ownedList or {} do own[k] = true; n += 1 end
+	local function paint()
+		icon.Image = passIcon(sel.key)
+		nm.Text = passName(sel.key)
+		if SPECIAL[sel.key] then
+			sub.Text = (SPECIAL[sel.key].level and "choose level" or "choose amount") .. " · click to change"
+			sub.TextColor3 = MUTED
+		else
+			sub.Text = (sel.key == "*" and (n .. " owned") or (own[sel.key] and "OWNED" or "not owned")) .. " · click to change"
+			sub.TextColor3 = (sel.key ~= "*" and own[sel.key]) and GOOD or MUTED
+		end
+	end
+	btn.Activated:Connect(function()
+		StyleA.tap()
+		PassPicker.open(sel.key, ownedList, function(k) sel.key = k; paint(); if onChange then onChange(k) end end)
+	end)
+	paint()
+	return bg
+end
+
 -- поле «вибраний голем»: картка з іконкою й назвою, клік — вікно вибору
 function U.golemField(parent, x, y, w, h, sel, onChange)
 	local bg = U.slotBg(parent, x, y, w, h, 4)
@@ -921,6 +1085,38 @@ do
 				if result(invoke("Give", { u = info.u, what = "Potion", amount = pn.get(), item = pot.value })) then openPlayer(info.u, true) end
 			end)
 			ry += 66
+
+			-- геймпаси: вибір з іконками (ALL — усі), GIVE / TAKE (Pass_<ключ>; офлайн — поштою)
+			U.section(resF, 0, ry, "GAMEPASSES (" .. #(info.passes or {}) .. " / " .. (function() local k = 0 for _ in MonCfg.Passes do k += 1 end return k end)() .. ")"); ry += 30
+			local passSel = { key = "*" }
+			U.passField(resF, 0, ry, 300, 64, passSel, info.passes or {})
+			local bw2 = (CW - 318) / 2
+			local tiers = info.tiers or {}
+			button(resF, 310, ry + 7, bw2, 50, "GIVE", "green", function()
+				local sp = SPECIAL[passSel.key]
+				if sp and sp.level then -- драбина: вибір ступеня («до ступеня»; зараз у гравця — tiers)
+					LevelPicker.open(sp.what, math.max(1, tonumber(tiers[sp.what]) or 0), function(lv)
+						if result(invoke("Give", { u = info.u, what = sp.what, amount = lv })) then openPlayer(info.u, true) end
+					end)
+				elseif sp then
+					if result(invoke("Give", { u = info.u, what = sp.what, amount = 1 })) then openPlayer(info.u, true) end
+				else
+					if result(invoke("Give", { u = info.u, what = "Pass", amount = 1, item = passSel.key })) then openPlayer(info.u, true) end
+				end
+			end)
+			button(resF, 318 + bw2, ry + 7, bw2, 50, "TAKE", "red", function()
+				local sp = SPECIAL[passSel.key]
+				if sp and sp.level then setStatus("Levels can't be taken (only raised)", false); return end
+				confirm("TAKE " .. passName(passSel.key) .. " from @" .. tostring(info.name) .. "?", function()
+					local arg = sp and { u = info.u, what = sp.what, amount = -1 } or { u = info.u, what = "Pass", amount = -1, item = passSel.key }
+					if result(invoke("Give", arg)) then openPlayer(info.u, true) end
+				end, "TAKE")
+			end)
+			label(resF, 0, ry + 66, CW, 18, 13, "x2 Money: " .. levelText("MoneyTier", tonumber(tiers.MoneyTier) or 0) .. " · Fast Mutations: "
+				.. levelText("MutTier", tonumber(tiers.MutTier) or 0) .. " · Lucky Rolls: x10 × " .. (tiers.LuckRoll10 or 0) .. ", x99 × " .. (tiers.LuckRoll99 or 0),
+				MUTED, 1.4, { TextXAlignment = LEFT, ZIndex = 5 })
+			ry += 22
+			ry += 84
 			resF.Size = UDim2.fromOffset(CW, ry)
 			gate(resF, 2)
 			if resF.Visible then by += ry end
@@ -1117,16 +1313,20 @@ do
 	local gy = 0
 	U.section(gF, 0, gy, "GIVE TO EVERYONE (all servers)"); gy += 30
 	local itemsTop = gy + 56
-	local potF, golF, amtF
-	local gWhat = U.choice(gF, 0, gy, (CW - 24) / 5, 44, 6, {
+	local potF, golF, amtF, passF
+	local gPass = { key = "*" }
+	local gLevel = { MoneyTier = 1, MutTier = 1 }
+	local refreshPassF
+	local gWhat = U.choice(gF, 0, gy, (CW - 30) / 6, 44, 6, {
 		{ key = "Money", text = "MONEY", color = "green" }, { key = "Diamonds", text = "DIAMONDS", color = "blue" },
 		{ key = "Tickets", text = "TICKETS", color = "yellow" }, { key = "Potion", text = "POTION", color = "purple" },
-		{ key = "Golem", text = "GOLEM", color = "orange" },
+		{ key = "Golem", text = "GOLEM", color = "orange" }, { key = "Pass", text = "PASS", color = "red" },
 	}, "Diamonds", function(k)
 		potF.Visible = k == "Potion"
 		golF.Visible = k == "Golem"
-		amtF.Visible = k ~= "Golem"
-	end, 16)
+		amtF.Visible = k ~= "Golem" and k ~= "Pass"
+		passF.Visible = k == "Pass"
+	end, 15)
 	gy += 56
 	-- кількість (для ресурсів і зілля)
 	amtF = frame(gF, 0, itemsTop, CW, 46, nil, { BackgroundTransparency = 1, ZIndex = 4 })
@@ -1142,6 +1342,24 @@ do
 	local gGolem = { kind = "stone", mut = 0, cls = "miner" }
 	U.golemField(golF, 0, 0, 380, 64, gGolem)
 	local gCnt = U.stepper(golF, 392, 9, 160, 46, 1, 1, 10)
+	-- геймпас / драбина «до ступеня» / Lucky Roll: вибір з іконками; праворуч — ступінь (вікно вибору) або кількість
+	passF = frame(gF, 0, itemsTop, CW, 64, nil, { BackgroundTransparency = 1, ZIndex = 4, Visible = false })
+	local lvlBtn, passCnt
+	U.passField(passF, 0, 0, 380, 64, gPass, {}, function() refreshPassF() end)
+	lvlBtn = button(passF, 392, 7, CW - 392, 50, "UP TO x2", "orange", function()
+		local sp = SPECIAL[gPass.key]
+		if not (sp and sp.level) then return end
+		LevelPicker.open(sp.what, gLevel[sp.what], function(lv) gLevel[sp.what] = lv; refreshPassF() end)
+	end, { textSize = 18 })
+	local cntF = frame(passF, 392, 9, 220, 46, nil, { BackgroundTransparency = 1, ZIndex = 4 })
+	passCnt = U.stepper(cntF, 0, 0, 220, 46, 1, 1, 100)
+	function refreshPassF()
+		local sp = SPECIAL[gPass.key]
+		lvlBtn.group.Visible = sp ~= nil and sp.level == true
+		if sp and sp.level and lvlBtn.label then lvlBtn.label.Text = "UP TO " .. levelText(sp.what, gLevel[sp.what]) end
+		cntF.Visible = sp ~= nil and not sp.level
+	end
+	refreshPassF()
 	gy = itemsTop + 112
 	label(gF, 0, gy, 220, 42, 15, "ALSO FOR JOINERS", MUTED, 1.6, { TextXAlignment = LEFT, ZIndex = 5 })
 	local gWin = U.choice(gF, 172, gy, (CW - 172 - 18) / 4, 42, 6, {
@@ -1153,7 +1371,17 @@ do
 	button(gF, 0, gy, 320, 50, "GIVE EVERYONE", "green", function()
 		local what = gWhat.value
 		local n, item, desc
-		if what == "Golem" then
+		if what == "Pass" then
+			local sp = SPECIAL[gPass.key]
+			if sp and sp.level then
+				what = sp.what; n = gLevel[sp.what] or 1; item = ""
+				desc = (sp.what == "MoneyTier" and "x2 Money" or "Fast Mutations") .. " up to " .. levelText(sp.what, n) .. " (who has less)"
+			elseif sp then
+				what = sp.what; n = passCnt.get(); item = ""; desc = n .. " × " .. sp.name
+			else
+				n = 1; item = gPass.key; desc = passName(gPass.key)
+			end
+		elseif what == "Golem" then
 			n = gCnt.get(); item = golemItem(gGolem); desc = n .. " × " .. U.golemName(gGolem.kind, gGolem.mut)
 		else
 			n = tonumber((string.gsub(gAmount.Text, "[,%s]", "")))
@@ -1416,19 +1644,30 @@ end
 -- ===== LOGS =====
 -- =====================================================================
 do
+	-- THIS SERVER — живий журнал цього сервера (останні 150 подій); ALL HISTORY — увесь журнал з усіх серверів, що будь-коли
+	-- працювали (DataStore GolemLog, по днях UTC): ‹ OLDER / NEWER › гортають дні. SUSPECT — запити до панелі без ролі.
 	local pg = pages.logs
-	local list = U.scroller(pg, 0, 116, PW, PH - 116, "Logs")
+	local list = U.scroller(pg, 0, 162, PW, PH - 162, "Logs")
 	new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, list)
 	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	local COLORS = { mint = GOOD, burn = BAD, dupe = BAD, foreign = BAD, admin = GOLD, grant = C("7fd0ff"), legacy = MUTED, move = WHITE }
-	local GROUPS = { all = nil, admin = { admin = true }, grant = { grant = true }, mint = { mint = true, legacy = true }, burn = { burn = true }, dupe = { dupe = true, foreign = true } }
-	local filter = input(pg, 150, 0, PW - 150, 52, "Search: user, UID, golem…")
+	local COLORS = { mint = GOOD, burn = BAD, dupe = BAD, foreign = BAD, suspect = BAD, admin = GOLD, grant = C("7fd0ff"), legacy = MUTED, move = WHITE }
+	local GROUPS = { all = nil, admin = { admin = true }, grant = { grant = true }, mint = { mint = true, legacy = true }, burn = { burn = true },
+		dupe = { dupe = true, foreign = true }, suspect = { suspect = true } }
+	local filter = input(pg, 150, 0, PW - 466, 52, "Search…")
 	local logs = {}
-	local draw
-	local kind = U.choice(pg, 0, 62, (PW - 30) / 6, 42, 6, {
+	local scope, back = "server", 0
+	local draw, load
+	U.choice(pg, PW - 306, 0, 150, 52, 6, {
+		{ key = "server", text = "THIS SERVER", color = "blue" }, { key = "all", text = "ALL HISTORY", color = "orange" },
+	}, "server", function(v) scope = v; back = 0; load() end, 14)
+	local kind = U.choice(pg, 0, 62, (PW - 36) / 7, 42, 6, {
 		{ key = "all", text = "ALL", color = "blue" }, { key = "admin", text = "ADMIN", color = "yellow" }, { key = "grant", text = "GIVES", color = "blue" },
 		{ key = "mint", text = "NEW", color = "green" }, { key = "burn", text = "DELETED", color = "red" }, { key = "dupe", text = "DUPES", color = "red" },
-	}, "all", function() draw() end, 15)
+		{ key = "suspect", text = "SUSPECT", color = "red" },
+	}, "all", function() draw() end, 14)
+	local older = button(pg, 0, 112, 140, 42, "‹ OLDER", "gray", function() if scope == "all" then back += 1; load() end end, { textSize = 15 })
+	local newer = button(pg, PW - 140, 112, 140, 42, "NEWER ›", "gray", function() if scope == "all" and back > 0 then back -= 1; load() end end, { textSize = 15 })
+	local dayLbl = label(pg, 150, 112, PW - 300, 42, 16, "", WHITE, 1.6, { ZIndex = 5 })
 	draw = function()
 		U.clear(list)
 		local q = string.lower(filter.Text)
@@ -1437,28 +1676,40 @@ do
 		for i, e in logs do
 			if grp and not grp[e.e] then continue end
 			local nm = e.k and U.golemName(e.k, e.m) or ""
-			local text = os.date("%H:%M:%S", e.t or 0) .. "  " .. string.upper(tostring(e.e)) .. "  user " .. tostring(e.u or "")
+			local when = scope == "all" and os.date("!%H:%M:%S", e.t or 0) or os.date("%H:%M:%S", e.t or 0)
+			local text = when .. "  " .. string.upper(tostring(e.e)) .. "  user " .. tostring(e.u or "")
 				.. (nm ~= "" and ("  " .. nm) or "") .. (e.g and ("  " .. e.g) or "") .. (e.r and ("  [" .. tostring(e.r) .. "]") or "")
 				.. (e.x and ("  " .. tostring(e.x)) or "")
 			if q == "" or string.find(string.lower(text), q, 1, true) then
 				n += 1
-				if n > 200 then break end
+				if n > 300 then
+					label(list, 0, 0, CW, 30, 14, "Showing the first 300 — refine the search", MUTED, 1.4, { ZIndex = 5, LayoutOrder = 1e9 })
+					break
+				end
 				local row = frame(list, 0, 0, CW, 30, nil, { BackgroundTransparency = 1, LayoutOrder = i, ZIndex = 4 })
 				local t = label(row, 6, 0, CW - 12, 30, 14, text, COLORS[e.e] or WHITE, 1.4, { TextXAlignment = LEFT, ZIndex = 5, FontFace = MONO, TextTruncate = Enum.TextTruncate.AtEnd })
 				t.TextYAlignment = Enum.TextYAlignment.Center
 			end
 		end
-		if n == 0 then label(list, 0, 0, CW, 40, 18, "No events (this server)", MUTED, 2, { ZIndex = 5 }) end
+		if n == 0 then label(list, 0, 0, CW, 40, 18, scope == "all" and "No events this day" or "No events (this server)", MUTED, 2, { ZIndex = 5 }) end
 	end
-	local function load()
-		local res = invoke("Logs", {})
+	load = function()
+		older:setColor(scope == "all" and "blue" or "gray")
+		newer:setColor((scope == "all" and back > 0) and "blue" or "gray")
+		dayLbl.Text = scope == "all" and "Loading…" or "LIVE · this server · last 150 events"
+		local res = invoke("Logs", { scope = scope, back = back })
 		if not res.ok then result(res); return end
 		logs = res.logs or {}
+		if scope == "all" then
+			local d = tostring(res.day or "")
+			dayLbl.Text = string.format("%s.%s.%s (UTC) · %d events%s", string.sub(d, 7, 8), string.sub(d, 5, 6), string.sub(d, 1, 4), #logs,
+				back == 0 and " · today" or "")
+		end
 		draw()
 	end
-	filter:GetPropertyChangedSignal("Text"):Connect(draw)
-	button(pg, 0, 0, 140, 52, "REFRESH", "green", load)
-	onShow.logs = load
+	filter:GetPropertyChangedSignal("Text"):Connect(function() draw() end)
+	button(pg, 0, 0, 140, 52, "REFRESH", "green", function() load() end)
+	onShow.logs = function() load() end
 end
 
 -- =====================================================================

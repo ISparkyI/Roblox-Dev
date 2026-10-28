@@ -3,9 +3,9 @@
 -- Де: ReplicatedStorage/Shared/MultiConfig. Загальний множник = ДОБУТОК п'яти джерел (порядок у SOURCES = порядок у плашці над TOTAL MULTI).
 --
 --   Friends  — друзі на сервері: 1 + 0.25 за кожного друга (0 друзів = x1, 1 друг = x1.25)
---   Rebirth  — множник ребітхів (ПОКИ x1; формула з GDD 8 готова, вмикається REBIRTH_ENABLED)
+--   Rebirth  — множник ребітхів: 2^Rebirths (GDD - Currencies and Rebirths); ціна й ліміт — rebirthPrice / rebirthLimit нижче
 --   Donate   — x2 Money за Robux: ступені x2, x3, x4, x8, x16 … (кожна покупка = наступний ступінь, список — DONATE_TIERS)
---   VIP      — геймпас VIP: x2
+--   VIP      — геймпас VIP: x1.5
 --   Stage    — множник етапу (STAGE_MULTS; нові етапи — додати число в кінець таблиці)
 --
 -- Як розширити: новий ступінь донату — рядок у кінець DONATE_TIERS (і окремий продукт у MonetizationConfig.MoneyTierProducts
@@ -15,8 +15,13 @@
 local Config = {}
 
 Config.FRIEND_BONUS = 0.25 -- +25% за кожного друга на сервері
-Config.VIP_MULT = 2
-Config.REBIRTH_ENABLED = false -- ПОКИ x1; коли зробимо ребітхи — true (формула: 2^Rebirths, GDD 8)
+Config.VIP_MULT = 1.5
+Config.REBIRTH_ENABLED = true -- множник ребітхів 2^Rebirths (вікно REBIRTH, RebirthService)
+-- ребітхи: ціна n-го = REBIRTH_BASE × REBIRTH_GROWTH^(n−1) (100K, 500K, 2.5M …; пропозиція GDD); ліміт: мапа 1 — 5, кожна наступна +3
+Config.REBIRTH_BASE = 100000
+Config.REBIRTH_GROWTH = 5
+Config.REBIRTH_LIMIT = 5
+Config.REBIRTH_PER_STAGE = 3
 
 -- множник етапу: 1 → x1, 2 → x1.5, 3 → x2, 4 → x3, 5 → x4, 6 → x6, 7 → x9, 8 → x12 (далі додаємо з новими етапами)
 Config.STAGE_MULTS = { 1, 1.5, 2, 3, 4, 6, 9, 12 }
@@ -78,6 +83,20 @@ end
 function Config.rebirthMult(rebirths: number): number
 	if not Config.REBIRTH_ENABLED then return 1 end
 	return 2 ^ math.max(0, rebirths)
+end
+
+-- ціна n-го ребітху (n = 1, 2, 3 …)
+function Config.rebirthPrice(n: number): number
+	return Config.REBIRTH_BASE * Config.REBIRTH_GROWTH ^ (math.max(1, math.floor(n)) - 1)
+end
+-- скільки ребітхів дозволено на мапі stage
+function Config.rebirthLimit(stage: number): number
+	return Config.REBIRTH_LIMIT + Config.REBIRTH_PER_STAGE * (math.max(1, math.floor(stage)) - 1)
+end
+-- з якої мапи доступний n-й ребітх
+function Config.rebirthStageFor(n: number): number
+	if n <= Config.REBIRTH_LIMIT then return 1 end
+	return 1 + math.ceil((n - Config.REBIRTH_LIMIT) / Config.REBIRTH_PER_STAGE)
 end
 
 -- Рядки плашки над TOTAL MULTI: key (атрибут гравця Multi_<key>), назва, іконка (rbxassetid або ""), відношення сторін іконки

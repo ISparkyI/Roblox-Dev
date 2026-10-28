@@ -17,3 +17,7 @@ require(script.Parent:WaitForChild("IndexService")).Start() -- колекція 
 require(script.Parent:WaitForChild("RollService")).Start() -- рол големів на підставках ролу: шанси, результат, купівля BUY, секція Roll
 require(script.Parent:WaitForChild("BackendService")).Start() -- Google Таблиця: новини Updates, коди Codes, відгуки Feedback (ServerStorage/BackendConfig)
 require(script.Parent:WaitForChild("AdminService")).Start() -- адмін-панель (F2, лише ServerStorage/AdminConfig): гравці, UID, глобальні події й видачі
+require(script.Parent:WaitForChild("SettingsService")).Start() -- налаштування гравця (Remotes/SettingsAction, атрибути Set_*)
+require(script.Parent:WaitForChild("QuestService")).Start() -- квести: щоденні, тижневі, спеціальні (секція Quests, Remotes/QuestAction)
+require(script.Parent:WaitForChild("RebirthService")).Start() -- ребітхи: Remotes/RebirthAction, скидає Money, Rebirths + 1
+require(script.Parent:WaitForChild("IncomeService")).Start() -- дохід за хвилину (IncomePerMin) — статистика й тайм-скіпи

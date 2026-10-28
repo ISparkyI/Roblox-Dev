@@ -51,7 +51,7 @@ local function stateOf(prompt: ProximityPrompt): (boolean, string, string, boole
 		return true, "BUY " .. NF.money(price), ok and "green" or "gray", not ok
 	end
 	if stand:GetAttribute("GolemId") ~= nil then
-		if Items.invGolemCount(decode("InvGolems", {}), decode("PlotPlaced", {})) >= Items.MAX_GOLEMS then return true, "INVENTORY FULL", "gray", true end
+		if Items.invGolemCount(decode("InvGolems", {}), decode("PlotPlaced", {})) >= Items.maxGolems(player) then return true, "INVENTORY FULL", "gray", true end
 		return true, "TAKE", "blue", false
 	end
 	local held = player:GetAttribute("InvHeld")

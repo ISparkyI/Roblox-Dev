@@ -126,3 +126,9 @@ ModuleScript — дані й модулі.
 **Оновлено 27.10.2026 (Clay Golem):** [[GolemCatalog]] — `clay` отримав `model`, `box`, `pickaxe`, `sword` ([Clay Golem](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FGolems%2FClay%20Golem%2FClay%20Golem)); новий модуль даних `ClayGolemData` у моделі `ClayGolem`. Бекап — `ServerStorage/NicheBackup/ClayGolem_v1`. Копії: `GolemCatalog.lua` (хеш 1727601854, 23 474 байти), `ClayGolemData.lua` (хеш 961405660, 16 861 байт).
 
 **Оновлено 28.10.2026 (удача):** `RollConfig.pick` — перевірки від найрідшого, шанс `min(1, M/N)`, `M = 1 + luck/100`; удача без стелі. [[GDD - Roll]]
+
+**Оновлено 28.10.2026 (ребітхи):** `MultiConfig` — `REBIRTH_ENABLED = true` (множник 2^Rebirths), `REBIRTH_BASE` 100 000, `REBIRTH_GROWTH` 5, `REBIRTH_LIMIT` 5, `REBIRTH_PER_STAGE` 3; функції `rebirthPrice(n)`, `rebirthLimit(stage)`, `rebirthStageFor(n)`.
+
+**Оновлено 28.10.2026 (Shop):** `MonetizationConfig.Passes` — VIP, Lucky, AutoEquip, FastForge, AutoCollect (id, robux, order, featured, name, desc, icon, tone); `TICKET_RATE` 1,25, `ticketPrice(robux)`; MoreCrates прибрано.
+
+**Оновлено 28.10.2026 (Shop v4):** `RollConfig` — STANDS_BASE 5, STANDS_MAX 7, `totalStands(p)`; `ItemConfig.maxGolems(p)`; `MonetizationConfig` — MutLucky, RollStand1/2, Products StarterPack / ExtraStorage, MUT_SPEED_TIERS.

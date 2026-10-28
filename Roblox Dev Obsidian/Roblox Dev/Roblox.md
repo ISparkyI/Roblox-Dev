@@ -7,7 +7,7 @@
 - [[Plugins]] — плагіни Studio і як ними користуватися
 - [[Scripts]] — спільні скрипти та інструкції до них
 - [[Places]] — плейси, які ми робили або робимо
-- [[OREKO]] — наша студія: назва, логотип, загрузочний екран (однакові в усіх плейсах)
+- [[OSIRIUS]] — наша студія: назва, логотип, загрузочний екран (однакові в усіх плейсах)
 - [[Claude - як працювати з базою]] — правила роботи з базою
 - [[Claude - правила безпеки]] — нічого не брати з Creator Store
 
@@ -22,7 +22,7 @@
 | Hit Chips | Effects | уламки кольору об'єкта при ударі (`ReplicatedStorage/Effects/HitChips`) | My Mining Golems |
 | Resurface | Plugins | studs: `Texture` (видно на 80%, `StudsPerTile 0.25`) | My Mining Golems |
 | Number Format | Scripts | формат великих чисел у UI (`ReplicatedStorage/Shared/NumberFormat`) | My Mining Golems |
-| OREKO Loading Screen | OREKO | загрузочний екран «MADE BY OREKO» зі шкалою справжнього завантаження (`ReplicatedFirst/OrekoLoadingScreen`); логотип спільний, `CONFIG` (фон, шкала) — свій у плейсі | My Mining Golems |
+| OSIRIUS Loading Screen | OSIRIUS | загрузочний екран «MADE BY OSIRIUS» зі шкалою справжнього завантаження (`ReplicatedFirst/OrekoLoadingScreen`); логотип спільний, `CONFIG` (фон, шкала) — свій у плейсі | My Mining Golems |
 | UI Hover | Scripts | один звук наведення на всі кнопки й картки (`ReplicatedStorage/Shared/UIHover`, автопідключення скриптом) | My Mining Golems |
 
 Новий плейс, новий ефект чи стиль → додай рядок у цю таблицю.

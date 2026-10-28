@@ -15,7 +15,8 @@ local RollConfig = {}
 
 RollConfig.LUCK_PER_LEVEL = 5
 RollConfig.LUCK_START_PRICE = 1000
-RollConfig.STANDS_MAX = 5
+RollConfig.STANDS_BASE = 5 -- за Money (табло Roll Upgrades)
+RollConfig.STANDS_MAX = 7 -- + геймпаси Pass_RollStand1 / Pass_RollStand2 (+1 кожен; точки Point6 / Point7)
 RollConfig.STAND_BASE_PRICE = 500
 RollConfig.STAND_PRICE_STEP = 3
 
@@ -43,8 +44,15 @@ end
 
 -- ціна переходу з count місць на count + 1 (nil, якщо вже максимум)
 function RollConfig.standPrice(count: number, stage: number): number?
-	if count >= RollConfig.STANDS_MAX then return nil end
+	if count >= RollConfig.STANDS_BASE then return nil end
 	return math.floor(RollConfig.STAND_BASE_PRICE * RollConfig.STAND_PRICE_STEP ^ (count - 1) * RollConfig.stageMult(stage))
+end
+
+-- усього підставок гравця: куплені за Money (1–5) + геймпаси Pass_RollStand1 / Pass_RollStand2 (+1 кожен)
+function RollConfig.totalStands(p: Instance): number
+	local base = math.clamp(tonumber(p:GetAttribute("RollStands")) or 1, 1, RollConfig.STANDS_BASE)
+	local extra = (p:GetAttribute("Pass_RollStand1") == true and 1 or 0) + (p:GetAttribute("Pass_RollStand2") == true and 1 or 0)
+	return math.min(base + extra, RollConfig.STANDS_MAX)
 end
 
 -- ===== Рол големів (RollService — сервер, RollRevealClient — анімація; GDD - Roll) =====

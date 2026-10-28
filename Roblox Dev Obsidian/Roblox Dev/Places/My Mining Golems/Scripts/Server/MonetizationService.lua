@@ -2,9 +2,13 @@
 -- MonetizationService — покупки за Robux: Developer Products (ступені x2 Money) і геймпаси (VIP і т.д.).
 -- Де: ServerScriptService/MonetizationService (ModuleScript). Запуск: NicheBoot (після DataService).
 --
+-- Пакети тікетів (MonetizationConfig.TicketProducts) і продукти (Products: Potion Pack) — багаторазові, ProcessReceipt;
+--   Potion Pack за тікети — ShopAction "BuyProduct".
 -- Ступені x2 Money: кожна покупка = наступний ступінь (атрибут DonateTier). ProductId ступеня — у MonetizationConfig.MoneyTierProducts.
 -- ProcessReceipt: дублікати відсікаються по PurchaseId (в профілі останні 200), перед PurchaseGranted дані зберігаються (SaveNow).
 -- Геймпаси: при вході перевіряємо власність (UserOwnsGamePassAsync) → атрибут Pass_<ім'я>; при покупці в грі — теж.
+-- За тікети (магазин SHOP): RemoteFunction Remotes/ShopAction ("BuyTickets", ключ) → ціна MonetizationConfig.ticketPrice(robux),
+--   −Tickets, Pass_<ключ> = true, SaveNow. Уже є — відмова. ("BuyTier") — наступний ступінь x2 Money за тікети (× 1,25).
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -12,6 +16,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 
 local MultiCfg = require(RS:WaitForChild("Shared"):WaitForChild("MultiConfig"))
 local MonCfg = require(RS:WaitForChild("Shared"):WaitForChild("MonetizationConfig"))
+local Items = require(RS:WaitForChild("Shared"):WaitForChild("ItemConfig"))
 local DataService = require(script.Parent:WaitForChild("DataService"))
 
 local MonetizationService = {}
@@ -35,6 +40,65 @@ local function tierOfProduct(productId: number): number?
 	return nil
 end
 
+-- багаторазові продукти (MonetizationConfig.Products): Potion Pack — по potions кожного зілля
+function MonetizationService.GrantProduct(p: Player, key: string): boolean
+	local d = MonCfg.Products[key]
+	if not d then return false end
+	if key == "StarterPack" then
+		p:SetAttribute("Pass_StarterPack", true)
+		p:SetAttribute("Money", ((tonumber(p:GetAttribute("Money")) or 0) :: number) + d.money)
+		p:SetAttribute("Pot_Luck", ((tonumber(p:GetAttribute("Pot_Luck")) or 0) :: number) + d.luckPotions)
+		local okI, Inv = pcall(require, script.Parent:FindFirstChild("InventoryService"))
+		local okC, Cave = pcall(require, script.Parent:FindFirstChild("CaveStandService"))
+		if okI and okC and Inv and Cave then
+			local gid = Cave.MaxId(p) + 1
+			local okA, added = pcall(Inv.AddGolem, p, gid, "stone", "miner", 4, "shop:starter", true) -- Diamond (mut 4) Stone Golem
+			-- як після купівлі на підставці ролу: голем одразу в хотбарі (хотбар повний — лише в інвентарі)
+			if okA and added and Inv.Pin then pcall(Inv.Pin, p, "Golem_" .. gid) end
+		end
+	elseif key == "ExtraStorage" then
+		p:SetAttribute("ExtraSlots", ((tonumber(p:GetAttribute("ExtraSlots")) or 0) :: number) + d.slots)
+	elseif d.skipMin then -- тайм-скіп: дохід за хвилину × хвилини
+		local okI, Inc = pcall(require, script.Parent:FindFirstChild("IncomeService"))
+		local rate = (okI and Inc and Inc.Rate) and Inc.Rate(p) or 100
+		local add = math.floor(rate * d.skipMin)
+		p:SetAttribute("Money", ((tonumber(p:GetAttribute("Money")) or 0) :: number) + add)
+		p:SetAttribute("SkipGain", add); p:SetAttribute("SkipT", os.clock()) -- клієнт показує «+$…»
+	elseif d.diamonds then -- пакет діамантів
+		p:SetAttribute("Diamonds", ((tonumber(p:GetAttribute("Diamonds")) or 0) :: number) + d.diamonds)
+	elseif d.luckRoll then -- Lucky Roll: +1 рол з удачею ×luckRoll
+		local a = "LuckRoll" .. d.luckRoll
+		p:SetAttribute(a, ((tonumber(p:GetAttribute(a)) or 0) :: number) + 1)
+	elseif key == "PotionPack" then
+		for _, pot in Items.POTIONS do
+			local k = "Pot_" .. pot.key
+			p:SetAttribute(k, ((tonumber(p:GetAttribute(k)) or 0) :: number) + d.potions)
+		end
+	end
+	return true
+end
+-- Developer Product за id: ступінь x2 Money, пакет тікетів або продукт; false — невідомий
+local function grantProductId(p: Player, productId: number): boolean
+	local tier = tierOfProduct(productId)
+	if tier then MonetizationService.GrantMoneyTier(p, tier); return true end
+	for _, t in MonCfg.TicketProducts do
+		if t.id ~= 0 and t.id == productId then
+			p:SetAttribute("Tickets", ((tonumber(p:GetAttribute("Tickets")) or 0) :: number) + t.tickets)
+			return true
+		end
+	end
+	for key, d in MonCfg.Products do
+		if d.id ~= 0 and d.id == productId then return MonetizationService.GrantProduct(p, key) end
+	end
+	for tier, t in MonCfg.MUT_SPEED_TIERS do
+		if t.id ~= 0 and t.id == productId then
+			p:SetAttribute("MutSpeedTier", math.max(tonumber(p:GetAttribute("MutSpeedTier")) or 0, tier))
+			return true
+		end
+	end
+	return false
+end
+
 local function checkPasses(p: Player)
 	for name, def in MonCfg.Passes do
 		if def.id ~= 0 then
@@ -44,7 +108,50 @@ local function checkPasses(p: Player)
 	end
 end
 
+local shopBusy: { [Player]: boolean } = {}
+-- ("BuyTickets", ключ геймпаса) — геймпас за тікети; ("BuyTier") — наступний ступінь x2 Money за тікети (ціна ступеня × 1,25)
+local function onShop(p: Player, action: any, key: any): any
+	if shopBusy[p] or not DataService.IsLoaded(p) then return { ok = false } end
+	local price, grant
+	if action == "BuyTickets" and type(key) == "string" then
+		local def = MonCfg.Passes[key]
+		if not def then return { ok = false } end
+		if p:GetAttribute("Pass_" .. key) == true then return { ok = false, err = "owned" } end
+		if def.requires and p:GetAttribute("Pass_" .. def.requires) ~= true then return { ok = false, err = "requires" } end
+		price = MonCfg.ticketPrice(def.robux)
+		grant = function() p:SetAttribute("Pass_" .. key, true) end
+	elseif action == "BuyProduct" and type(key) == "string" then
+		local d = MonCfg.Products[key]
+		if not d or d.diamonds then return { ok = false } end -- діаманти — лише за Robux
+		if d.once and p:GetAttribute("Pass_" .. key) == true then return { ok = false, err = "owned" } end
+		price = MonCfg.ticketPrice(d.robux)
+		grant = function() MonetizationService.GrantProduct(p, key) end
+	elseif action == "BuyTier" then
+		local nxt = ((tonumber(p:GetAttribute("DonateTier")) or 0) :: number) + 1
+		local t = MultiCfg.DONATE_TIERS[nxt]
+		if not t then return { ok = false, err = "max" } end
+		price = MonCfg.ticketPrice(t.price)
+		grant = function() MonetizationService.GrantMoneyTier(p, nxt) end
+	else
+		return { ok = false }
+	end
+	shopBusy[p] = true
+	local tk = tonumber(p:GetAttribute("Tickets")) or 0
+	if tk < price then shopBusy[p] = nil; return { ok = false, err = "tickets" } end
+	p:SetAttribute("Tickets", tk - price)
+	grant()
+	task.spawn(function() pcall(DataService.SaveNow, p) end)
+	shopBusy[p] = nil
+	return { ok = true }
+end
+
 function MonetizationService.Start()
+	local remotes = RS:FindFirstChild("Remotes") or Instance.new("Folder")
+	remotes.Name = "Remotes"; remotes.Parent = RS
+	local rf = remotes:FindFirstChild("ShopAction") or Instance.new("RemoteFunction")
+	rf.Name = "ShopAction"; rf.Parent = remotes
+	rf.OnServerInvoke = onShop
+	Players.PlayerRemoving:Connect(function(p) shopBusy[p] = nil end)
 	MarketplaceService.ProcessReceipt = function(info)
 		local p = Players:GetPlayerByUserId(info.PlayerId)
 		if not p or not DataService.WaitLoaded(p) then return Enum.ProductPurchaseDecision.NotProcessedYet end
@@ -52,12 +159,10 @@ function MonetizationService.Start()
 		if not data then return Enum.ProductPurchaseDecision.NotProcessedYet end
 		local id = tostring(info.PurchaseId)
 		if not table.find(data.receipts, id) then
-			local tier = tierOfProduct(info.ProductId)
-			if not tier then
+			if not grantProductId(p, info.ProductId) then
 				warn("MonetizationService: невідомий ProductId " .. tostring(info.ProductId))
 				return Enum.ProductPurchaseDecision.NotProcessedYet
 			end
-			MonetizationService.GrantMoneyTier(p, tier)
 			table.insert(data.receipts, id)
 			while #data.receipts > MAX_RECEIPTS do table.remove(data.receipts, 1) end
 		end

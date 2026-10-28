@@ -15,6 +15,7 @@ local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 
 local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("MultiConfig"))
+local Items = require(RS:WaitForChild("Shared"):WaitForChild("ItemConfig")) -- Money Potion (Items.boostOn)
 local DataService = require(script.Parent:WaitForChild("DataService"))
 
 local MultiService = {}
@@ -45,6 +46,7 @@ local function compute(p: Player)
 	end
 	local ev = tonumber(workspace:GetAttribute("EventMoney")) or 1
 	if ev > 1 and os.time() < (tonumber(workspace:GetAttribute("EventMoneyUntil")) or 0) then total *= ev end
+	if Items.boostOn(p, "Money") then total *= 2 end -- Money Potion
 	p:SetAttribute("TotalMulti", total)
 end
 local function computeAll()
@@ -74,7 +76,7 @@ local function setup(p: Player)
 	if not DataService.WaitLoaded(p) then return end
 	friendsOf[p] = friendsOf[p] or {}
 	ready[p] = true
-	for _, a in { "Stage", "Rebirths", "DonateTier", "Pass_VIP" } do
+	for _, a in { "Stage", "Rebirths", "DonateTier", "Pass_VIP", "Boost_Money" } do
 		p:GetAttributeChangedSignal(a):Connect(function() compute(p) end)
 	end
 	compute(p)

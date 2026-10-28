@@ -13,7 +13,8 @@
 --   GET  URL?action=codes&key=…   → { ok, codes = { { code, reward, amount, item, expires, maxUses, uses, active } } }
 --   redeem   { action = "redeem", key, code, userId, name } → { ok } | { ok = false, error = "inactive" | "expired" | "limit" | "notfound" | "auth" }
 --   feedback { action = "feedback", key, userId, name, category, text, map, money, version, placeId, jobId, device } → { ok } | { ok = false, error }
---   redeem і feedback надсилаються GET-запитом: URL?action=redeem&key=…&data=<UrlEncode(JSON усіх полів, разом з key)>
+--   adminlog { action = "adminlog", key, placeId, jobId, events = { { t, e = "admin" | "suspect", by, what, data?, name?, n?, job } } } → { ok }
+--   redeem, feedback і adminlog надсилаються GET-запитом: URL?action=redeem&key=…&data=<UrlEncode(JSON усіх полів, разом з key)>
 --   (підключено 28.10.2026: POST давав HTTP 405 — Apps Script відповідає 302, і Roblox іде за редиректом тим самим POST).
 -- Кеш: updates і codes — при старті й раз на REFRESH_SEC (60 с); код, якого нема в кеші, — ще одне оновлення (не частіше ніж раз на 10 с).
 --
@@ -135,6 +136,9 @@ local function request(method: string, query: string?, body: any?): any?
 				end
 			end
 			return { ok = false, error = "notfound" }
+		elseif body and body.action == "adminlog" then
+			script:SetAttribute("MockLastAdminLog", HttpService:JSONEncode(body))
+			return { ok = true }
 		elseif body and body.action == "feedback" then
 			script:SetAttribute("MockLastFeedback", HttpService:JSONEncode(body))
 			return { ok = true }
@@ -374,7 +378,7 @@ local function redeem(p: Player, raw: any): any
 		if c.reward == "Golem" then
 			if not parseGolem(c.item) then return fail(p, "invalid") end
 			if p:GetAttribute("InvReady") ~= true then return { ok = false, error = "busy" } end
-			if invCount(p) + math.max(1, math.floor(c.amount)) > Items.MAX_GOLEMS then return { ok = false, error = "full" } end
+			if invCount(p) + math.max(1, math.floor(c.amount)) > Items.maxGolems(p) then return { ok = false, error = "full" } end
 		end
 		local data = request("POST", nil, { action = "redeem", code = code, userId = p.UserId, name = p.Name })
 		if not data then return { ok = false, error = "error" } end
@@ -479,6 +483,32 @@ local function onInvoke(p: Player, action: any, arg: any): any
 end
 
 local started = false
+-- ===== журнал адмінів (аркуш AdminLog у таблиці) =====
+-- AdminService кладе сюди важливі дії адмінів (give, grantall, role, ban, unban, kick, event, shutdown) і спроби доступу
+-- до панелі без ролі (suspect). Раз на ADMINLOG_SEC пачками по 8 — GET action=adminlog, data = { events = […] }.
+-- Apps Script дописує рядки в аркуш AdminLog і на suspect шле лист власнику. Таблиця вимкнена — черга чекає (до 300 подій).
+local ADMINLOG_SEC = 20
+local adminQueue = {}
+function BackendService.AdminLog(ev: any)
+	if type(ev) ~= "table" then return end
+	if #adminQueue >= 300 then table.remove(adminQueue, 1) end
+	table.insert(adminQueue, ev)
+end
+local function flushAdminLog()
+	if #adminQueue == 0 or not online() then return end
+	local batch = adminQueue
+	adminQueue = {}
+	for i = 1, #batch, 8 do
+		local part = table.move(batch, i, math.min(i + 7, #batch), 1, {})
+		local res = request("POST", nil, { action = "adminlog", placeId = game.PlaceId, jobId = game.JobId, events = part })
+		if not (res and res.ok) then
+			for k = i, #batch do table.insert(adminQueue, batch[k]) end
+			break
+		end
+	end
+end
+BackendService._flushAdminLog = flushAdminLog
+
 function BackendService.Start()
 	if started then return end
 	started = true
@@ -515,6 +545,14 @@ function BackendService.Start()
 			used[p] = nil; seen[p] = nil; lastTry[p] = nil; fails[p] = nil; lastFeedback[p] = nil; busy[p] = nil; joinedAt[p] = nil
 		end)
 	end)
+	-- журнал адмінів у таблицю: раз на ADMINLOG_SEC і при закритті сервера
+	task.spawn(function()
+		while true do
+			task.wait(ADMINLOG_SEC)
+			pcall(flushAdminLog)
+		end
+	end)
+	game:BindToClose(function() pcall(flushAdminLog) end)
 	-- кеш: при старті й раз на хвилину
 	task.spawn(function()
 		while true do

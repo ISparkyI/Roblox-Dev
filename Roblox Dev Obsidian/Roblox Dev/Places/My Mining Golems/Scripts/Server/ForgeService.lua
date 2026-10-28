@@ -14,6 +14,11 @@
 -- ТЕСТ: інвентаря ще немає, тому руда, злитки й гроші — атрибути гравця
 --   Ore_<Ore>, Bars_<Ore>, Money. Коли з'явиться інвентар — замінити функції inv*/money*.
 
+-- квести (QuestService): лічильник дій гравця; require ліниво — без циклів між модулями
+local function questAdd(p: Player, stat: string, n: number?)
+	local okQ, QS = pcall(require, script.Parent:FindFirstChild("QuestService"))
+	if okQ and QS and QS.Add then QS.Add(p, stat, n) end
+end
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local RS = game:GetService("ReplicatedStorage")
@@ -198,6 +203,7 @@ local function onAction(p: Player, action: any, arg: any)
 			if k > 0 then
 				-- ТЕСТ (поки немає магазину): злитки одразу продаються, гроші йдуть на лічильник MoneyHUD
 				if Cfg.TEST_SELL_BARS then invAdd(p, "Money", MultiService.Apply(p, k * o.price * Cfg.BAR_MULT)) else invAdd(p, "Bars_" .. o.key, k) end
+				questAdd(p, "Smelt", k)
 				f:SetAttribute("Bars_" .. o.key, 0)
 			end
 		end
@@ -206,13 +212,29 @@ local function onAction(p: Player, action: any, arg: any)
 	refresh(f)
 end
 
+-- геймпас Fast Forge (Pass_FastForge власника ніші): переплавка вдвічі швидша
+local function fastForge(f: Instance): boolean
+	local niches = workspace:FindFirstChild("Niches")
+	local n: Instance? = f
+	while n and n.Parent ~= niches do n = n.Parent end
+	if not n then return false end
+	local okN, NS = pcall(require, script.Parent:FindFirstChild("NicheService"))
+	local owner = okN and NS and NS.GetOwner(n)
+	return owner ~= nil and owner:GetAttribute("Pass_FastForge") == true
+end
+local function spdFor(f: Instance): number
+	local d = Cfg.spdOf(attr(f, "SpdLvl"))
+	if fastForge(f) then d *= 0.5 end
+	return d
+end
+
 -- переплавка: один удар за spdOf(SpdLvl) с; за удар — до ophOf(OphLvl) руди (по черзі з усіх типів на піддоні).
 -- Злитки зараховуються в кінці інтервалу (SmeltStart + SmeltDur).
 local function step(dt: number)
 	for f, s in forges do
 		if f:GetAttribute("State") == "Working" then
 			s.timer += dt
-			if palCount(f) > 0 and s.timer >= Cfg.spdOf(attr(f, "SpdLvl")) then
+			if palCount(f) > 0 and s.timer >= spdFor(f) then
 				s.timer = 0
 				local taken: { number } = {}
 				for _ = 1, Cfg.ophOf(math.max(1, attr(f, "OphLvl"))) do
@@ -229,7 +251,7 @@ local function step(dt: number)
 				if #taken > 0 then
 					s.flying += 1
 					f:SetAttribute("Busy", true)
-					local dur = Cfg.spdOf(attr(f, "SpdLvl"))
+					local dur = spdFor(f)
 					f:SetAttribute("SmeltType", taken[1])
 					f:SetAttribute("SmeltCount", #taken)
 					f:SetAttribute("SmeltStart", now()) -- вікно кузні заповнює рядок цієї руди від SmeltStart за SmeltDur

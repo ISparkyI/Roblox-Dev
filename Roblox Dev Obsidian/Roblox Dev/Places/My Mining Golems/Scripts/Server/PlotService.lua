@@ -35,6 +35,11 @@
 --   "Upgrade", key ("Plots" | "Points" | "Spawn" | "Slots" | "Carry" | "Crate" | "Drop") — купити рівень картки за Money.
 -- Збереження: секція "Plots" { stage, lv, assign, crates } (скидається на новій мапі, GDD 6).
 
+-- квести (QuestService): лічильник дій гравця; require ліниво — без циклів між модулями
+local function questAdd(p: Player, stat: string, n: number?)
+	local okQ, QS = pcall(require, script.Parent:FindFirstChild("QuestService"))
+	if okQ and QS and QS.Add then QS.Add(p, stat, n) end
+end
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -45,6 +50,8 @@ local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("PlotConfig"))
 local DataService = require(script.Parent:WaitForChild("DataService"))
 local NicheService = require(script.Parent:WaitForChild("NicheService"))
 local Catalog = require(RS:WaitForChild("Shared"):WaitForChild("GolemCatalog")) -- модель голема за kind (Catalog.model)
+local Forge = require(RS.Shared:WaitForChild("ForgeConfig")) -- ціни руди (дохід за хвилину, IncomeService)
+local Items = require(RS:WaitForChild("Shared"):WaitForChild("ItemConfig")) -- зілля Speed / Strength (Items.boostOn)
 
 local ASSETS = RS:WaitForChild("PlotAssets")
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
@@ -66,9 +73,12 @@ type Plot = {
 	idx: number, model: Model, base: BasePart, cf: CFrame, y: number, floor: number, half: number, crate: Vector3, crateR: number,
 	ores: { Ore }, stacks: { Stack }, golems: { Golem }, acc: number, drop: Vector3, home: Vector3,
 	bin: { [string]: number }, binN: number,
+	carry: { string }?, -- руда, що не влізла в ящик (зняли носія / збереження): її забирає наступний носій плоту
 }
 type State = {
 	player: Player, niche: Model, plots: { Plot }, lv: { [string]: number }, assign: { [number]: { m: { number }, c: number? } },
+	manualPlots: { [number]: boolean }, -- Auto Equip Best: плоти, які гравець змінив сам (Place) — авто їх не чіпає
+	freed: { [number]: boolean }, -- Auto Equip Best: големи, яких гравець зняв сам — авто не ставить їх і на інші плоти
 }
 local states: { [Player]: State } = {}
 
@@ -273,9 +283,17 @@ local function breakOre(st: State, pl: Plot, o: Ore)
 	local i = table.find(pl.ores, o)
 	if i then table.remove(pl.ores, i) end
 	o.model:SetAttribute("Broken", now())
+	questAdd(st.player, "Mine", 1)
 	-- 1–3 шматки × розмір жили × картка Ore Drop; падають 1–3 купками навколо руди
 	local n = Cfg.rollDrop(rng, o.size, st.lv.Drop or 1)
 	o.model:SetAttribute("Dropped", n)
+	-- дохід за хвилину (IncomeService): вартість добутої руди без множників
+	do
+		local okI, Inc = pcall(require, script.Parent:FindFirstChild("IncomeService"))
+		local price = 0
+		for _, fo in Forge.ORES do if fo.key == o.key then price = fo.price end end
+		if okI and Inc and Inc.Record then Inc.Record(st.player, n * price) end
+	end
 	local piles = math.min(n, if o.size.key == "L" then 3 elseif o.size.key == "M" then 2 else 1)
 	for k = 1, piles do
 		local share = math.floor(n / piles) + (if k <= n % piles then 1 else 0)
@@ -422,6 +440,9 @@ end
 
 local function tickMiner(st: State, pl: Plot, g: Golem, t: number)
 	local s = Cfg.stats(g.kind, g.mut)
+	-- зілля власника: Speed — удари вдвічі частіше, Strength — шкода ×1,5
+	if Items.boostOn(st.player, "Speed") then s.int /= 2 end
+	if Items.boostOn(st.player, "Strength") then s.dmg *= 1.5 end
 	if g.mode == "move" then
 		if g.ore and g.ore.dead then -- руду зламав інший майнер, поки цей ішов: зупиняємось там, де він зараз
 			g.ore = nil
@@ -514,9 +535,13 @@ local function showCrate(st: State, pl: Plot)
 	m:SetAttribute("CrateMix", table.concat(mix, ","))
 end
 
--- носій висипає ящичок у ящик плоту, скільки влазить; решта лишається в ящичку (force — усе, напр. коли носія знімають)
+local collect -- нижче (Auto Collect викликає з deliver)
+-- носій висипає ящичок у ящик плоту, скільки влазить; решта лишається в ящичку.
+-- force (носія знімають): що не влізло — у pl.carry, його забере наступний носій (ящик ніколи не переповнюється)
 local function deliver(st: State, pl: Plot, g: Golem, force: boolean?)
-	local space = if force then math.huge else crateCap(st) - pl.binN
+	-- Auto Collect: те, що вже лежить у ящику (напр. повний ящик до покупки), спершу йде в інвентар
+	if st.player:GetAttribute("Pass_AutoCollect") == true and pl.binN > 0 then collect(st, pl) end
+	local space = math.max(0, crateCap(st) - pl.binN)
 	local put = 0
 	while #g.load > 0 and put < space do
 		local k = table.remove(g.load) :: string
@@ -529,10 +554,19 @@ local function deliver(st: State, pl: Plot, g: Golem, force: boolean?)
 		g.model:SetAttribute("DeliverT", now())
 		setLoad(g)
 		showCrate(st, pl)
+		-- геймпас Auto Collect: руда з ящика одразу в інвентар
+		if st.player:GetAttribute("Pass_AutoCollect") == true then collect(st, pl) end
+	end
+	if force and #g.load > 0 then
+		local c = pl.carry or {}
+		for _, k in g.load do table.insert(c, k) end
+		pl.carry = c
+		table.clear(g.load)
+		setLoad(g)
 	end
 end
 
-local function collect(st: State, pl: Plot)
+collect = function(st: State, pl: Plot)
 	if pl.binN <= 0 then return end
 	local p = st.player
 	for k, n in pl.bin do
@@ -548,6 +582,13 @@ end
 local function tickCarrier(st: State, pl: Plot, g: Golem, t: number)
 	local s = Cfg.stats(g.kind, g.mut)
 	local speed = s.spd * Cfg.carryOf(st.lv.Carry or 1)
+	-- руда, що не влізла в ящик (попередній носій / збереження) — тепер у ящичку цього носія
+	local pc = pl.carry
+	if pc and #pc > 0 then
+		pl.carry = nil
+		for _, k in pc do table.insert(g.load, k) end
+		setLoad(g)
+	end
 	-- цільовий стак зник, поки носій ішов (підібрав гравець / вийшов час): зупиняємось там, де він зараз,
 	-- і в цьому ж тіку обираємо нову ціль (інший стак / ящик / додому) — без анімації підбору на порожньому місці
 	if g.mode == "fetch" and (g.stack == nil or (g.stack :: Stack).dead) then
@@ -562,7 +603,7 @@ local function tickCarrier(st: State, pl: Plot, g: Golem, t: number)
 		local sk = g.stack
 		g.stack = nil
 		if sk and not sk.dead then
-			local take = math.min(sk.n, s.cap - #g.load)
+			local take = math.max(0, math.min(sk.n, s.cap - #g.load))
 			for _ = 1, take do table.insert(g.load, sk.key) end
 			if take >= sk.n then removeStack(pl, sk) else setCount(sk, sk.n - take) end
 			setLoad(g)
@@ -738,15 +779,56 @@ local function equipBest(st: State)
 	end
 end
 
+-- Auto Equip Best (v3, 28.10.2026): працює ПО ПЛОТАХ. Плот, на якому гравець сам щось поставив / зняв (Place), стає ручним
+-- (st.manualPlots) — авто його не чіпає зовсім (порожні слоти лишаються порожніми). Решта плотів — найкращими з тих големів,
+-- що не стоять на ручних плотах і не зняті гравцем вручну (st.freed) (той самий порядок, що й у equipBest). Скидання: кнопка EQUIP BEST або вимкнути й увімкнути
+-- AUTO EQUIP BEST у SETTINGS (AutoEquipBest false → true).
+local function equipAuto(st: State)
+	local inv = invGolems(st.player)
+	local used: { [number]: boolean } = {}
+	for i in st.manualPlots do
+		local o = st.assign[i]
+		if o then
+			for _, id in o.m do used[id] = true end
+			if o.c then used[o.c] = true end
+		end
+	end
+	local miners, carriers = {}, {}
+	for id, g in inv do
+		if not used[id] and not st.freed[id] then
+			local r = roleOf(g)
+			if r ~= "warrior" then table.insert(r == "carrier" and carriers or miners, { id = id, kind = g.kind, mut = g.mut }) end
+		end
+	end
+	table.sort(miners, function(a, b)
+		local pa, pb = Cfg.minerPower(a.kind, a.mut), Cfg.minerPower(b.kind, b.mut)
+		if pa ~= pb then return pa > pb end
+		return a.id < b.id
+	end)
+	table.sort(carriers, function(a, b)
+		local pa, pb = Cfg.carrierPower(a.kind, a.mut), Cfg.carrierPower(b.kind, b.mut)
+		if pa ~= pb then return pa > pb end
+		return a.id < b.id
+	end)
+	local slots = Cfg.slotsOf(st.lv.Slots or 1)
+	local mi, ci = 1, 1
+	for i = 1, unlockedCount(st) do
+		if not st.manualPlots[i] then
+			local sNew: { m: { number }, c: number? } = { m = {}, c = nil }
+			while #sNew.m < slots and miners[mi] do table.insert(sNew.m, miners[mi].id); mi += 1 end
+			if carriers[ci] then sNew.c = carriers[ci].id; ci += 1 end
+			st.assign[i] = (#sNew.m > 0 or sNew.c) and sNew or nil
+		end
+	end
+end
+
+-- геймпас Auto Equip Best (Pass_AutoEquip — Robux або тікети, MonetizationService) і перемикач у SETTINGS (AutoEquipBest — SettingsService)
 local function hasAutoEquip(p: Player): boolean
-	if p:GetAttribute("AutoEquipBest") ~= true then return false end
-	if Cfg.AUTO_EQUIP_PASS == 0 then return RunService:IsStudio() end
-	local ok, own = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, p.UserId, Cfg.AUTO_EQUIP_PASS)
-	return ok and own
+	return p:GetAttribute("AutoEquipBest") == true and p:GetAttribute("Pass_AutoEquip") == true
 end
 
 local function refresh(st: State)
-	if hasAutoEquip(st.player) then equipBest(st) end
+	if hasAutoEquip(st.player) then equipAuto(st) end
 	sanitize(st)
 	syncGolems(st)
 	publish(st)
@@ -772,11 +854,13 @@ end
 local function setup(p: Player, niche: Model)
 	local sec = DataService.GetSection(p, "Plots")
 	local stage = (niche:GetAttribute("Stage") :: number?) or 1
-	local st: State = { player = p, niche = niche, plots = {}, lv = Cfg.defaultLevels(), assign = {} }
+	local st: State = { player = p, niche = niche, plots = {}, lv = Cfg.defaultLevels(), assign = {}, manualPlots = {}, freed = {} }
 	if type(sec) == "table" and (sec.stage or 1) == stage then
 		if type(sec.lv) == "table" then
 			for k, card in Cfg.CARDS do st.lv[k] = math.clamp(math.floor(tonumber(sec.lv[k]) or 1), 1, card.max) end
 		end
+		for _, i in (type(sec.manualPlots) == "table" and sec.manualPlots or {}) do if type(i) == "number" then st.manualPlots[i] = true end end
+		for _, id in (type(sec.freed) == "table" and sec.freed or {}) do if type(id) == "number" then st.freed[id] = true end end
 		if type(sec.assign) == "table" then
 			for k, s in sec.assign do
 				local i = tonumber(k)
@@ -800,6 +884,27 @@ local function setup(p: Player, niche: Model)
 				end
 			end
 		end
+		-- ящичок носія (loads) і старі збереження, де ящик більший за місткість: надлишок — у pl.carry (несе носій, чекає біля ящика)
+		local cap = crateCap(st)
+		for i, pl in st.plots do
+			local c: { string } = {}
+			local ld = type(sec.loads) == "table" and sec.loads[tostring(i)] or nil
+			if type(ld) == "table" then
+				for _, o in Cfg.ORES do
+					for _ = 1, math.clamp(math.floor(tonumber(ld[o.key]) or 0), 0, 100000) do table.insert(c, o.key) end
+				end
+			end
+			if pl.binN > cap then
+				for _, o in Cfg.ORES do
+					while pl.binN > cap and (pl.bin[o.key] or 0) > 0 do
+						pl.bin[o.key] -= 1; pl.binN -= 1
+						table.insert(c, o.key)
+					end
+					if pl.bin[o.key] == 0 then pl.bin[o.key] = nil end
+				end
+			end
+			if #c > 0 then pl.carry = c end
+		end
 	end
 	states[p] = st
 	-- ТЕСТ (Studio, немає збереження): одразу ставимо найкращих големів, щоб плот працював
@@ -821,17 +926,23 @@ local function sectionOf(p: Player, old: any): any
 	local a = {}
 	for i, s in st.assign do a[tostring(i)] = { m = s.m, c = s.c } end
 	local crates = {}
+	local loads = {}
 	for i, pl in st.plots do
 		if pl.binN > 0 then crates[tostring(i)] = table.clone(pl.bin) end
-		-- руда в ящичку носія теж зберігається (у ящик плоту)
+		-- руда в ящичку носія і pl.carry — окремо (loads), не в ящик: інакше після входу ящик переповнений (276 / 270)
+		local ld: { [string]: number } = {}
+		local any = false
+		for _, k in pl.carry or {} do ld[k] = (ld[k] or 0) + 1; any = true end
 		for _, g in pl.golems do
-			for _, k in g.load do
-				crates[tostring(i)] = crates[tostring(i)] or {}
-				crates[tostring(i)][k] = (crates[tostring(i)][k] or 0) + 1
-			end
+			for _, k in g.load do ld[k] = (ld[k] or 0) + 1; any = true end
 		end
+		if any then loads[tostring(i)] = ld end
 	end
-	return { stage = (st.niche:GetAttribute("Stage") :: number?) or 1, lv = st.lv, assign = a, crates = crates }
+	local man = {}
+	for i in st.manualPlots do table.insert(man, i) end
+	local fr = {}
+	for id in st.freed do table.insert(fr, id) end
+	return { stage = (st.niche:GetAttribute("Stage") :: number?) or 1, lv = st.lv, assign = a, crates = crates, loads = loads, manualPlots = man, freed = fr }
 end
 
 local function onAction(p: Player, action: any, arg: any)
@@ -850,6 +961,7 @@ local function onAction(p: Player, action: any, arg: any)
 			collect(st, pl)
 		end
 	elseif action == "EquipBest" then
+		table.clear(st.manualPlots); table.clear(st.freed) -- кнопка EQUIP BEST — усе з нуля, ручні плоти скидаються
 		equipBest(st)
 		refresh(st)
 	elseif action == "Place" and type(arg) == "table" then
@@ -869,6 +981,11 @@ local function onAction(p: Player, action: any, arg: any)
 		end
 		local s = st.assign[i] or { m = {}, c = nil }
 		st.assign[i] = s
+		st.manualPlots[i] = true -- Auto Equip Best: цей плот гравець змінив сам — авто його більше не чіпає
+		-- знятий голем (той, що стояв у слоті) — вільний: авто не перекидає його на інші плоти; поставлений — знову «звичайний»
+		local oldId = if slot == "c" then s.c elseif type(slot) == "string" and string.match(slot, "^m%d$") then s.m[tonumber(string.sub(slot, 2)) :: number] else nil
+		if oldId and oldId ~= id then st.freed[oldId] = true end
+		if id then st.freed[id] = nil end
 		if slot == "c" then
 			if id and roleOf(inv[id]) ~= "carrier" then return end
 			s.c = id
@@ -951,7 +1068,8 @@ function PlotService.Start()
 		if not st then return end
 		st.lv = Cfg.defaultLevels()
 		table.clear(st.assign)
-		for _, pl in st.plots do table.clear(pl.bin); pl.binN = 0 end
+		table.clear(st.manualPlots); table.clear(st.freed)
+		for _, pl in st.plots do table.clear(pl.bin); pl.binN = 0; pl.carry = nil end
 		refresh(st)
 	end)
 	-- інвентар змінився (новий голем / видалення) → перевірити плоти
@@ -962,6 +1080,8 @@ function PlotService.Start()
 		end)
 		p:GetAttributeChangedSignal("AutoEquipBest"):Connect(function()
 			local st = states[p]
+			-- увімкнули AUTO EQUIP BEST знову — ручні плоти скидаються, авто працює на всіх
+			if st and p:GetAttribute("AutoEquipBest") == true then table.clear(st.manualPlots); table.clear(st.freed) end
 			if st then refresh(st) end
 		end)
 	end

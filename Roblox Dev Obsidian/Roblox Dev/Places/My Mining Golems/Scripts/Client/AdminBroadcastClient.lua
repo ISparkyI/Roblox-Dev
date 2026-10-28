@@ -165,7 +165,7 @@ end
 
 -- ===== тост (видача гравцю) =====
 local toasts = {}
-local function showToast(text: string, color: string)
+local function showToast(text: string, color: string, sound: string?)
 	local grp, gs, labels = textGroup("Toast", 760, 54, 34, 16, PALETTES[color] or PALETTES.green, false)
 	setText(labels, text)
 	table.insert(toasts, 1, grp)
@@ -175,7 +175,7 @@ local function showToast(text: string, color: string)
 	grp.Position = UDim2.fromOffset(640, 560)
 	gs.Scale = 0.6
 	tween(gs, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out, { Scale = 1 })
-	pcall(UISounds.play, "claim", 0.1)
+	pcall(UISounds.play, sound or "claim", 0.1)
 	task.delay(2.6, function()
 		tween(gs, 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In, { Scale = 0 }).Completed:Connect(function()
 			local i = table.find(toasts, grp)
@@ -236,6 +236,19 @@ task.spawn(function()
 		task.wait(1)
 	end
 end)
+
+-- локальний тост з інших клієнтських скриптів (той самий стиль): ReplicatedStorage/UIEvents/Toast:Fire(text, color?, sound?)
+--   напр. табло NEXT MAP (MapBoard): «Come closer to the board!»
+do
+	local ui = RS:WaitForChild("UIEvents", 30)
+	if ui then
+		local b = ui:FindFirstChild("Toast") or Instance.new("BindableEvent")
+		b.Name = "Toast"; b.Parent = ui
+		b.Event:Connect(function(text, color, sound)
+			if type(text) == "string" then showToast(text, tostring(color or "green"), type(sound) == "string" and sound or nil) end
+		end)
+	end
+end
 
 local remotes = RS:WaitForChild("Remotes", 60)
 local ev = remotes and remotes:WaitForChild("AdminBroadcast", 60)

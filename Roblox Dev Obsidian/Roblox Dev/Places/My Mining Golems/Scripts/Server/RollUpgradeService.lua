@@ -11,7 +11,7 @@
 -- Підставки: у ніші стоїть стільки підставок, скільки їх у власника (вільна ніша — 1).
 --   Шаблон ReplicatedStorage/Prefabs/RollStand ставиться в точку RollSystem/StandPoints/Point<i>
 --   (сітка з кроком 10 стадів; порядок: 1 центр заднього ряду, 2 ліворуч, 3 праворуч,
---   4 і 5 обабіч важеля) у папку RollSystem/Stands як Stand<i>. Нова (куплена) підставка ставиться одразу на місце
+--   4 і 5 обабіч важеля; 6 і 7 — ще далі обабіч, геймпаси Roll Stand) у папку RollSystem/Stands як Stand<i>. Нова (куплена) підставка ставиться одразу на місце
 --   з атрибутом SpawnAt = час сервера; анімацію появи програє клієнт (StarterPlayerScripts/RollStandFX).
 
 local Players = game:GetService("Players")
@@ -35,7 +35,7 @@ local function syncStands(NicheService, niche: Model, animate: boolean)
 		holder = Instance.new("Folder"); holder.Name = "Stands"; holder.Parent = rollSystem
 	end
 	local owner = ownerOf(NicheService, niche)
-	local count = owner and (owner:GetAttribute("RollStands") or 1) or 1
+	local count = owner and RollConfig.totalStands(owner) or 1 -- за Money + геймпаси Roll Stand (Point6 / Point7)
 	local template = RS:WaitForChild("Prefabs"):WaitForChild("RollStand")
 	for i = 1, RollConfig.STANDS_MAX do
 		local pt = points:FindFirstChild("Point" .. i) :: BasePart?
@@ -67,10 +67,12 @@ function RollUpgradeService.Start()
 		if p:GetAttribute("RollLuckLvl") == nil then p:SetAttribute("RollLuckLvl", 1) end
 		if p:GetAttribute("RollStands") == nil then p:SetAttribute("RollStands", 1) end
 		p:SetAttribute("RollLuck", RollConfig.luckPercent(p:GetAttribute("RollLuckLvl")))
-		p:GetAttributeChangedSignal("RollStands"):Connect(function()
-			local n = nicheOf(p)
-			if n then syncStands(NicheService, n, true) end
-		end)
+		for _, a in { "RollStands", "Pass_RollStand1", "Pass_RollStand2" } do
+			p:GetAttributeChangedSignal(a):Connect(function()
+				local n = nicheOf(p)
+				if n then syncStands(NicheService, n, true) end
+			end)
+		end
 	end
 	for _, p in Players:GetPlayers() do task.spawn(initPlayer, p) end
 	Players.PlayerAdded:Connect(function(p) task.spawn(initPlayer, p) end)

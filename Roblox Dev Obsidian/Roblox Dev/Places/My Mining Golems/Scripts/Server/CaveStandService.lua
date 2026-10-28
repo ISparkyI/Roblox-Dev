@@ -305,7 +305,7 @@ local function onTrigger(prompt: ProximityPrompt, p: Player)
 	elseif gl[key] then
 		-- TAKE: голем повертається в інвентар (якщо є місце), у кінець хотбара й у руку
 		local list = decode(p, "InvGolems", {})
-		if Items.invGolemCount(list, decode(p, "PlotPlaced", {})) >= Items.MAX_GOLEMS then return end -- без големів на плотах
+		if Items.invGolemCount(list, decode(p, "PlotPlaced", {})) >= Items.maxGolems(p) then return end -- без големів на плотах
 		local rec = gl[key]
 		for _, g in list do
 			if type(g) == "table" and g.id == rec.id then rec.id = CaveStandService.MaxId(p) + 1; break end -- id уже зайнятий

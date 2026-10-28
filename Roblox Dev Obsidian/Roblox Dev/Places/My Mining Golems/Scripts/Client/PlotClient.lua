@@ -6,7 +6,7 @@
 -- Ящик плоту: над ним «N / CAP» (повний — FULL червоним), усередині видно руду (CRATE_VISUAL = 16 шматків):
 --   це один щільний шар 4 × 4 шматки (без дірок), який піднімається від дна до краю пропорційно заповненню (50 з 100 —
 --   на половині висоти); кольори — за складом (CrateMix); «+N ore» при Collect.
---   Кнопка COLLECT над ящиком (StyleA, клік, дотик або E) — лише власнику, коли КАМЕРА ближче CLOSE стадів до ящика відкритого плоту;
+--   Кнопка COLLECT над ящиком (StyleA, клік, дотик або E) — лише власнику, коли ПЕРСОНАЖ ближче CLOSE стадів до ящика відкритого плоту;
 --   порожній ящик — сіра кнопка EMPTY. Дія "Collect" → Remotes/PlotAction.
 -- Голем: сервер ставить MoveFrom / MoveTo / MoveT0 / MoveDur (час сервера) і Look; тут кожен кадр Root ставиться
 --   на позицію руху й плавно повертається (аніматор голема — PlotAssets/Golem/GolemAnimator — будує решту тіла від Root).
@@ -25,6 +25,7 @@ local TweenService = game:GetService("TweenService")
 
 local HitChips = require(RS:WaitForChild("Effects"):WaitForChild("HitChips"))
 local UISounds = require(RS:WaitForChild("Shared"):WaitForChild("UISounds")) -- claim — руда з ящика (COLLECT)
+local COLLECT_SOUND_DIST = 30 -- стадів: звук збору з ящика (ручного чи автоколекту) чутно лише поруч із ним
 local ASSETS = RS:WaitForChild("PlotAssets")
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
 local INK = Color3.fromHex("040435")
@@ -42,7 +43,7 @@ local Catalog = require(RS:WaitForChild("Shared"):WaitForChild("GolemCatalog")) 
 local StyleA = require(RS:WaitForChild("Shared"):WaitForChild("StyleA"))
 local UIS = game:GetService("UserInputService")
 local PlotAction = RS:WaitForChild("Remotes"):WaitForChild("PlotAction") :: RemoteEvent
-local CLOSE = 50 -- стадів від камери до ящика: ближче — над ящиком кнопка COLLECT
+local CLOSE = 16 -- стадів від ПЕРСОНАЖА до ящика (28.10.2026; раніше 50 від камери): ближче — над ящиком кнопка COLLECT
 local CHUNK_COLOR: { [string]: Color3 } = {}
 for _, c in ASSETS:WaitForChild("Chunks"):GetChildren() do
 	local main = c:FindFirstChild("Main")
@@ -797,7 +798,11 @@ local function setupCrate(plot: Model, crate: Model)
 			local nf = workspace:FindFirstChild("Niches")
 			local p: Instance? = plot
 			while p and p.Parent and p.Parent ~= nf do p = p.Parent end
-			if p and p.Parent == nf and p:GetAttribute("OwnerUserId") == player.UserId then UISounds.play("claim") end
+			-- звук лише коли гравець поруч із ящиком (автоколект далекого ящика — без звуку)
+			local ch = player.Character
+			local hrp = ch and ch:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local close = hrp ~= nil and (hrp.Position - cf2.Position).Magnitude <= COLLECT_SOUND_DIST
+			if close and p and p.Parent == nf and p:GetAttribute("OwnerUserId") == player.UserId then UISounds.play("claim") end
 		end
 	end)
 	table.insert(crates, { plot = plot, crate = crate, floor = floor, height = sz.Y })
@@ -819,7 +824,22 @@ local cholder = Instance.new("Frame")
 cholder.Name = "Holder"; cholder.BackgroundTransparency = 1; cholder.Size = UDim2.fromOffset(CB_W, CB_H)
 cholder.Parent = cbb
 local cscale = Instance.new("UIScale"); cscale.Parent = cholder
-cbb:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() cscale.Scale = cbb.AbsoluteSize.X / CB_W end)
+-- Масштаб умісту рахуємо самі щокадру з камери (після її оновлення, до рендеру). Раніше брали cbb.AbsoluteSize, але він
+-- оновлюється з запізненням (і не оновлюється, поки білборд вимкнений): при перемиканні на інший ящик, появі чи
+-- різкому русі камери кнопка на 1 кадр малювалась зі старим величезним масштабом на весь екран.
+-- Камера майже всередині кнопки / позаду — уміст ховаємо.
+local function fitCollect()
+	local cam = workspace.CurrentCamera
+	local a = cbb.Adornee :: BasePart?
+	if not (cbb.Enabled and cam and a and a:IsA("BasePart")) then return end
+	local pos = a.Position + cbb.StudsOffsetWorldSpace
+	local depth = (pos - cam.CFrame.Position):Dot(cam.CFrame.LookVector)
+	if depth < 2 then cholder.Visible = false; return end
+	local pxPerStud = cam.ViewportSize.Y / (2 * depth * math.tan(math.rad(cam.FieldOfView) / 2))
+	cscale.Scale = math.min(CB_SW * pxPerStud / CB_W, 6)
+	cholder.Visible = true
+end
+RunService:BindToRenderStep("PlotCollectFit", Enum.RenderPriority.Camera.Value + 2, fitCollect)
 -- поява / зникнення: рамка Anim по центру полотна з власним UIScale (0 → 1, Back) — кнопка виростає з центру й так само зникає
 local canim = Instance.new("Frame")
 canim.Name = "Anim"; canim.BackgroundTransparency = 1; canim.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -874,7 +894,7 @@ local function updateCollect()
 		for _, c in crates :: { CR } do
 			local niche = c.plot.Parent and c.plot.Parent.Parent
 			if c.crate.Parent and niche and niche:GetAttribute("OwnerUserId") == player.UserId and c.plot:GetAttribute("Unlocked") == true then
-				local d = (camPos - c.floor.Position).Magnitude
+				local d = (hrp.Position - c.floor.Position).Magnitude -- від людини, не від камери
 				if d < bd then best, bd = c, d end
 			end
 		end

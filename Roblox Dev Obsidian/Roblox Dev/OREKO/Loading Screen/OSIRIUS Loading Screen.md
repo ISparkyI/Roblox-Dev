@@ -1,5 +1,6 @@
 ---
-tags: [oreko, loading-screen, ui]
+tags: [osirius, loading-screen, ui]
+aliases: [OSIRIUS Loading Screen]
 status: active
 version: 11
 updated: 2026-10-27

@@ -27,6 +27,7 @@
 --   Lookup(uid) → запис індексу | nil  (yield)
 --   Log(event)  (довільна подія в журнал; e обов'язкове)
 --   RecentLogs(n) → список останніх подій цього сервера (для адмін-панелі)
+--   History(day РРРРММДД, max?) → усі події дня з усіх серверів (журнал + буфер цього сервера), новіші першими
 
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
@@ -150,6 +151,47 @@ function GolemRegistry.RecentLogs(n: number?): { any }
 	n = math.clamp(n or 100, 1, RECENT_MAX)
 	local out = {}
 	for i = #recent, math.max(1, #recent - n + 1), -1 do table.insert(out, recent[i]) end
+	return out
+end
+
+-- увесь журнал за день UTC з усіх серверів (ключі L_<день>_*, ListKeysAsync за префіксом) + ще не записані події цього
+-- сервера; новіші — першими, не більше max. Кеш на день — HISTORY_CACHE_SEC (щоб кнопки не били DataStore).
+local HISTORY_CACHE_SEC = 20
+local HISTORY_KEYS_MAX = 60
+local histCache: { [string]: { t: number, list: { any } } } = {}
+function GolemRegistry.History(day: string, max: number?): { any }
+	max = max or 2000
+	local out = {}
+	local c = histCache[day]
+	if c and os.clock() - c.t < HISTORY_CACHE_SEC then
+		out = table.clone(c.list)
+	elseif useMemory then
+		for _, e in mem.log do if os.date("!%Y%m%d", e.t or 0) == day then table.insert(out, e) end end
+	else
+		local ok, pages = pcall(function() return logs():ListKeysAsync("L_" .. day .. "_", 50) end)
+		if ok then
+			local n = 0
+			while n < HISTORY_KEYS_MAX do
+				for _, k in pages:GetCurrentPage() do
+					n += 1
+					if n > HISTORY_KEYS_MAX then break end
+					local okG, v = pcall(function() return logs():GetAsync(k.KeyName) end)
+					if okG and type(v) == "table" then for _, e in v do table.insert(out, e) end end
+				end
+				if pages.IsFinished or n >= HISTORY_KEYS_MAX then break end
+				local okA = pcall(function() pages:AdvanceToNextPageAsync() end)
+				if not okA then break end
+			end
+		elseif fallback(pages) then
+			for _, e in mem.log do if os.date("!%Y%m%d", e.t or 0) == day then table.insert(out, e) end end
+		else
+			warn("GolemRegistry: History " .. day .. ": " .. tostring(pages))
+		end
+		histCache[day] = { t = os.clock(), list = table.clone(out) }
+	end
+	for _, e in buffer do if os.date("!%Y%m%d", e.t or 0) == day then table.insert(out, e) end end
+	table.sort(out, function(a, b) return (a.t or 0) > (b.t or 0) end)
+	while #out > max do table.remove(out) end
 	return out
 end
 

@@ -11,6 +11,9 @@ Script — серверні скрипти.
 | `GolemRegistry.lua` | `ServerScriptService/GolemRegistry` (ModuleScript, `NicheBoot`) | UID големів (ULID), глобальний індекс `GolemIndex`, журнал `GolemLog`, анти-дюп. [[GDD - Golem UID]] |
 | `AdminService.lua` | `ServerScriptService/AdminService` (ModuleScript, `NicheBoot` останнім) | сервер адмін-панелі: ролі й права `PERM`, дії (Give, Kick, Ban, Event, Announce…), MessagingService `MMG_Admin`, MemoryStore, офлайн-пошта. [[GDD - Admin Panel]] |
 | `AdminConfig.lua` | `ServerStorage/AdminConfig` (ModuleScript) | owner-и (`ADMINS`), `STUDIO_ALL` |
+| `SettingsService.lua` | `ServerScriptService/SettingsService` (ModuleScript, `NicheBoot`) | налаштування гравця: `Remotes/SettingsAction` (ключ, значення) → перевірка → атрибут `Set_<ключ>` (Music, Sfx 0–100; Auras, HidePlayers, LowGfx true/false); зберігає DataService (префікс `Set_`) |
+| `QuestService.lua` | `ServerScriptService/QuestService` (ModuleScript, `NicheBoot`) | квести: щоденні (3 на добу UTC), тижневі ланцюжки (з понеділка), спеціальні; лічильники `Add(p, stat, n)` — Mine / Sell / Roll / Buy / Smelt / Play / Boss; секція `Quests`; атрибут `QuestState` (JSON); `Remotes/QuestAction` (Claim, ClaimAll); у Studio — атрибут скрипта `TestAdd = "Mine:50"` |
+| `RebirthService.lua` | `ServerScriptService/RebirthService` (ModuleScript, `NicheBoot`) | ребітх: `Remotes/RebirthAction` "Rebirth" → перевірка ціни й ліміту мапи (`MultiConfig`) → Money = 0, Rebirths + 1, SaveNow |
 | `MultiService.lua` | `ServerScriptService/MultiService` (ModuleScript) | рахує глобальний множник Money: друзі на сервері, ребіти, донат x2 Money, VIP, мапа (числа — `Shared/MultiConfig`); пише атрибути `Multi_<джерело>` і `TotalMulti`. API: `Get(player)`, `Apply(player, сума)` (множить і округлює) |
 | `MonetizationService.lua` | `ServerScriptService/MonetizationService` (ModuleScript) | покупки за Robux: `ProcessReceipt` для ступенів x2 Money (дублікати за `PurchaseId`, збереження перед підтвердженням), перевірка геймпасів при вході → атрибути `Pass_*`. ID — `Shared/MonetizationConfig` |
 | `NicheBoot.lua` | `ServerScriptService/NicheBoot` (Script) | запускає по черзі `DataService`, `MultiService`, `MonetizationService`, `NicheService`, `ForgeService`, `RollScreenService`, `RollUpgradeService`, `SellService`, `InventoryService`, `HeldItemService`, `PlotService`, `IndexService`, `RollService`, `BackendService` (`Start()`); `DataService` — першим |
@@ -113,3 +116,17 @@ Script — серверні скрипти.
 - Нові `GolemRegistry`, `AdminService`, `AdminConfig`.
 - `InventoryService`, `CaveStandService` — UID, `Ensure` / `Dedupe`, `FindByUid` / `RemoveByUid`; `RollService` — причина `roll`, удача з івентами; `BackendService` — причина `code:<код>`; `MultiService` — × `EventMoney`; `NicheBoot` — запуск нових сервісів.
 - Бекапи: `NicheBackup/UID_v1`, `Admin_v1`, `Luck_v1`. Копії у сховищі = Studio (хеш).
+
+**Оновлено 28.10.2026 (Settings):** новий `SettingsService`; `DataService` — префікс `Set_` (global); `NicheBoot` — запуск `SettingsService`. Бекап — `NicheBackup/Settings_v1`.
+
+**Оновлено 28.10.2026 (Quests, Rebirth):** нові `QuestService`, `RebirthService`; лічильники квестів (`questAdd`) у `PlotService` (Mine), `SellService` (Sell), `RollService` (Roll, Buy), `ForgeService` (Smelt); `NicheBoot` — запуск обох. Бекапи — `NicheBackup/Quests_v1`, `Rebirth_v1`.
+
+**Оновлено 28.10.2026 (Shop):** `MonetizationService` — `Remotes/ShopAction` "BuyTickets" (геймпас за тікети: −Tickets, Pass_<ключ>); `RollService` — Pass_Lucky (Roll Luck ×2); `PlotService` — Auto Equip за Pass_AutoEquip + AutoEquipBest, Auto Collect (Pass_AutoCollect: ящик → інвентар); `ForgeService` — Pass_FastForge (переплавка ×2 швидше, `spdFor`); `SettingsService` — ключ AutoEquip, атрибут AutoEquipBest. Бекап — `NicheBackup/Shop_v1`.
+
+**Оновлено 28.10.2026 (Shop v2):** `AdminService` — видача / забирання геймпасів (what = "Pass", item = ключ або "*"), `passes` у профілі гравця; `MonetizationService` — `ShopAction` "BuyTier" (ступінь x2 Money за тікети). Бекап — `NicheBackup/Shop_v2`.
+
+**Оновлено 28.10.2026 (Shop v3):** `MonetizationService` — ProcessReceipt видає ступені x2 Money, пакети тікетів і продукти (`GrantProduct`: Potion Pack); `ShopAction` "BuyProduct". Бекап — `NicheBackup/Shop_v3`.
+
+**Оновлено 28.10.2026 (Shop v4):** `MonetizationService` — Starter Pack, Extra Storage, Fast Mutations (MutSpeedTier), етапи геймпасів (`requires`); `RollService` — окремо x2 Roll Luck / x2 Mutation Luck, `RollConfig.totalStands`; `RollUpgradeService` — до 7 підставок; `DataService` — ExtraSlots, MutSpeedTier; ліміт големів — `Items.maxGolems(p)` (Inventory / Cave / Backend / Roll).
+
+**Оновлено 28.10.2026 (неймтеги):** `SettingsService` — ключ Tag (лише власний тег), BillboardGui «Nametag» над головою, тег знімається, якщо геймпас забрали.
