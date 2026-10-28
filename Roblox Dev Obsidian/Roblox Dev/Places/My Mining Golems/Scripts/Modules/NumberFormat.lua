@@ -87,6 +87,23 @@ function NumberFormat.short(n: number, decimals: number?): string
 	return sign .. floorTo(value, d) .. SUFFIXES[index]
 end
 
+-- компактно для статів у слотах: до 1000 — ціле число, далі K / M / B … з одним знаком (вниз, без зайвих нулів):
+--   compact(310) --> "310", compact(1234) --> "1.2K", compact(98165) --> "98.1K", compact(1500000) --> "1.5M", compact(2e9) --> "2B"
+function NumberFormat.compact(n: number): string
+	if n ~= n then return "NaN" end
+	local a = math.abs(n)
+	local sign = if n < 0 then "-" else ""
+	if a < 1000 then
+		if a ~= math.floor(a) then return sign .. floorTo(math.floor(a * 10 + 0.5) / 10, 1) end -- 2.4 (дрібна шкода мутації)
+		return NumberFormat.full(n)
+	end
+	if a < 1e6 then return sign .. floorTo(a / 1000, 1) .. "K" end
+	local tier = 2
+	while tier - 1 < #SUFFIXES and a >= 10 ^ ((tier + 1) * 3) do tier += 1 end
+	if a >= 10 ^ ((#SUFFIXES + 2) * 3) then return NumberFormat.short(n, 1) end
+	return sign .. floorTo(a / 10 ^ (tier * 3), 1) .. SUFFIXES[tier - 1]
+end
+
 function NumberFormat.money(n: number): string
 	if n < 0 then return "-$" .. NumberFormat.short(-n) end
 	return "$" .. NumberFormat.short(n)

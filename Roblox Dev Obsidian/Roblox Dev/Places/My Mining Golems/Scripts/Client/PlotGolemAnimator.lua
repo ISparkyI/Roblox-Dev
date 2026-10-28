@@ -1,5 +1,6 @@
 --!strict
 -- PlotGolem animator (копія StoneGolem animator v2 + LOD, Carry, синхронний Mine для плотів).
+-- 27.10.2026: предмети в руці (Pickaxe / Sword) — окремі префаби, їдуть за кулаком (атрибут FistRel), блоки group з GolemData пропускаються.
 -- StoneGolem animator v2 (клієнтський). Кліпи Idle / Walk / Run / Face (порт з golem_rig.py) + Mine (удар кіркою).
 -- Керування атрибутами моделі:
 --   State  = "Auto" | "Idle" | "Walk" | "Run" | "Mine"   (Auto — за швидкістю руху Root)
@@ -39,8 +40,10 @@ local blocks: { Blk } = {}
 local parts: { BasePart } = {}
 local FACE_SCALED = { Eye_R = true, Eye_L = true, Pupil_R = true, Pupil_L = true }
 for _, b in D.blocks do
-	local container = if b.group then model:WaitForChild(b.group) else model
-	local part = container:WaitForChild(b.name) :: BasePart
+	-- предмети в руці (group Pickaxe / Sword) — окремі префаби PlotAssets/<StonePickaxe…>, їх чіпляє GolemCatalog.applyClassItems
+	-- (див. «предмет у руці» нижче); тут лише тіло
+	if b.group then continue end
+	local part = model:WaitForChild(b.name) :: BasePart
 	local bone = boneByName[b.bone]
 	-- блок задається або центром c + нахилом rz, або повним CFrame cf (координати моделі в стані спокою)
 	local offset = if b.cf then b.cf.Position - bone.pos else b.c - bone.pos
@@ -239,6 +242,41 @@ local function sample(name: string): Pose
 	return c.fn(2 * math.pi * ((clock % c.T) / c.T))
 end
 
+-- ---------- предмет у руці ----------
+-- Дочірні моделі Pickaxe / Sword (клон префаба, ставить GolemCatalog.applyClassItems): кожна деталь має атрибут FistRel —
+-- CFrame відносно деталі-кулака (Hand, за замовчуванням Fist_L) при масштабі Scale0; предмет їздить за кулаком.
+type Item = { part: BasePart, rel: CFrame, s0: number, hand: number }
+local items: { Item } = {}
+local itemParts: { BasePart } = {}
+local itemCfs: { CFrame } = {}
+local function blockIndex(name: string): number?
+	for i, blk in blocks do if blk.part.Name == name and blk.part.Parent == model then return i end end
+	return nil
+end
+local function rebuildItems()
+	table.clear(items); table.clear(itemParts); table.clear(itemCfs)
+	for _, n in { "Pickaxe", "Sword" } do
+		local g = model:FindFirstChild(n)
+		if g then
+			local hand = blockIndex((g:GetAttribute("Hand") :: string?) or "Fist_L")
+			local s0 = (g:GetAttribute("Scale0") :: number?) or 1
+			if hand then
+				for _, d in g:GetDescendants() do
+					local rel = d:GetAttribute("FistRel")
+					if d:IsA("BasePart") and typeof(rel) == "CFrame" then
+						table.insert(items, { part = d, rel = rel, s0 = s0, hand = hand })
+						table.insert(itemParts, d)
+						table.insert(itemCfs, d.CFrame)
+					end
+				end
+			end
+		end
+	end
+end
+rebuildItems()
+model.ChildAdded:Connect(function(c) if c.Name == "Pickaxe" or c.Name == "Sword" then task.defer(rebuildItems) end end)
+model.ChildRemoved:Connect(function(c) if c.Name == "Pickaxe" or c.Name == "Sword" then rebuildItems() end end)
+
 local boneCF: { CFrame } = table.create(#bones, CFrame.identity)
 local boneSc: { Vector3 } = table.create(#bones, Vector3.one)
 local cfs: { CFrame } = table.create(#parts, CFrame.identity)
@@ -316,6 +354,14 @@ RunService.PreRender:Connect(function(dt)
 		end
 	end
 	workspace:BulkMoveTo(parts, cfs, Enum.BulkMoveMode.FireCFrameChanged)
+	if #items > 0 then
+		local k = model:GetScale()
+		for i, it in items do
+			local r = it.rel
+			itemCfs[i] = cfs[it.hand] * CFrame.new(r.Position * (k / it.s0)) * r.Rotation
+		end
+		workspace:BulkMoveTo(itemParts, itemCfs, Enum.BulkMoveMode.FireCFrameChanged)
+	end
 
 	-- [Plot] Carry: ящичок рівно між кулаками (після пози, у тому ж кадрі) — руки справді його тримають
 	if model:GetAttribute("Carry") then

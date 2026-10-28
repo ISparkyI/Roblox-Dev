@@ -1,0 +1,244 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Golem Sort</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:"MontserratMock";font-weight:800;src:url(data:font/woff2;base64,__F800__) format("woff2")}
+@font-face{font-family:"MontserratMock";font-weight:900;src:url(data:font/woff2;base64,__F900__) format("woff2")}
+:root{--bg:#15171b;--fg:#e9edf1;--mut:#9aa3ad;--card:#1e2126;--line:#343a42;--acc:#c3f04a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:14px 16px;min-height:100vh}
+.top{max-width:1280px;margin:0 auto 10px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.top h1{font-size:15px;margin:0;font-weight:700}
+.top p{margin:2px 0 0;color:var(--mut);font-size:12.5px;max-width:78ch}
+.ctl{display:flex;gap:8px;flex-wrap:wrap}
+.ctl button{background:var(--card);color:var(--fg);border:1px solid var(--line);padding:7px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+.ctl button.on{border-color:var(--acc);color:var(--acc)}
+#fit{margin:0 auto;position:relative;overflow:hidden;background:#1b1714}
+#stage{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;font-family:"MontserratMock","Montserrat",system-ui,sans-serif;font-weight:900;user-select:none;-webkit-user-select:none;overflow:hidden}
+#stage div,#stage img{position:absolute}
+#stage .t{white-space:nowrap;color:#fff;paint-order:stroke fill;-webkit-text-stroke-color:#14161a;stroke-linejoin:round;pointer-events:none}
+#stage .sa{border-style:solid;cursor:pointer;transition:transform .1s ease-out}
+#stage .sa.nc{cursor:default}
+#stage .sa .face{overflow:hidden}
+#stage .sa .tile{background-repeat:repeat}
+#stage .shine{inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.8) 40%,transparent 48%,transparent 51%,rgba(255,255,255,.55) 55%,transparent 59%);transform:translateX(-130%);animation:shine 4.6s ease-in-out infinite;pointer-events:none}
+@keyframes shine{0%{transform:translateX(-130%)}38%{transform:translateX(130%)}100%{transform:translateX(130%)}}
+#stage .row{cursor:pointer}
+#stage .hov{opacity:0}
+#stage .row:hover .hov,#stage .row.hv .hov{opacity:1}
+.note{max-width:1280px;margin:12px auto 0;color:var(--mut);font-size:12.5px;display:grid;gap:4px}
+.note b{color:var(--fg)}
+</style>
+<div class="top">
+  <div><h1>Сортування големів · кнопка зі списком (Inventory → Golems і вікно PLOT)</h1>
+  <p>Кнопка показує поточне сортування (іконка + назва + ▾). Клік відкриває список у нашому стилі: темна квадратна панель, пункти з наведенням і галочкою біля вибраного; закривається кліком поза ним або вибором пункту. Вибране сортування запам'ятовується.</p></div>
+  <div class="ctl"><button data-s="A">Inventory · варіант A</button><button data-s="B">Inventory · варіант B</button><button data-s="P">Вікно PLOT</button></div>
+</div>
+<div id="fit"><div id="stage"></div></div>
+<div class="note">
+  <div><b>Варіант A:</b> фільтри класів зсунуто ліворуч (ближче до «Golems»), між ними й лічильником — кнопка сортування; лічильник став компактним «19 / 40» з іконкою голема.</div>
+  <div><b>Варіант B:</b> фільтри на місці, кнопка сортування — на місці лічильника праворуч; місткість «19 / 40 golems» переїхала в підпис вкладки Golems.</div>
+  <div><b>Сортування:</b> Newest — порядок отримання (новий і повернутий зі стенда — в кінці, як зараз); Best — сила (майнер — шкода/с, носій — руди/с, воїн — шкода/с × HP, з мутацією; GolemCatalog.power); Rarity — Celestial → Common, далі сила; Mutation — Secret → Normal, далі рідкість і сила; Name — A → Z; Class — Miner · Carrier · Warrior, далі сила.</div>
+  <div><b>Вікно PLOT:</b> та сама кнопка праворуч від «Your miners» замість підпису «strongest first»; лічильник «14 golems» лишається ліворуч від неї.</div>
+</div>
+<script>
+__HELPERS__
+const CAT=__CATALOG__;
+const SORT_ICON=__SORTICON__;
+const CARET="data:image/svg+xml;utf8,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 12'><path d='M2 2 H14 L8 10 Z' fill='#fff' stroke='#14161a' stroke-width='2.4' stroke-linejoin='round'/></svg>`);
+const CHECK="data:image/svg+xml;utf8,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 12.5 L9.5 18 L20 6' fill='none' stroke='#14161a' stroke-width='6.5' stroke-linecap='round' stroke-linejoin='round'/><path d='M4 12.5 L9.5 18 L20 6' fill='none' stroke='#c8ff6a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>`);
+const RAR={Common:"#9aa3ad",Uncommon:"#6ee05a",Rare:"#3aa6ff",Epic:"#c86bff",Legendary:"#ffc531",Mythic:"#ff4fd8",Divine:"#fff08a",Celestial:"#7ef6ff",Exclusive:"#ff5a5a"};
+const RORDER=["Common","Uncommon","Rare","Epic","Legendary","Mythic","Divine","Celestial","Exclusive"];
+const MUTS=[["Normal","#ffffff"],["Bronze","#e0874a"],["Silver","#d6dde4"],["Gold","#ffd23a"],["Diamond","#6fe8ff"],["Void","#a24bff"],["Rainbow","#ff6ad5"],["Secret","#ff3b5c"]];
+const ICON_OF=k=>({wooden:"wood",clay:"wood",copperhead:"wood",rustbolt:"iron",ironclad:"iron",tinker:"iron",silverjaw:"iron",platinum:"iron",frostforged:"iron",lantern:"gold",aurelian:"gold",magmaheart:"gold",quartzling:"crystal",geode:"crystal",amethyst:"crystal",sapphire:"crystal",ruby:"crystal",astral:"crystal",obsidian:"crystal"}[k]||"stone");
+// ===== сила й стати (як GolemCatalog.stats / power) =====
+function stats(kind,cls,mut){const g=CAT[kind],b=g[cls],sp=b.speed*1.05**mut;const s={speed:sp,move:8*sp,interval:1.4/sp};
+  if(b.dmg)s.dmg=Math.max(1,Math.floor(b.dmg*1.35**mut+1e-6));if(b.hp)s.hp=Math.max(1,Math.floor(b.hp*1.35**mut+1e-6));if(b.cap)s.cap=Math.max(1,Math.floor(b.cap*1.25**mut+1e-6));return s}
+function power(kind,cls,mut){const s=stats(kind,cls,mut);if(cls==="carrier")return s.cap*s.move;if(cls==="warrior")return s.dmg/s.interval*s.hp;return s.dmg/s.interval}
+const spd=v=>"x"+v.toFixed(2).replace(/0+$/,"").replace(/\.$/,"");
+function statText(kind,cls,mut){const s=stats(kind,cls,mut);if(cls==="carrier")return `${s.cap} ore · Speed ${spd(s.speed)}`;if(cls==="warrior")return `${fmt(s.dmg)} dmg · ${fmt(s.hp)} HP`;return `${fmt(s.dmg)} dmg · Speed ${spd(s.speed)}`}
+const fmt=n=>Math.round(n).toLocaleString("en-US").replace(/,/g,"");
+function mkItem(kind,cls,mut,order){const g=CAT[kind];return {kind,cls,mut,order,name:g.name,rar:g.rar,ri:RORDER.indexOf(g.rar),pw:power(kind,cls,mut),icon:A["golem_"+ICON_OF(kind)]}}
+// ===== сортування =====
+const SORTS=[
+  ["newest","Newest","order obtained"],
+  ["best","Best","strongest first"],
+  ["rarity","Rarity","Celestial → Common"],
+  ["mutation","Mutation","Secret → Normal"],
+  ["name","Name","A → Z"],
+  ["class","Class","Miner · Carrier · Warrior"]];
+const CORD={miner:0,carrier:1,warrior:2};
+function sortItems(list,k){const l=list.slice();const by=(...f)=>l.sort((a,b)=>{for(const g of f){const d=g(a,b);if(d)return d}return a.order-b.order});
+  const pw=(a,b)=>b.pw-a.pw;
+  if(k==="newest")by((a,b)=>a.order-b.order);
+  else if(k==="best")by(pw);
+  else if(k==="rarity")by((a,b)=>b.ri-a.ri,pw);
+  else if(k==="mutation")by((a,b)=>b.mut-a.mut,(a,b)=>b.ri-a.ri,pw);
+  else if(k==="name")by((a,b)=>a.name.localeCompare(b.name),pw);
+  else if(k==="class")by((a,b)=>CORD[a.cls]-CORD[b.cls],pw);
+  return l}
+let sortKey="best";try{sortKey=localStorage.getItem("mmg_sort")||"best"}catch(e){}
+// ===== кнопка сортування + список =====
+// кнопка StyleA (сіра) висотою як кнопки фільтра: іконка, коротка назва, ▾. Список — темна квадратна панель під кнопкою (правий край — по кнопці).
+const ROW_H=36,PANEL_W=236;
+let openPanel=null;
+function sortButton(parent,layer,o){
+  const b=sa(parent,{x:o.x,y:o.y,w:o.w,h:o.h,color:"gray",shadowDy:5,z:o.z||5,clickable:true,onClick:()=>toggle()});
+  const ic=mk(b.face,{left:"2px",top:px((b.fh-o.h*.62)/2),width:px(o.h*.62),height:px(o.h*.62),objectFit:"contain",zIndex:3,pointerEvents:"none"},"","img");ic.src=SORT_ICON;
+  const lab=T(b.face,{x:o.h*.62+6,cy:b.fh/2,w:b.fw-o.h*.62-26,size:o.h>=48?20:19,align:"left",text:"",sw:2.2,z:4});
+  const car=mk(b.face,{left:px(b.fw-17),top:px(b.fh/2-5),width:"14px",height:"11px",zIndex:4,pointerEvents:"none"},"","img");car.src=CARET;
+  // панель
+  const px0=o.x+o.w-PANEL_W,py0=o.y+o.h+10;
+  const ph=30+SORTS.length*ROW_H+8;
+  const panel=box(layer,(o.lx||0)+px0,(o.ly||0)+py0,PANEL_W,ph,"transparent",60);panel.style.display="none";
+  box(panel,0,6,PANEL_W,ph,"rgba(0,0,0,.35)",0);
+  const pb=box(panel,0,0,PANEL_W,ph,"#1b1e23",1,{boxShadow:"0 0 0 3px "+INK+", inset 0 0 0 1.5px rgba(255,255,255,.08)"});
+  T(pb,{x:14,cy:17,w:PANEL_W-28,size:13,align:"left",text:"SORT BY",sw:0,weight:800,color:"#8d96a1"});
+  box(pb,10,30,PANEL_W-20,2,"rgba(255,255,255,.08)",1);
+  const rows={};
+  SORTS.forEach(([k,label,hint],i)=>{
+    const r=box(pb,4,34+i*ROW_H,PANEL_W-8,ROW_H,"transparent",2);r.className="row";
+    box(r,0,1,PANEL_W-8,ROW_H-2,"#2c323a",0,{transition:"opacity .08s"}).className="hov";
+    const ck=mk(r,{left:"8px",top:px(ROW_H/2-10),width:"20px",height:"20px",zIndex:2,pointerEvents:"none"},"","img");ck.src=CHECK;
+    const t=T(r,{x:34,cy:ROW_H/2-6.5,w:PANEL_W-50,size:18,align:"left",text:label,sw:1.8,z:2});
+    const h=T(r,{x:34,cy:ROW_H/2+8.5,w:PANEL_W-50,size:11.5,align:"left",text:hint,sw:0,z:2,weight:800,color:"#8d96a1"});
+    r.addEventListener("click",e=>{e.stopPropagation();set(k);close()});
+    rows[k]={r,ck,t};
+  });
+  const labW=b.fw-o.h*.62-26,labS=o.h>=48?20:19;
+  function refresh(){const s=SORTS.find(s=>s[0]===sortKey);lab.innerHTML=s[1];lab.style.width="auto";let fs=labS*FS;lab.style.fontSize=px(fs);while(lab.offsetWidth>labW&&fs>9){fs-=.5;lab.style.fontSize=px(fs)}lab.style.width=px(labW);for(const k in rows){const on=k===sortKey;rows[k].ck.style.opacity=on?1:0;rows[k].t.style.color=on?"#c8ff6a":"#fff"}}
+  function open(){if(openPanel&&openPanel!==api)openPanel.close();panel.style.display="";panel.animate([{opacity:0,transform:"translateY(-6px)"},{opacity:1,transform:"none"}],{duration:120,easing:"ease-out"});openPanel=api}
+  function close(){panel.style.display="none";if(openPanel===api)openPanel=null}
+  function toggle(){panel.style.display==="none"?open():close()}
+  function set(k){sortKey=k;try{localStorage.setItem("mmg_sort",k)}catch(e){}refresh();if(o.onChange)o.onChange(k)}
+  const api={b,panel,open,close,refresh,rows,set};refresh();return api;
+}
+// клік поза списком — закрити
+stage.addEventListener("pointerdown",e=>{if(!openPanel)return;if(openPanel.panel.contains(e.target)||openPanel.b.root.contains(e.target))return;openPanel.close()},true);
+// ===== слот голема (як у грі: назва, іконка, рідкість / стати, значок класу без підкладки) =====
+function slot(p,x,y,S,it,o){o=o||{};
+  const root=box(p,x,y,S,S,"transparent",1);
+  box(root,0,Math.round(S*.04),S,S,"rgba(0,0,0,.3)",0);
+  const tone=RAR[it.rar];
+  box(root,0,0,S,S,"linear-gradient(#22262c,#15181c)",1,{boxShadow:`0 0 0 4px ${INK}, inset 0 0 0 3px ${tone}55`});
+  box(root,S*.04,S*.04,S*.92,S*.92,`radial-gradient(circle at 50% 50%, ${tone}d0 0, ${tone}66 30%, ${tone}22 52%, transparent 70%)`,2);
+  const pad=S*.18;const im=mk(root,{left:px(pad),top:px(pad*.95),width:px(S-2*pad),height:px(S-2*pad),objectFit:"contain",zIndex:3},"","img");im.src=it.icon;
+  const nm=it.name;T(root,{x:7,cy:15,w:S-10,size:nm.length>14?11.5:nm.length>12?12.5:14,align:"left",text:nm,sw:2.2,z:5,weight:800});
+  if(o.stat){const st=T(root,{x:5,cy:S-12,w:S-8,size:10.5,align:"left",text:statText(it.kind,it.cls,it.mut),sw:1.8,z:5,weight:800,color:"#fff"});requestAnimationFrame(()=>{st.style.width="auto";let fs=parseFloat(st.style.fontSize);while(st.offsetWidth>S-9&&fs>6){fs-=.25;st.style.fontSize=px(fs)}st.style.width=px(S-8)})}
+  else T(root,{x:0,cy:S-13,w:S-8,size:13,align:"right",text:it.rar,sw:2,z:5,color:tone,weight:800});
+  if(it.mut>0){const m=MUTS[it.mut];T(root,{x:0,cy:o.stat?S-27:S-28,w:S-8,size:11,align:"right",text:m[0],sw:2,z:5,color:m[1],weight:800})}
+  if(o.cls){const c=mk(root,{left:px(-12),top:px(S/2-17),width:"34px",height:"34px",objectFit:"contain",zIndex:6,filter:"drop-shadow(0 2px 0 rgba(0,0,0,.45))"},"","img");c.src=A["class_"+it.cls]}
+  if(o.onPlot){box(root,-1,-1,S+2,S+2,"transparent",6,{boxShadow:"0 0 0 4px #c8ff6a"});
+    const tg=box(root,S*.1,S*.36,S*.8,22,"linear-gradient(#5fe04a,#2fa83a)",7,{boxShadow:"0 0 0 3px "+INK,transform:"rotate(-8deg)"});
+    T(tg,{x:0,cy:11,w:S*.8,size:14,align:"center",text:"ON PLOT",sw:2,z:1})}
+  return root}
+// ===== сцени =====
+function clearStage(){stage.innerHTML="";openPanel=null}
+function scene(){box(stage,0,0,W,H,"radial-gradient(ellipse at 50% 30%,#4a4036,#221d19 70%)",0);box(stage,0,0,W,H,"rgba(10,11,13,.45)",1)}
+const TITLE_G=["#f7e1bf","#d9944f","#7a4219","#d9944f","#f7e1bf"],BLUE_G=["#e6f6ff","#7fd0ff","#1c7fd8","#7fd0ff","#e6f6ff"];
+function bigTitle(p,x,cy,text,cols){const mkT=(dy,col,sw)=>T(p,{x,cy:cy+dy,w:760,size:96,text,color:col,sw,fs:.71});
+  mkT(7,INK,9).style.zIndex=3;mkT(0,INK,8).style.zIndex=4;const g=mkT(0,"#fff",0);g.style.zIndex=5;
+  g.style.background=`linear-gradient(90deg,${cols.join(",")})`;g.style.backgroundSize="520px 100%";g.style.webkitBackgroundClip="text";g.style.backgroundClip="text";g.style.webkitTextFillColor="transparent"}
+// ---------- INVENTORY ----------
+function sceneInventory(v){clearStage();scene();
+  const IW=980,IH=528,IX=(W-IW)/2,IY=86;
+  const L=box(stage,0,0,W,H,"transparent",5);
+  const wf=windowFrame(L,IX,IY,IW,IH,1,14);const C=wf.content;
+  // заголовок: рюкзак (чорний контур) + INVENTORY, X
+  const bi=(dy,f)=>{const im=mk(L,{left:px(IX+66-64),top:px(IY-20+dy-64),width:"128px",height:"128px",objectFit:"contain",transform:"rotate(-8deg)",zIndex:f?4:3,filter:f?"none":"brightness(0)",opacity:f?1:.92},"","img");im.src=A.title_backpack};
+  bi(7,false);bi(0,true);bigTitle(L,IX+140,IY-8,"INVENTORY",TITLE_G);
+  sa(L,{x:IX+IW-70,y:IY-34,w:84,h:84,color:"red",icon:A.icon_x,iconPad:-.05,shadowDy:8,z:6});
+  // вкладки
+  const TX=40,TW=222,TH=92;
+  const items=MY.map((m,i)=>mkItem(m[0],m[1],m[2],i));
+  [["Golems",A.tab_golems,v==="B"?"19 / 40 golems":"19 golems"],["Ores / Bars",A.tab_orebars,"43 items"],["Potions",A.tab_potions,"7 items"]].forEach(([lab,ic,sub],i)=>{
+    const on=i===0,hold=box(C,on?TX+10:TX,66+i*(TH+14),TW,TH+8,"transparent",4);
+    const b=sa(hold,{x:0,y:0,w:TW,h:TH,color:on?"blue":"gray",shadowDy:7,z:1});
+    const f=b.face,fh=b.fh,pad=Math.round(TH*.08),sz=fh-2*pad+8;
+    const im=mk(f,{left:px(pad),top:px((fh-sz)/2),width:px(sz),height:px(sz),objectFit:"contain",zIndex:3},"","img");im.src=ic;
+    T(f,{x:86-b.fx,cy:32-b.fy,w:132,size:lab.length>8?21:25,align:"left",text:lab,sw:2.6,z:5});
+    T(f,{x:86-b.fx,cy:58-b.fy,w:132,size:15,align:"left",text:sub,sw:2,z:5,weight:800,color:"#e9edf1"});
+  });
+  // інструменти внизу ліворуч
+  [["red",A.icon_trash,.02],["yellow",A.icon_lock,.02],["blue",A.title_backpack,.08]].forEach(([c,ic,p],i)=>sa(C,{x:TX+i*(64+15),y:404,w:64,h:72,color:c,icon:ic,iconPad:p,shadowDy:6,z:4}));
+  // заголовок вмісту
+  T(C,{x:290,cy:72,w:200,size:32,align:"left",text:"Golems",sw:3.2,z:3});
+  const FX=v==="A"?446:490,FY=46,FB=48,FG=16;
+  const cnt={all:19,miner:0,carrier:0,warrior:0};items.forEach(it=>cnt[it.cls]++);
+  ["all","miner","carrier","warrior"].forEach((k,i)=>{const x=FX+i*(FB+FG);
+    sa(C,{x,y:FY,w:FB,h:FB,color:k==="all"?"green":"gray",icon:A["class_"+k],iconPad:.04,shadowDy:5,z:5});
+    T(C,{x:x+FB-20,cy:FY-2,w:30,size:15,align:"center",text:String(cnt[k]),sw:2.4,z:7,color:k==="all"?"#c8ff6a":"#fff"})});
+  // сітка (картки внизу немає — нічого не вибрано; 3 ряди)
+  const GX=288,GY=106,GW=652,GH=386,GS=100,GG=32,GP=12;
+  const gvp=box(C,GX,GY,GW,GH,"transparent",2,{overflow:"hidden"});
+  const strip=box(gvp,0,0,GW,10,"transparent",1);
+  const vsb=box(C,GX+GW+3,GY+GP,10,GH-2*GP,"linear-gradient(90deg,#1a1d22,#353b44)",3,{boxShadow:"0 0 0 3px "+INK});
+  box(vsb,0,0,10,(GH-2*GP)*GH/((Math.ceil(19/5))*(GS+GG)+GP),"linear-gradient(#eaff9a,#c3f04a 50%,#8ccc22)",1);
+  function render(){strip.innerHTML="";sortItems(items,sortKey).forEach((it,i)=>slot(strip,GP+(i%5)*(GS+GG),GP+Math.floor(i/5)*(GS+GG),GS,it,{cls:true}))}
+  // кнопка сортування
+  let sb;
+  if(v==="A"){
+    sb=sortButton(C,L,{x:710,y:FY,w:136,h:FB,lx:IX,ly:IY,z:5,onChange:render});
+    const ic=mk(C,{left:"858px",top:"58px",width:"26px",height:"26px",objectFit:"contain",zIndex:4},"","img");ic.src=A.class_all;
+    T(C,{x:884,cy:72,w:52,size:18,align:"right",text:"19/40",sw:2,z:3,weight:800,color:"#e9edf1"});
+  }else{
+    sb=sortButton(C,L,{x:780,y:FY,w:126,h:FB,lx:IX,ly:IY,z:5,onChange:render}); // правий край 906 — не заходить під X (x 910)
+  }
+  render();
+  return sb}
+// мої големи (19): kind, клас, мутація; порядок = порядок отримання
+const MY=[["wooden","miner",0],["wooden","carrier",0],["stone","miner",0],["stone","miner",3],["stone","carrier",0],["clay","miner",0],["gravel","carrier",0],["mossback","miner",1],["flint","miner",0],
+  ["rustbolt","carrier",0],["lantern","miner",0],["ironclad","miner",2],["quartzling","miner",0],["silverjaw","carrier",0],["geode","miner",0],["obsidian","miner",5],["magmaheart","miner",0],["aurelian","miner",0],["astral","miner",7]];
+// ---------- PLOT ----------
+function scenePlot(){clearStage();scene();
+  const IW=980,IH=528,IX=(W-IW)/2,IY=112;
+  const L=box(stage,0,0,W,H,"transparent",5);
+  const wf=windowFrame(L,IX,IY,IW,IH,1,14);const C=wf.content;
+  bigTitle(L,IX+22,IY-14,"PLOT 1",BLUE_G);
+  sa(L,{x:IX+IW-70,y:IY-34,w:84,h:84,color:"red",icon:A.icon_x,iconPad:-.05,shadowDy:8,z:6});
+  // вкладки Miners / Carriers
+  const TX=30,TW=226,TH=92;
+  [["Miners",A.class_miner,"1 / 1 placed",true],["Carriers",A.class_carrier,"1 / 1 placed",false]].forEach(([lab,ic,sub,on],i)=>{
+    const hold=box(C,on?TX+10:TX,56+i*(TH+18),TW,TH+8,"transparent",4);
+    const b=sa(hold,{x:0,y:0,w:TW,h:TH,color:on?"blue":"gray",shadowDy:7,z:1});
+    const f=b.face,fh=b.fh,pad=Math.round(TH*.08),sz=fh-2*pad+8;
+    const im=mk(f,{left:px(pad),top:px((fh-sz)/2),width:px(sz),height:px(sz),objectFit:"contain",zIndex:3},"","img");im.src=on?A.tab_golems:ic;
+    if(on){const m=mk(f,{left:px(pad+sz*.45),top:px((fh-sz)/2+sz*.42),width:px(sz*.6),height:px(sz*.6),objectFit:"contain",zIndex:4},"","img");m.src=A.class_miner}
+    T(f,{x:92-b.fx,cy:32-b.fy,w:130,size:25,align:"left",text:lab,sw:2.6,z:5});
+    T(f,{x:92-b.fx,cy:58-b.fy,w:130,size:15,align:"left",text:sub,sw:2,z:5,weight:800,color:"#e9edf1"});
+  });
+  const eb=sa(C,{x:TX,y:296,w:TW,h:84,color:"green",text:"EQUIP BEST",size:30,shadowDy:7,z:4,shine:true});
+  T(C,{x:TX,cy:410,w:TW,size:13,align:"center",text:"Best golems on all plots · free",sw:1.8,z:3,weight:800});
+  // панель слотів плоту
+  const pan=box(C,280,28,676,168,"rgba(46,50,57,.42)",1,{boxShadow:"0 0 0 3px rgba(20,22,26,.55)"});
+  T(C,{x:298,cy:48,w:200,size:22,align:"left",text:'Miners <span style="color:#d4ff3e">1 / 1</span>',sw:2.4,z:3});
+  T(C,{x:836,cy:48,w:112,size:20,align:"left",text:"Carrier",sw:2.2,z:3});
+  const mine=sortItems(MY.filter(m=>m[1]==="miner").map((m,i)=>mkItem(m[0],m[1],m[2],i)),"best");
+  const best=mine[0];
+  const SS=96;
+  slot(C,296,72,SS,best,{stat:true});
+  for(let i=1;i<5;i++){const x=296+i*(SS+8);const r=box(C,x,72,SS,SS,"linear-gradient(#22262c,#15181c)",3,{boxShadow:"0 0 0 4px "+INK});
+    const lk=mk(r,{left:px(SS/2-18),top:"20px",width:"36px",height:"36px",objectFit:"contain"},"","img");lk.src=A.icon_lock;
+    T(r,{x:0,cy:SS-17,w:SS,size:12,align:"center",text:"Golem Slots",sw:1.8,weight:800})}
+  box(C,826,78,3,86,"rgba(20,22,26,.5)",3);
+  slot(C,844,72,SS,mkItem("stone","carrier",0,0),{stat:true});
+  // «Your miners», лічильник і кнопка сортування
+  T(C,{x:284,cy:214,w:240,size:28,align:"left",text:"Your miners",sw:3,z:3});
+  T(C,{x:600,cy:214,w:196,size:16,align:"right",text:mine.length+" golems",sw:2,z:3,weight:800,color:"#e9edf1"});
+  const GX=288,GY=246,GW=640,GH=236,GS=106,GG=17;
+  const gvp=box(C,GX,GY,GW,GH,"transparent",2,{overflow:"hidden"});const strip=box(gvp,0,0,GW,10,"transparent",1);
+  const vsb=box(C,940,GY,10,GH-6,"linear-gradient(90deg,#1a1d22,#353b44)",3,{boxShadow:"0 0 0 3px "+INK});box(vsb,0,0,10,(GH-6)*.62,"linear-gradient(#eaff9a,#c3f04a 50%,#8ccc22)",1);
+  function render(){strip.innerHTML="";sortItems(mine,sortKey).forEach((it,i)=>slot(strip,6+(i%5)*(GS+GG),6+Math.floor(i/5)*(GS+GG),GS,it,{stat:true,onPlot:it===best}))}
+  const sb=sortButton(C,L,{x:808,y:192,w:136,h:44,lx:IX,ly:IY,z:5,onChange:render});
+  T(C,{x:284,cy:500,w:500,size:13,align:"left",text:"Tap a golem to place it · tap a slot to take it off",sw:1.8,z:3,weight:800});
+  render();return sb}
+// ===== перемикання =====
+const SC={A:()=>sceneInventory("A"),B:()=>sceneInventory("B"),P:scenePlot};
+let cur=null;
+function show(k){cur=SC[k]();document.querySelectorAll("[data-s]").forEach(b=>b.classList.toggle("on",b.dataset.s===k));window.__cur=cur}
+document.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>show(b.dataset.s));
+fitStage();show("A");
+document.fonts.ready.then(()=>{window.__ready=true});
+</script>

@@ -1,7 +1,7 @@
 ---
 tags: [gdd, place, data]
 status: draft
-updated: 2026-10-25
+updated: 2026-10-28
 ---
 
 # GDD - Data Saving
@@ -41,3 +41,8 @@ updated: 2026-10-25
 **Як додати нове в збереження.** Просте число чи прапорець: рядок у `ATTRS` (або префікс у `PREFIXES`) у `DataService`; вказати `scope` — `global` чи `stage` (тоді воно скидається при переході на мапу). Складні дані: `DataService.RegisterSection(імʼя, функція)` і читання через `DataService.GetSection`. Перехід на нову мапу — викликати `DataService.ResetStageScope(player)`.
 
 **Studio.** Щоб перевіряти справжній DataStore, у Game Settings → Security увімкнути **Enable Studio Access to API Services**. Інакше `DataService` сам перемикається на тимчасове сховище в пам'яті (вся логіка та сама, але дані не живуть між запусками).
+
+## Додано 28.10.2026
+- Секція профілю `AdminTx` — виконані адмін-видачі (без дублів).
+- DataStore `AdminMail` (офлайн-видачі), `AdminRoles` (ролі), `GolemIndex`, `GolemLog` — див. [[GDD - Admin Panel]], [[GDD - Golem UID]].
+- У кожного голема (інвентар, печера) є поле `uid`.

@@ -2,7 +2,7 @@
 tags: [model, golem, block-style]
 status: active
 version: 2
-updated: 2026-10-22
+updated: 2026-10-27
 style: "GDD - Блоковий стиль моделей"
 ---
 
@@ -96,6 +96,8 @@ style: "GDD - Блоковий стиль моделей"
 
 ## Roblox
 - Модель збирається з Part за даними `GolemData` (палітра, кістки, блоки з повним `CFrame`). У Studio вона називається `StoneGolem`.
+- **Ящичок носія:** кам'яний `CarryBox` (з 27.10.2026; сірі блоки тіла, темні кутики, кристалики `#6fd3e0`) — [Carrier Crate](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FInstruments%2FCarrier%20Crate%2FCarrier%20Crate). Носій тримає його між кулаками і на плоті, і в слоті інвентаря, і у фігурці в руці.
+- **Предмети (з 27.10.2026):** у моделі немає кірки й меча. Майнеру в кулак ставиться префаб `StonePickaxe`, воїну — новий кам'яний `StoneSword` з двома блакитними кристалами ([Item Prefabs](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FInstruments%2FItem%20Prefabs%2FItem%20Prefabs)). Модель має атрибут `GolemKind = "stone"`.
 - **Studs:** на 40 деталях тіла `Texture` з асетами Resurface: `StudsPerTile 0.25`, `Transparency 0.2` (видно на 80%), `Color3` як у деталі. Без studs лишаються `Root` і деталі обличчя (очі, зіниці, блиск, брови, рот, щічки, блиск кристала).
 
 ## Структура папки
@@ -121,3 +123,4 @@ style: "GDD - Блоковий стиль моделей"
 ## Історія
 - **v1:** 42 блоки рівно по осях, анімації Idle/Walk/Run/Face, потім Mine.
 - **v2:** повороти за GDD стилю, носки, шапка, кристали на плечах і спині, кристал-ромб.
+- **v2.1 (27.10.2026):** кірка винесена в окремий префаб `StonePickaxe`, з'явився кам'яний меч `StoneSword` ([Item Prefabs](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FInstruments%2FItem%20Prefabs%2FItem%20Prefabs)). Бекап — `ServerStorage/NicheBackup/ItemPrefabs_v1`.

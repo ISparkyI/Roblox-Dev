@@ -108,19 +108,17 @@ local function figurine(g: any, cls: string): Model?
 	if not src or not src:IsA("Model") then return nil end
 	local m = src:Clone()
 	m.Name = "Figurine"
-	if cls ~= "miner" then
-		local pick = m:FindFirstChild("Pickaxe"); if pick then pick:Destroy() end
-	end
+	Catalog.applyClassItems(m, cls, true) -- майнер — кірка, воїн — меч, непотрібні групи видалені
 	m:PivotTo(CFrame.new())
 	if cls == "carrier" and assets then
-		local box = assets:FindFirstChild("CarryBox")
+		local box = assets:FindFirstChild(Catalog.box(g.id)) or assets:FindFirstChild("CarryBox")
 		if box and box:IsA("Model") then
 			local b = box:Clone()
-			local gcf, gs = m:GetBoundingBox()
-			local _, bs = b:GetBoundingBox()
-			b:ScaleTo(b:GetScale() * math.min(1, gs.X * 0.55 / math.max(bs.X, bs.Z)))
-			local _, bs2 = b:GetBoundingBox()
-			b:PivotTo(CFrame.new(gcf.Position.X + gs.X * 0.18, gcf.Position.Y - gs.Y / 2 + bs2.Y / 2, gcf.Position.Z - gs.Z / 2 - bs2.Z * 0.15))
+			b.Name = "CarryBox"
+			-- носій тримає ящичок у руках (поза як у грі, GolemCatalog.poseCarry) — до ScaleTo, тож фігурка масштабується разом із ящичком
+			local gd = src:FindFirstChild("GolemData")
+			local ok, data = pcall(function() return gd and require(gd :: ModuleScript) end)
+			Catalog.poseCarry(m, ok and data or nil, b)
 			b.Parent = m
 		end
 	end
@@ -143,6 +141,7 @@ local function text(parent: Instance, order: number, h: number, str: string, col
 	s.Color = INK; s.Thickness = 2.2; s.LineJoinMode = Enum.LineJoinMode.Round
 	s.Parent = t
 	t.Parent = parent
+	return t
 end
 
 -- табличка над фігуркою (як на рефі: мутація, рідкість, назва, стат, ціна)
@@ -162,8 +161,12 @@ local function infoBoard(adornee: BasePart, top: number, g: any, cls: string, mu
 	list.Parent = bb
 	local mu = Catalog.mutation(mut)
 	if mut > 0 then
-		local k = Catalog.power(g.id, cls, mut) / math.max(Catalog.power(g.id, cls, 0), 1e-6)
-		text(bb, 1, 0.15, mu.key .. " [" .. NF.mult(math.floor(k * 10 + 1e-6) / 10) .. "]", mu.color, XBOLD)
+		-- множник — рівно M з каталогу (MUTATIONS[].power): «x1.25» … «x25» (до 2 знаків) (27.10.2026)
+		local ml = text(bb, 1, 0.15, mu.key .. " [x" .. (string.format("%.2f", mu.power or 1):gsub("0+$", ""):gsub("%.$", "")) .. "]", mu.color, XBOLD)
+		-- градієнт з анімацією — на клієнті: StarterPlayerScripts/MutationTextClient знаходить мітки з атрибутом MutationText
+		-- і викликає Shared/MutationText.apply; тут лише атрибут і базовий колір (mu.color)
+		ml.Name = "Mutation"
+		ml:SetAttribute("MutationText", mut)
 	end
 	text(bb, 2, 0.17, g.rarity, Catalog.rarityColor(g.rarity), XBOLD)
 	text(bb, 3, 0.22, g.name, Color3.new(1, 1, 1), HEAVY)
@@ -265,6 +268,7 @@ local function build(p: Player)
 		local cls = Catalog.cls(g.cls)
 		if def then
 			local m = figurine(def, cls)
+			if m then m:SetAttribute("Mut", Catalog.mut(g.mut)) end -- 3D-ефект мутації вмикає клієнт (MutationAuraClient)
 			if m then
 				visual = m
 				-- висота верху фігурки над Root — поки вона стоїть прямо (на сервері рука не в позі HoldPose)
@@ -332,6 +336,9 @@ local function onPlayer(p: Player)
 	end)
 	if p.Character then task.spawn(build, p) end
 end
+
+-- табличка голема для інших систем (стенди печери, CaveStandService) — та сама, що над фігуркою в руці
+HeldItemService.InfoBoard = infoBoard
 
 function HeldItemService.Start()
 	Players.PlayerAdded:Connect(onPlayer)

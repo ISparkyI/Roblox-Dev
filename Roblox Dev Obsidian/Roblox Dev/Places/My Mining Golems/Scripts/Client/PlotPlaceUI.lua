@@ -26,7 +26,12 @@ local HttpService = game:GetService("HttpService")
 
 local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("PlotConfig"))
 local Items = require(RS.Shared:WaitForChild("ItemConfig"))
+local Catalog = require(RS.Shared:WaitForChild("GolemCatalog")) -- підпис статів (statText)
+local GolemSort = require(RS.Shared:WaitForChild("GolemSort")) -- сортування (спільне з інвентарем) і кнопка зі списком SORT BY
+local MutationSlotFX = require(RS.Shared:WaitForChild("MutationSlotFX")) -- фон слота за мутацією (як в інвентарі)
+local NF = require(RS.Shared:WaitForChild("NumberFormat")) -- скорочення чисел у слотах (compact: 98.1K)
 local StyleA = require(RS.Shared:WaitForChild("StyleA"))
+local ItemVP = require(RS.Shared:WaitForChild("ItemViewport")) -- 3D-модель голема в слоті (у кого є модель: Stone, Wooden), як в інвентарі
 local Action = RS:WaitForChild("Remotes"):WaitForChild("PlotAction")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -172,6 +177,7 @@ local function hoverStep(dt: number)
 	if next(hoverSet) == nil and hoverConn then hoverConn:Disconnect(); hoverConn = nil end
 end
 local function wakeHover(s)
+	if s.fxSync then s.fxSync() end -- фон за мутацією: наведення / вибраний слот
 	hoverSet[s] = true
 	if not hoverConn then hoverConn = RunService.Heartbeat:Connect(hoverStep) end
 end
@@ -195,25 +201,24 @@ local function makeSlot(parent, x, y, S, mini)
 	local iw = S - 2 * pad
 	local gcx, gcy = P + pad + iw / 2, P + pad * 0.8 + iw / 2
 	local R = S * 0.5
-	local glow = frame(card, 0, 0, S + 2 * P, S + 2 * P, nil, { BackgroundTransparency = 1, ZIndex = 3 })
-	local circles = {}
-	for i = GLOW_N, 1, -1 do
-		local rr = R * i / GLOW_N
-		local g = frame(glow, gcx - rr, gcy - rr, rr * 2, rr * 2, WHITE, { BackgroundTransparency = 1, ZIndex = 1 })
-		corner(g, UDim.new(0.5, 0))
-		circles[i] = g
-	end
+	-- сяйва рідкості немає (як у інвентарі v20): у спокої слоти однакові темні; при наведенні й на вибраному (ON PLOT) — фон за мутацією
+	local mfx = MutationSlotFX.new(card, { pos = Vector2.new(P, P), size = Vector2.new(S, S), z = 3 })
 	local icon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(P + pad, P + pad * 0.8),
 		Size = UDim2.fromOffset(iw, iw), ZIndex = 4, Visible = false }, card)
 	local name = textAt(card, P + 7, P + 15, S - 10, 13, "", WHITE, 2.2, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 5, Visible = false })
-	local stat = textAt(card, P + 6, P + S - 12, S - 10, mini and 11 or 12, "", SUB_TXT, 2, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 5, Visible = false })
+	-- стат у два рядки (26.10.2026): головний — зелений, крупніше («98.1K dmg» / «25 ore», NumberFormat.compact), нижче — «Speed x2.81» світло-сірим
+	local stat = textAt(card, P + 6, P + S - 27, S - 10, mini and 14 or 15, "", C("7dff5a"), 2.4, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 5, Visible = false })
+	stat.TextScaled = true -- дуже довгий підпис зменшується, але не вилазить за картку
+	new("UITextSizeConstraint", { MaxTextSize = mini and 14 or 15, MinTextSize = 10 }, stat)
+	local spd = textAt(card, P + 6, P + S - 11, S - 10, 12, "", C("c9ced4"), 2, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 5, Visible = false })
 	local plus = textAt(card, P, P + S / 2, S, 34, "+", WHITE, 0, { TextTransparency = 0.62, ZIndex = 5, Visible = false })
 	local lockImg = new("ImageLabel", { BackgroundTransparency = 1, Image = Items.ICONS.lock, ScaleType = Enum.ScaleType.Fit, ImageTransparency = 0.15,
 		Position = UDim2.fromOffset(P + S * 0.29, P + S * 0.16), Size = UDim2.fromOffset(S * 0.42, S * 0.42), ZIndex = 5, Visible = false }, card)
 	local lockTxt = textAt(card, P, P + S - 13, S, 11, "Golem Slots", C("c9ced4"), 1.8, { FontFace = XBOLD, ZIndex = 5, Visible = false })
 	local ring = frame(card, P - 1, P - 1, S + 2, S + 2, nil, { BackgroundTransparency = 1, ZIndex = 7, Visible = false })
 	stroke(ring, LIME, 4)
-	local tag = frame(holder, P + S / 2 - 40, P + S * 0.58 - 12, 80, 24, C("3aa6ff"), { ZIndex = 8, Visible = false, Rotation = -8 })
+	-- плашка ON PLOT / PLOT N — вище середини (з 26.10.2026), щоб не закривала дворядковий стат внизу
+	local tag = frame(holder, P + S / 2 - 40, P + S * 0.42 - 12, 80, 24, C("3aa6ff"), { ZIndex = 8, Visible = false, Rotation = -8 })
 	stroke(tag, INK, 3)
 	local tagTxt = textAt(tag, 0, 12, 80, 13, "", WHITE, 2, { ZIndex = 9 })
 	local hit = new("TextButton", { Name = "Hit", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Position = UDim2.fromOffset(P, P),
@@ -226,19 +231,20 @@ local function makeSlot(parent, x, y, S, mini)
 		opt = opt or {}
 		s.g = g
 		local has = g ~= nil
-		local tc = has and g.tone or WHITE
-		local tbl = has and GLOW_ITEM or GLOW_EMPTY
-		for i = 1, GLOW_N do
-			circles[i].BackgroundColor3 = tc
-			circles[i].BackgroundTransparency = opt.locked and 1 or tbl[i]
-		end
-		toneStroke.Color = tc; toneStroke.Transparency = has and 0.67 or 0.94
+		toneStroke.Color = WHITE; toneStroke.Transparency = 0.94
+		mfx.setMut(has and (g.mut or 0) or nil)
+		s.sel = opt.here == true
+		s.dimmed = opt.dim == true
 		icon.Visible = has
 		if has then icon.Image = g.icon end
+		-- голем з моделлю — g.vp ("GolemVP:<ID>:<клас>", з предметом за класом); сітка будує 3D лише у видимій зоні (s.lazyVP)
+		s.icon = icon
+		s.vpKey = has and g.vp or nil
+		if s.lazyVP then s.vpDirty = true; s.lazyVP(s) else ItemVP.set(icon, s.vpKey) end
 		name.Visible = has and not mini
 		if has and not mini then name.Text = g.name end
-		stat.Visible = has
-		if has then stat.Text = g.stat end
+		stat.Visible = has; spd.Visible = has
+		if has then stat.Text = g.statMain or g.stat; spd.Text = g.statSpd or "" end
 		plus.Visible = not has and opt.plus == true
 		lockImg.Visible = opt.locked == true; lockTxt.Visible = opt.locked == true
 		bgGrad.Color = cseq(opt.locked and { { 0, "2b3038" }, { 1, "1b1f25" } } or { { 0, "22262c" }, { 1, "15181c" } })
@@ -247,8 +253,9 @@ local function makeSlot(parent, x, y, S, mini)
 		if opt.tag then tagTxt.Text = opt.tag; tag.BackgroundColor3 = opt.tagHere and C("5bd12e") or C("3aa6ff") end
 		local dim = opt.dim and 0.55 or 0
 		icon.ImageTransparency = dim; bg.BackgroundTransparency = dim * 0.6
-		for i = 1, GLOW_N do if opt.dim then circles[i].BackgroundTransparency = 1 - (1 - tbl[i]) * 0.45 end end
+		s.fxSync()
 	end
+	function s.fxSync() mfx.setOn(s.g ~= nil and not s.dimmed and (s.hover or s.sel) == true) end
 	local function aim(px: number)
 		local c = holder.AbsolutePosition.X + holder.AbsoluteSize.X / 2
 		s.rel = math.clamp((px - c) / math.max(1, hit.AbsoluteSize.X / 2), -1, 1)
@@ -269,6 +276,7 @@ local function makeSlot(parent, x, y, S, mini)
 		if s.onClick then s.onClick(s) end
 	end)
 	function s.shake()
+		StyleA.deny() -- звук відмови (tap цього кліку скасовується)
 		task.spawn(function()
 			for _, dx in { -8, 8, -5, 5, -2, 0 } do holder.Position = UDim2.fromOffset(s.cx + dx, s.cy); task.wait(0.03) end
 			holder.Position = UDim2.fromOffset(s.cx, s.cy)
@@ -299,14 +307,21 @@ local assign = {}   -- [плот] = { m = {id..}, c = id? }
 local lv = {}
 local function rebuild()
 	table.clear(golems); table.clear(byId)
-	for _, g in decodeAttr("InvGolems", {}) do
+	local RI = {}
+	for i, r in Catalog.RARITIES do RI[r] = i end
+	for gi, g in decodeAttr("InvGolems", {}) do
 		local def = Items.GOLEMS[g.kind]
-		if def and type(g.id) == "number" then
+		if def and type(g.id) == "number" and g.cls ~= "warrior" then -- воїни на плоти не ставляться (27.10.2026: раніше потрапляли в майнери)
 			local st = Cfg.stats(g.kind, g.mut)
 			local cls = g.cls == "carrier" and "c" or "m"
 			local it = { id = g.id, kind = g.kind, mut = g.mut, cls = cls, name = def.name, icon = def.icon, tone = Items.RARITY[def.rarity] or WHITE,
-				stat = cls == "m" and string.format("%d dmg · %.2fs", st.dmg, st.int) or string.format("%d ore · %.1f sp", st.cap, st.spd),
-				power = cls == "m" and Cfg.minerPower(g.kind, g.mut) or Cfg.carrierPower(g.kind, g.mut) }
+				vp = ItemVP.golemKey(g.kind, g.cls), -- 3D-модель (Stone, Wooden); без моделі — іконка
+				stat = Catalog.statText(g.kind, g.cls, g.mut), -- «2 dmg · Speed x1.05» / «2 ore · Speed x1.13» (Shared/GolemCatalog)
+				-- у слоті — два рядки: «98.1K dmg» / «25 ore» і «Speed x2.81»
+				statMain = (function() local s = Catalog.stats(g.kind, g.cls, g.mut) return cls == "c" and (NF.compact(s.cap or 0) .. " ore") or (NF.compact(s.dmg or 0) .. " dmg") end)(),
+				statSpd = "Speed " .. (string.format("x%.2f", math.floor(Catalog.stats(g.kind, g.cls, g.mut).speed * 100 + 0.5) / 100):gsub("0+$", ""):gsub("%.$", "")),
+				power = cls == "m" and Cfg.minerPower(g.kind, g.mut) or Cfg.carrierPower(g.kind, g.mut),
+				order = gi, ri = RI[def.rarity] or 0, mut = Catalog.mut(g.mut) } -- для GolemSort (порядок отримання, рідкість, мутація)
 			table.insert(golems, it); byId[g.id] = it
 		end
 	end
@@ -446,7 +461,18 @@ local cSlot = makeSlot(slotRow, CX, SY, SS, true)
 
 -- ===== сітка големів =====
 local gridHdr = textAt(content, 290, 222, 360, 26, "", WHITE, 3, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
-local gridCap = textAt(content, 620, 222, 316, 15, "", SUB_TXT, 2, { TextXAlignment = Enum.TextXAlignment.Right, FontFace = XBOLD, ZIndex = 4 })
+local gridCap = textAt(content, 484, 222, 316, 15, "", SUB_TXT, 2, { TextXAlignment = Enum.TextXAlignment.Right, FontFace = XBOLD, ZIndex = 4 })
+-- кнопка сортування праворуч від «N golems»: нижче панелі слотів (її низ y 200 — кнопка з y 204) і правим краєм по смузі прокрутки
+local SORT_X, SORT_Y, SORT_W, SORT_H = 812, 204, 126, 40
+local sortBtn = makeButton(content, SORT_X, SORT_Y, SORT_W, SORT_H, { shadowDy = 5, color = "gray", z = 5 })
+local sortMenu = GolemSort.menu({ button = sortBtn, w = SORT_W, h = SORT_H, layer = pop,
+	panelPos = Vector2.new(WX + SORT_X + SORT_W - 236, WY + SORT_Y + SORT_H + 8),
+	onPick = function(key)
+		player:SetAttribute("InvSort", key) -- одразу (сервер підтвердить той самий ключ)
+		local inv = RS:FindFirstChild("Remotes") and RS.Remotes:FindFirstChild("InventoryAction")
+		if inv then inv:FireServer("Sort", key) end
+	end })
+sortBtn.onClick = function() sortMenu.toggle() end
 local gvp = frame(content, GX, GY, GW, GH, nil, { Name = "Grid", BackgroundTransparency = 1, ClipsDescendants = true, Active = true, ZIndex = 4 })
 local gstrip = frame(gvp, 0, 0, GW, 10, nil, { BackgroundTransparency = 1, ZIndex = 1 })
 local vsb = frame(content, GX + GW + 3, GY + GP, 10, GH - 2 * GP, WHITE, { Active = true, ZIndex = 5 })
@@ -469,6 +495,7 @@ local function say(text: string, color: Color3?)
 	end)
 end
 local function shakeSec()
+	StyleA.deny()
 	task.spawn(function()
 		for _, dx in { -8, 8, -5, 5, -2, 0 } do sec.Position = secPos + UDim2.fromOffset(dx, 0); task.wait(0.03) end
 		sec.Position = secPos
@@ -476,6 +503,7 @@ local function shakeSec()
 end
 
 local gscroll, gH = 0, 0
+local refreshGridVP: () -> () = function() end -- лінива 3D у сітці (нижче)
 local function gmax() return math.max(0, gH - GH) end
 local function setG(v: number)
 	gscroll = math.clamp(v, 0, gmax())
@@ -484,6 +512,7 @@ local function setG(v: number)
 	vth.Size = UDim2.fromOffset(10, th)
 	vth.Position = UDim2.fromOffset(0, gmax() > 0 and gscroll / gmax() * (GH - 2 * GP - th) or 0)
 	vsb.Visible = gmax() > 0
+	refreshGridVP()
 end
 local drag, dragEndAt = nil, -1
 local function unitsPerPx() local a = gvp.AbsoluteSize.Y return a > 0 and GH / a or 1 end
@@ -508,10 +537,31 @@ end)
 
 local gslots = {}
 local gridClick -- нижче
+-- лінива 3D-модель (як в InventoryUI): ViewportFrame лише в слотах у видимій зоні сітки ± 1 ряд, поза зоною — знищується
+local function gridVP(s)
+	local icon = s.icon
+	if not icon then return end
+	local margin = GS + GG
+	local vis = s.holder.Visible and s.vpKey ~= nil and s.cy + GS / 2 >= gscroll - margin and s.cy - GS / 2 <= gscroll + GH + margin
+	local want = if vis then s.vpKey else nil
+	if s.vpShown == want and not s.vpDirty then return end
+	s.vpShown = want
+	s.vpDirty = false
+	if want then
+		ItemVP.set(icon, want)
+	else
+		ItemVP.set(icon, nil)
+		local b = icon:FindFirstChild("ItemVP")
+		if b then b:Destroy() end
+		if s.g then icon.Image = s.g.icon end
+	end
+end
+refreshGridVP = function() for _, s in gslots do gridVP(s) end end
 local function gridSlot(i: number)
 	local s = gslots[i]
 	if not s then
 		s = makeSlot(gstrip, 0, 0, GS, false)
+		s.lazyVP = gridVP
 		s.onPress = function(inp) beginDrag(inp, false) end
 		s.hit.InputChanged:Connect(wheel)
 		s.onClick = function() if s.g then gridClick(s) end end
@@ -526,8 +576,7 @@ end
 local function listOf(cls: string)
 	local t = {}
 	for _, g in golems do if g.cls == cls then table.insert(t, g) end end
-	table.sort(t, function(a, b) if a.power ~= b.power then return a.power > b.power end return a.id < b.id end)
-	return t
+	return GolemSort.sort(t, GolemSort.current(player)) -- вибране сортування (атрибут InvSort, спільний з інвентарем)
 end
 local function fire(slot: string, id: number?)
 	Action:FireServer("Place", { plot = plotIdx, slot = slot, id = id })
@@ -564,7 +613,8 @@ render = function()
 	-- сітка
 	local list = listOf(tab)
 	gridHdr.Text = tab == "m" and "Your miners" or "Your carriers"
-	gridCap.Text = #list .. " golems · strongest first"
+	gridCap.Text = #list .. " golems"
+	sortMenu.refresh(GolemSort.current(player))
 	emptyHint.Text = #list == 0 and (tab == "m" and "No miner golems yet" or "No carrier golems yet") or ""
 	local rows = math.max(2, math.ceil(#list / GCOLS))
 	gH = rows * (GS + GG) - GG + 2 * GP + 4 -- 2 ряди влазять без повзунка
@@ -650,6 +700,7 @@ end
 open = function(idx: number)
 	if isOpen then return end
 	isOpen = true
+	require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).opened("PlotPlace") -- одне вікно на екрані: інші закриваються
 	plotIdx = idx
 	rebuild()
 	fit()
@@ -669,6 +720,7 @@ end
 close = function()
 	if not isOpen then return end
 	isOpen = false
+	sortMenu.close()
 	pcall(function() CAS:UnbindAction("PlotPlaceEsc") end)
 	animToken += 1
 	local my = animToken
@@ -679,6 +731,8 @@ close = function()
 	end)
 end
 closeBtn.onClick = function() close() end
+-- одне вікно на екрані (Shared/WindowManager): відкрилось інше вікно — PLOT N закривається
+require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).register("PlotPlace", function() return isOpen end, function() close() end)
 -- затемнення закриває вікно лише кліком ПОЗА вікном (InputBegan затемнення спрацьовує й під самим вікном,
 -- winF.Active цього не зупиняє). Позиція кліку й AbsolutePosition — в одному просторі (без GetGuiInset; заміряно в Play).
 local function insideGui(p: Vector3, g: GuiObject?): boolean
@@ -713,6 +767,21 @@ function showButton(on: boolean)
 	end
 end
 StyleA.bind(placeBtn, { hoverAlways = true, debounce = 0.3, onClick = function() if curPlot > 0 then open(curPlot) end end })
+-- клавіша R (v25, 27.10.2026): бейдж «R» у лівому верхньому куті кнопки — як «E» на COLLECT / ENTER CAVE (CustomPrompts: #1d2233,
+-- чорна обводка, дитина кнопки — рухається й масштабується разом з нею); R відкриває вікно, лише коли кнопка видна (гравець на
+-- своєму плоті) і вікно закрите; R при відкритому вікні — закриває його (toggle, v25.1). У полі вводу тексту R не діє.
+-- На сенсорних пристроях без клавіатури бейджа немає. Roblox за замовчуванням на R нічого не робить.
+do
+	local key = new("TextLabel", { Name = "KeyR", Size = UDim2.fromOffset(30, 30), Position = UDim2.fromOffset(-14, -12),
+		BackgroundColor3 = C("1d2233"), BorderSizePixel = 0, FontFace = HEAVY, TextScaled = true, Text = "R", TextColor3 = WHITE, ZIndex = 8,
+		Visible = not (UIS.TouchEnabled and not UIS.KeyboardEnabled) }, placeBtn.root)
+	new("UIStroke", { Color = INK, Thickness = 2.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, key)
+	UIS.InputBegan:Connect(function(inp, gp)
+		if gp or inp.KeyCode ~= Enum.KeyCode.R or UIS:GetFocusedTextBox() then return end
+		if isOpen then StyleA.tap(); close()
+		elseif bShown and curPlot > 0 then StyleA.tap(); open(curPlot) end
+	end)
+end
 
 -- кнопка видна, коли гравець на своєму відкритому плоті; вікно закривається, коли зійшов з плоту
 local acc = 0
@@ -731,7 +800,7 @@ end)
 -- дані змінилися → перемалювати (раз за кадр)
 local pending = false
 player.AttributeChanged:Connect(function(name)
-	if name == "InvGolems" or name == "PlotAssign" or name == "PlotLv" then
+	if name == "InvGolems" or name == "PlotAssign" or name == "PlotLv" or name == "InvSort" then
 		if pending then return end
 		pending = true
 		task.defer(function()

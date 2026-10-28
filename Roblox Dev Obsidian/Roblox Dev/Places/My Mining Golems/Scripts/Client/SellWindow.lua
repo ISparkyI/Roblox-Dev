@@ -466,14 +466,10 @@ local function makeSlot(it, col: number, row: number)
 	-- зона іконки: квадрат ліворуч від кнопок +/− і над назвою (модель рівно в цих межах, не вилазить)
 	local IX, IY, IS = 6, 20, SL - 60
 	local gcx, gcy = HP + IX + IS / 2, HP + IY + IS / 2
-	-- радіальне сяйво: 30 вкладених кіл з малою непрозорістю — плавний перехід без смуг.
-	-- Непрозорість на відстані d від центру: GLOW_A · (1 − d / GLOW_R)^GLOW_P
-	local glow = frame(card, 0, 0, SL + 2 * HP, SL + 2 * HP, nil, { Name = "Glow", BackgroundTransparency = 1, ZIndex = 3 })
-	for i = GLOW_N, 1, -1 do
-		local rr = GLOW_R * i / GLOW_N
-		local g = frame(glow, gcx - rr, gcy - rr, rr * 2, rr * 2, it.tone, { Name = "Glow", BackgroundTransparency = GLOW_T[i], ZIndex = 3 })
-		corner(g, UDim.new(0.5, 0))
-	end
+	-- радіальне сяйво (27.10.2026): один ImageLabel з м'якою радіальною текстурою (soft_radial256), ледь помітне
+	-- (ImageTransparency 0,86) — замість 30 вкладених кіл (було видно сходинки)
+	local glow = new("ImageLabel", { Name = "Glow", BackgroundTransparency = 1, Image = "rbxassetid://122253463048651", ImageColor3 = it.tone, ImageTransparency = 0.86,
+		Position = UDim2.fromOffset(gcx - GLOW_R, gcy - GLOW_R), Size = UDim2.fromOffset(GLOW_R * 2, GLOW_R * 2), ZIndex = 3 }, card)
 	local icon = new("ImageLabel", { Name = "Icon", BackgroundTransparency = 1, Image = it.icon, ScaleType = Enum.ScaleType.Fit,
 		Position = UDim2.fromOffset(HP + IX, HP + IY), Size = UDim2.fromOffset(IS, IS), ZIndex = 4 }, card)
 	ItemVP.set(icon, it.key, 1)
@@ -906,6 +902,7 @@ local animToken = 0
 
 local function open()
 	isOpen = true
+	require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).opened("Sell") -- одне вікно на екрані: інші закриваються
 	animToken += 1
 	local my = animToken
 	fit()
@@ -945,6 +942,8 @@ closeBtn.onClick = function()
 	dismissed = true -- до виходу з кола й повторного входу
 	close()
 end
+-- одне вікно на екрані (Shared/WindowManager): відкрилось інше вікно — Sell закривається й не відкривається знову, доки гравець не вийде з кола
+require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).register("Sell", function() return isOpen end, function() dismissed = true; close() end)
 
 -- своя лавка: ніша з OwnerUserId = UserId → Sell
 local function findMySell(): Model?

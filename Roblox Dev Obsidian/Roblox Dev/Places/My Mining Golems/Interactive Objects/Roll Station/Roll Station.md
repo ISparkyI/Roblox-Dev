@@ -1,8 +1,8 @@
 ---
 tags: [interactive, roll, station]
 status: in-game
-version: 2
-updated: 2026-10-26
+version: 3
+updated: 2026-10-27
 ---
 
 # Roll Station
@@ -26,7 +26,7 @@ updated: 2026-10-26
 | Важіль `RollLever` | муфта, вал, рукоятка (червоний «круглий» набалдашник із бліком), нахилений на −28° від гравця |
 | Підказка | `PromptAnchor/RollPrompt` — на дерев'яному фронті пульта, низько (зверху модель не закриває) |
 
-Розмір: 10,5 × 6,4 × 6,1 стада. Між станцією і підставками лишається прохід ≈ 1 стад.
+Розмір: 10,5 × 6,4 × 6,1 стада (з v4, 27.10.2026 — ×0,9: ≈ 9,4 × 5,8 × 5,5). Між станцією і підставками лишається прохід ≈ 1 стад.
 
 ## У Roblox
 | Що | Де |
@@ -35,7 +35,7 @@ updated: 2026-10-26
 | Старий важіль (бекап) | `ServerStorage/NicheBackup/RollLeverModel_old_v1` |
 | Шарнір | `RollLever/Hinge` — невидимий, Anchored. До нього приварені (`WeldConstraint`) `Collar`, `Stick`, `Knob`. Ім'я `Hinge` потрібне `RollScreenService` (центр зони табла Roll Upgrades) |
 | Шестерня | `Gear/GearHub` — невидимий, Anchored. Деталі `Gear` приварені до нього |
-| Скрипт важеля | `RollLever/LeverScript` (копія — `Source/LeverScript.lua`) |
+| Скрипт важеля | `RollLever/LeverScript` v3 (копія — `Source/LeverScript.lua`): тягне лише власник ніші, підказка вмикається після кінця анімації ролу (`RollBusyUntil`) |
 | Екран | `StarterPlayerScripts/RollStationClient` — SurfaceGui у `PlayerGui` з `Adornee = Screen` (так працює клік мишкою) |
 | Вибір типу (сервер) | `ServerScriptService/RollRoleService` + `Remotes/RollRole` (RemoteEvent) |
 | Підказка E | `RollPrompt`: `Style = Custom`, атрибути `UIText "ROLL"`, `UIColor "orange"`, `UIIcon` (іконка важеля), `UIOffsetY 0.6`, `UIWidth 6.4`; `MaxActivationDistance 8`, `RequiresLineOfSight = false`, **`HoldDuration 0.25`** (v2). Малює `StarterPlayerScripts/CustomPrompts` |
@@ -71,18 +71,32 @@ updated: 2026-10-26
 
 ![[roll_station_prompt_hold.jpg]]
 *v2: кнопка ROLL під час затиску — тінь відкриває яскраву кнопку зліва направо.*
-- Система ролу (шанси, анімація, покупка голема) ще не написана: вона підпишеться на `RollLever.Pulled`.
+- **Система ролу (v1, 27.10.2026):** `ServerScriptService/RollService` підписаний на `RollLever.Pulled`, анімацію на підставках, таблички й кнопки BUY робить `StarterPlayerScripts/RollRevealClient`. Правила — [GDD - Roll](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGDD%20-%20Roll). Гостям кнопка ROLL не показується (клієнт вимикає її локально), а `LeverScript` ігнорує не-власника.
 
 ## Структура папки
 - `Source/RollStation_Build.lua` — збірка моделі в шаблоні ніші (дані деталей + код). Генератор моделі — `roll_station_model.js` (three.js, блоки з `F(pos, rot)`), `rs_run.js` (масштаб 0,8 + перевірка перетинів), `check_overlap.js` (правило 0,1)
 - `Source/LeverScript.lua` — скрипт важеля; `Source/gen_role_icons.py` — іконки ролей
 - `Roblox/role_*.png` — іконки для Asset Manager
 - `Preview/roll_station_mock.html` — затверджений веб-макет (3D + екран); `roll_station_mock.png`, `roll_station_panel_mock.png` — кадри з нього
+- `Preview/roll_v1_appear.jpg`, `roll_v1_spin.jpg`, `roll_v1_spin_mut.jpg`, `roll_v1_final.jpg`, `roll_v1_final_mut.jpg`, `roll_v1_final_buy.jpg` — рол v1 у грі (поява / оберт / фінал / BUY); `roll_v2_final_5.jpg` — v2, 5 підставок, големи ×0,5
 - `Preview/roll_station_*.jpg` — скріни з гри (`roll_station_prompt_hold.jpg` — затиск кнопки ROLL, v2)
 
 ![[roll_station_niche.jpg]]
 
 ## Історія
+- **v8 (27.10.2026), два баги:** (1) «інколи голем на підставці не ролиться». Причина: `RollSeq` — JSON результату й фейків; з пулом Wooden + Stone (майже завжди Wooden Normal, фейки чергуються, мутації переважно Normal) новий рол на підставці інколи давав **той самий рядок**, атрибут не змінювався — клієнт не бачив ролу, лишався старий голем (у v5 з 2 фейками ≈ 1 % на підставку, ≈ 6 % на рол з 5 підставками). Виправлено: у `RollSeq` лічильник `n` (завжди новий рядок); клієнт без тайм-аутів `WaitForChild` (стрімінг) і коректно перепідхоплює підставку. Лог: 30 + 32 ролів × 5 підставок — на всіх 5 появ. (2) сіра кнопка (BUY при нестачі грошей, а також LOCKED / NO MODEL / INVENTORY FULL у печері — той самий `CustomPrompts`): після затиску рушій стріляв `Triggered`, і на мить відкривалась яскрава кнопка. Тепер для `UIDisabled` — лише shake + deny, візуалу утримання немає (перевірено: тінь не зрушила). Бекап — `ServerStorage/NicheBackup/Rolls_v7`.
+- **v7 (27.10.2026):** анімація ролу без обертання: 4 випадкові появи (0,1 + показ + 0,1) і 5-та — результат (0,2), рівно 2,0 с до кінця появи на останній підставці (цикл фейка стискається під «хвилю» 0,04 с), фейки без повторів підряд. Лог у Play: 1 підставка — появи на 0 / 0,46 / 0,91 / 1,35 / 1,81 с, кінець 2,01 с; 5 підставок — підставка 1: 0,03 / 0,42 / 0,83 / 1,24 / 1,64, кінець 1,85; підставка 5: 0,17 / 0,58 / 0,98 / 1,39 / 1,81, кінець 2,02 с; кнопка ROLL знову вмикається на +2,17…2,19 с; 30 ролів підставок — 0 повторів; купівля працює. Бекап — `ServerStorage/NicheBackup/Rolls_v6`.
+- **v6 (27.10.2026):** анімація ролу на підставках удвічі швидша (`RollConfig`: поява 0,1 / оберт 0,5 / зникнення 0,1, хвиля 0,04). Лог у Play, 5 підставок: результат з табличкою на +1,50…1,65 с від удару важеля (було ≈ 3,0…3,3), кнопка ROLL вмикається на +1,86 с (було ≈ 3,5); купівля працює. Бекап — `ServerStorage/NicheBackup/Rolls_v5`.
+- **v5 (27.10.2026):** баг «дві кнопки на E» (ROLL біля важеля і BUY / FREE над підставкою одночасно). `RollPrompt` і `RollBuyPrompt` — `Exclusivity = OneGlobally` (ставить і `RollRoleService`), тож на E видно й спрацьовує лише найближча; `RollBuyPrompt.MaxActivationDistance` 7 → 5,5. Сервер: покупка не йде 0,6 с після смикання важеля (атрибут ніші `RollPullT`, ставить `LeverScript`) і поки йде рол; важіль не ролить 0,4 с після покупки (атрибут гравця `RollBuyT`). Перевірено в Play між пультом і підставкою 1: у кожній точці видно одну кнопку, при рівних відстанях — найближчу; купівля там не запускає рол. Бекап — `ServerStorage/NicheBackup/Rolls_v4`.
+- **v4 (27.10.2026):** станцію (`RollLeverModel`) зменшено на **10 %** (`ScaleTo` 0,9 навколо низу: низ на підлозі, центр основи на місці; тепер ≈ 9,4 × 5,8 × 5,5 стада), підставки ролу (`ReplicatedStorage/Prefabs/RollStand`) — на **15 %** (масштаб 0,837 → 0,711, плита 6,4 × 6,4, низ на підлозі, півот у точці `StandPoints/Point<i>`). Точки підставок не змінювались (сітка 10 стадів). `RollPrompt`: `MaxActivationDistance` повернуто на 8 (ScaleTo зменшив до 7,2), `UIWidth 5.8`. Кнопка BUY — 2,9 стада від центру підставки, 1,2 над нею (`RollService`). Перевірено в Play: важіль (анімація, `Pulled`, рол, повторне вмикання), екран CHOOSE GOLEM (SurfaceGui рахує розмір від `Screen`), големи стоять на плитах. Бекап — `ServerStorage/NicheBackup/Rolls_v3` (RollSystem префаба + RollStand). Скрін — `Preview/roll_v3_scaled.jpg`.
+- **v3.1 (27.10.2026, ролли v2):** големи на підставках ×0,5, табличка й BUY нижче під новий розмір; куплений голем — закріпленим слотом у хотбар (без руки). Скрін — `Preview/roll_v2_final_5.jpg`. Бекап — `ServerStorage/NicheBackup/Rolls_v2`.
+- **v3 (27.10.2026, ролли v1):** `LeverScript` — лише власник ніші (`OwnerUserId`), повторний рол лише після `RollBusyUntil`; на підставках — анімація ролу, табличка й BUY. Скріни: `Preview/roll_v1_*.jpg`. Бекап — `ServerStorage/NicheBackup/Rolls_v1`.
 - **v2 (26.10.2026):** кнопку ROLL треба затиснути 0,25 с — з тією самою тінню-заповненням, що й на печері; закріплено в `RollRoleService`. Бекап — `ServerStorage/NicheBackup/Scripts_UIAudit_v5`.
 - **v1 (25.10.2026):** веб-макет → правки користувача: екран лежить на схилі, без таблички «GOLEM ROLL», лише лампи; лампи сидять на балці; станція на 20% менша (місце між стендами); краща тумба (шестерня, рамка, восьмикутна основа, кругла рукоятка); кнопка ROLL перенесена на фронт пульта, низько. Перенесено в гру в шаблон і всі 6 ніш. Червоне світіння рукоятки замінено на спалах табла й іскри. Звук покупки при виборі картки прибрано.
 - **v1.1 (25.10.2026):** нова галочка вибраної картки — справжня «пташка» з круглими кінцями замість двох брусків, прибрано чорний квадрат під кружком.
+
+![[roll_v1_appear.jpg]]
+*Рол v1: фейк з'являється / зникає (праворуч), оберт (у центрі).*
+
+![[roll_v3_scaled.jpg]]
+*v4: станція −10 %, підставки −15 %, големи ×0,5 на плитах.*

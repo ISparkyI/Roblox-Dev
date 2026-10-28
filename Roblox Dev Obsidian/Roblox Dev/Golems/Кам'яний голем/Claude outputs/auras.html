@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mutation Auras v3</title>
+<style>
+:root{--bg:#0d0f14;--card:#161922;--line:#262b38;--txt:#e8ebf2;--mut:#9aa3b5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 "Segoe UI",system-ui,sans-serif;padding:24px 16px 40px}
+h1{margin:0 0 4px;font-size:22px}
+.sub{color:var(--mut);margin:0 0 20px;max-width:1000px}
+.row{margin:0 auto 26px;max-width:1000px}
+.row h2{font-size:17px;margin:0 0 10px;display:flex;gap:10px;align-items:center}
+.dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.card canvas{display:block;width:100%;height:auto;background:#0b0d12}
+.meta{padding:8px 10px 10px}
+.t{font-weight:700;font-size:14px}
+.t b{display:inline-block;min-width:20px;padding:0 6px;margin-right:6px;border-radius:4px;background:#2a3040;text-align:center}
+.d{color:#c9cfdb;font-size:12.5px;margin-top:3px}
+.r{color:#7f8899;font-size:11px;margin-top:6px;border-top:1px dashed #2a3040;padding-top:5px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>Аури мутацій — макет v3</h1>
+<p class="sub">Чіткі форми замість розмитих плям: світні кола-печатки на підлозі (за основу — рунічне коло Void), орбітальні частинки зі шлейфом, зірочки з контуром, стилізовані язики полум'я, кристали, промені. Для кожної мутації: <b>A</b> — основний варіант, <b>B</b> і <b>C</b> — простіші альтернативи. Під карткою — з чого це збирається в Roblox.</p>
+<div id="rows"></div>
+<script>
+const TAU=Math.PI*2, W=300, H=320, CX=150, FY=262, GH=150, P=0.32;
+const rnd=(i,s=0)=>{const x=Math.sin(i*127.1+s*311.7+0.123)*43758.5453;return x-Math.floor(x)};
+function rgba(h,a=1){h=h.replace('#','');const n=parseInt(h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`}
+function hue(hh,a=1,l=58){return `hsla(${((hh%360)+360)%360},100%,${l}%,${a})`}
+const RB=['ff2a2a','ff8a00','ffe600','22e04a','00c8ff','2a5cff','b02aff'];
+function glow(c,b){c.shadowColor=b?c._g:'transparent';c.shadowBlur=b||0}
+function setGlow(c,col,b){c.shadowColor=col;c.shadowBlur=b}
+function noGlow(c){c.shadowColor='transparent';c.shadowBlur=0}
+
+/* ---------- golem ---------- */
+function golem(c){
+  const x=CX, y=FY, o='#2e3440';
+  const blk=(bx,by,bw,bh,f)=>{c.fillStyle=f;c.fillRect(x+bx,y-by-bh,bw,bh);c.lineWidth=1.5;c.strokeStyle=o;c.strokeRect(x+bx+.5,y-by-bh+.5,bw-1,bh-1)};
+  const base='#8592a6', sh='#6b778b', hi='#a3aec0';
+  blk(-34,0,26,14,sh); blk(8,0,26,14,sh);           // feet
+  blk(-30,12,20,30,base); blk(10,12,20,30,base);     // legs
+  blk(-42,40,84,58,base);                             // body
+  blk(-42,88,84,12,hi);                               // chest top
+  blk(-62,52,20,46,sh); blk(42,52,20,46,sh);          // arms
+  blk(-66,34,24,20,base); blk(42,34,24,20,base);      // fists
+  blk(-70,92,30,18,hi); blk(40,92,30,18,hi);          // shoulders
+  blk(-26,104,52,44,base);                            // head
+  // face
+  c.fillStyle='#fff';c.fillRect(x-17,y-136,12,11);c.fillRect(x+5,y-136,12,11);
+  c.fillStyle='#111';c.fillRect(x-13,y-133,6,7);c.fillRect(x+9,y-133,6,7);
+  c.fillStyle=o;c.fillRect(x-19,y-141,15,3);c.fillRect(x+4,y-141,15,3);c.fillRect(x-8,y-118,16,3);
+  // studs
+  c.fillStyle='rgba(255,255,255,.08)';
+  for(let i=0;i<5;i++)for(let j=0;j<3;j++)c.fillRect(x-36+i*16,y-92+j*16,8,6);
+  // gem
+  c.save();c.translate(x,y-70);c.rotate(Math.PI/4);c.fillStyle='#4fd6ef';c.fillRect(-8,-8,16,16);c.strokeStyle='#1d6f86';c.lineWidth=2;c.strokeRect(-8,-8,16,16);c.restore();
+}
+function shadow(c){c.fillStyle='rgba(0,0,0,.45)';c.beginPath();c.ellipse(CX,FY+2,70,70*P,0,0,TAU);c.fill()}
+function bg(c,tint){
+  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#10131b');g.addColorStop(1,'#07080c');c.fillStyle=g;c.fillRect(0,0,W,H);
+  c.fillStyle='#141823';c.beginPath();c.ellipse(CX,FY+6,150,58,0,0,TAU);c.fill();
+}
+
+/* ---------- primitives ---------- */
+function floor(c,fn){c.save();c.translate(CX,FY);c.scale(1,P);fn(c);c.restore()}
+function ring(c,r,lw,col){c.lineWidth=lw;c.strokeStyle=col;c.beginPath();c.arc(0,0,r,0,TAU);c.stroke()}
+function poly(c,n,r,rot=0,step=1){c.beginPath();for(let k=0;k<=n;k++){const a=rot+k*step*TAU/n;k?c.lineTo(Math.cos(a)*r,Math.sin(a)*r):c.moveTo(Math.cos(a)*r,Math.sin(a)*r)}c.closePath()}
+function glyph(c,id,s){
+  const g=[[-1,-1],[0,-1],[1,-1],[-1,0],[0,0],[1,0],[-1,1],[0,1],[1,1]];
+  c.beginPath();c.moveTo(0,-s);c.lineTo(0,s);
+  for(let k=0;k<3;k++){const a=g[Math.floor(rnd(id,k)*9)],b=g[Math.floor(rnd(id,k+5)*9)];if(a===b)continue;c.moveTo(a[0]*s*.6,a[1]*s);c.lineTo(b[0]*s*.6,b[1]*s)}
+  c.stroke();
+}
+function star4(c,x,y,r,col,rot=0,edge){
+  c.save();c.translate(x,y);c.rotate(rot);c.beginPath();
+  for(let k=0;k<8;k++){const a=k*TAU/8, rr=k%2?r*.22:r;c.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)}
+  c.closePath();c.fillStyle=col;c.fill();if(edge){c.lineWidth=1.2;c.strokeStyle=edge;c.stroke()}
+  c.fillStyle='#fff';c.beginPath();c.arc(0,0,r*.16,0,TAU);c.fill();c.restore();
+}
+function star5(c,x,y,r,col,rot=0,edge){
+  c.save();c.translate(x,y);c.rotate(rot);c.beginPath();
+  for(let k=0;k<10;k++){const a=-Math.PI/2+k*TAU/10, rr=k%2?r*.45:r;c.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)}
+  c.closePath();c.fillStyle=col;c.fill();if(edge){c.lineWidth=1.5;c.strokeStyle=edge;c.stroke()}c.restore();
+}
+function shard(c,x,y,s,cols,rot=0){
+  c.save();c.translate(x,y);c.rotate(rot);
+  const T=[0,-s*1.4],B=[0,s*1.1],L=[-s*.62,-s*.15],R=[s*.62,-s*.15],M=[s*.05,-s*.15];
+  const tri=(a,b,d,f)=>{c.beginPath();c.moveTo(...a);c.lineTo(...b);c.lineTo(...d);c.closePath();c.fillStyle=f;c.fill()};
+  tri(T,L,M,cols[0]);tri(T,M,R,cols[1]);tri(L,B,M,cols[2]);tri(M,B,R,cols[3]);
+  c.beginPath();c.moveTo(...T);c.lineTo(...L);c.lineTo(...B);c.lineTo(...R);c.closePath();c.lineWidth=1.3;c.strokeStyle='#eaffff';c.stroke();c.restore();
+}
+function orb(c,x,y,r,core,edge){c.fillStyle=edge;c.beginPath();c.arc(x,y,r,0,TAU);c.fill();c.fillStyle=core;c.beginPath();c.arc(x,y,r*.62,0,TAU);c.fill()}
+function flameShape(c,x,y,w,h,sway){
+  c.beginPath();c.moveTo(x-w,y);
+  c.quadraticCurveTo(x-w*1.15,y-h*.5,x+sway,y-h);
+  c.quadraticCurveTo(x+w*.25,y-h*.62,x+w*.45,y-h*.55);
+  c.quadraticCurveTo(x+w*1.1,y-h*.3,x+w,y);
+  c.quadraticCurveTo(x,y+w*.45,x-w,y);c.closePath();
+}
+/* layer-aware 3D helpers: s=sin(angle) >0 means in front of golem */
+const inLayer=(L,s)=>(L==='front')?s>0:s<=0;
+function flames(c,t,L,o){
+  const arr=[];
+  for(let i=0;i<o.n;i++){const a=i/o.n*TAU+t*(o.spin||.25);const s=Math.sin(a);if(!inLayer(L,s))continue;arr.push([s,i,a])}
+  arr.sort((p,q)=>p[0]-q[0]);
+  for(const [s,i,a] of arr){
+    const x=CX+Math.cos(a)*o.R, y=FY+s*o.R*P;
+    const ph=(t*(o.speed||1.4)+rnd(i))%1;
+    const h=o.h*(.55+.45*Math.sin(ph*Math.PI))*(.75+.5*rnd(i,3))*(1+.12*s);
+    const w=o.w*(1+.1*s), sw=Math.sin(t*3.1+i*1.7)*w*.5;
+    const cols=typeof o.cols==='function'?o.cols(t,i):o.cols;
+    flameShape(c,x,y,w,h,sw);c.fillStyle=cols[0];c.fill();
+    if(o.edge){c.lineWidth=o.edgeW||2;c.strokeStyle=o.edge;c.stroke()}
+    flameShape(c,x,y-1,w*.5,h*.58,sw*.6);c.fillStyle=cols[1];c.fill();
+  }
+}
+function embers(c,t,L,o){
+  for(let i=0;i<o.n;i++){
+    const a=rnd(i,2)*TAU, s=Math.sin(a); if(!inLayer(L,s))continue;
+    const p=(t*o.speed*(.7+.6*rnd(i))+rnd(i,1))%1, r=o.R*(.45+.55*rnd(i,3));
+    const x=CX+Math.cos(a)*r+Math.sin(p*6+i)*5, y=FY+s*r*P-(o.y0||0)-p*o.rise;
+    const al=p<.12?p/.12:1-(p-.12)/.88, sz=o.size*(1-p*.5);
+    c.save();c.translate(x,y);c.rotate(o.noRot?0:p*4+i);c.globalAlpha=al;
+    if(o.draw)o.draw(c,sz,i,p);else{c.fillStyle=o.col;c.fillRect(-sz/2,-sz/2,sz,sz);c.lineWidth=1;c.strokeStyle=o.edge;c.strokeRect(-sz/2,-sz/2,sz,sz)}
+    c.restore();
+  }
+  c.globalAlpha=1;
+}
+function twinkles(c,t,L,o){
+  for(let i=0;i<o.n;i++){
+    const a=rnd(i,4)*TAU, s=Math.sin(a); if(!inLayer(L,s))continue;
+    const p=(t*o.speed+rnd(i,5))%1, k=Math.sin(p*Math.PI);
+    const r=o.R*(.7+.3*rnd(i,6)), x=CX+Math.cos(a)*r, y=FY+s*r*P-(o.h0+rnd(i,7)*(o.h1-o.h0))-p*12;
+    (o.draw||((c,x,y,sz,i)=>star4(c,x,y,sz,o.col,0,o.edge)))(c,x,y,o.size*k,i,t);
+  }
+}
+function orbit(c,t,L,o){
+  const pos=(a,ph)=>{let h=o.h;if(o.climb)h=o.h+o.climb*ph;const R=o.R*(o.shrink?1-.35*ph:1);return[CX+Math.cos(a)*R,FY-h+Math.sin(a)*R*P-Math.cos(a)*R*(o.tilt||0),Math.sin(a)]};
+  for(let i=0;i<o.n;i++){
+    let a,ph=0;
+    if(o.climb){ph=(t*o.speed+i/o.n)%1;a=ph*TAU*(o.turns||1.5)+i*TAU/o.n}else a=t*o.w+i*TAU/o.n+(o.phase||0);
+    const [x,y,s]=pos(a,ph); if(!inLayer(L,s))continue;
+    const fade=o.climb?Math.min(1,Math.sin(ph*Math.PI)*2.5):1;
+    if(o.trail){
+      const seg=o.trailN||14, da=(o.climb?TAU*(o.turns||1.5)*.012:o.w*.035)*Math.sign(o.w||1);
+      let px=x,py=y;
+      for(let k=1;k<=seg;k++){
+        const pph=o.climb?ph-k*.012:0;if(pph<0)break;
+        const [qx,qy]=pos(a-da*k,pph);
+        c.strokeStyle=typeof o.trail==='function'?o.trail(t,i,k):o.trail;c.globalAlpha=fade*(1-k/seg)*.9;
+        c.lineWidth=o.trailW*(1-k/seg)+.5;c.lineCap='round';c.beginPath();c.moveTo(px,py);c.lineTo(qx,qy);c.stroke();px=qx;py=qy;
+      }
+      c.globalAlpha=1;
+    }
+    c.globalAlpha=fade;o.draw(c,x,y,o.size*(1+.18*s),i,t);c.globalAlpha=1;
+  }
+}
+function burst(c,t,o){
+  const per=o.period, k=Math.floor(t/per), q=(t%per)/per/(o.len||.45); if(q>1)return;
+  for(let i=0;i<o.n;i++){
+    const a=i/o.n*TAU+k*1.3+rnd(i,k)*.3, d=o.dist*(1-Math.pow(1-q,3))*(.8+.4*rnd(i,k+2));
+    const x=CX+Math.cos(a)*d, y=FY-o.cy+Math.sin(a)*d*.75;
+    c.globalAlpha=1-q*q;o.draw(c,x,y,o.size*(1-q*.7),i,a);
+  }
+  c.globalAlpha=1;
+}
+function rays(c,t,o){
+  c.save();c.translate(CX,FY-o.cy);
+  for(let i=0;i<o.n;i++){
+    const a=-Math.PI/2+(i-(o.n-1)/2)*(o.spread/(o.n-1))+Math.sin(t*.6+i)*.05;
+    const len=o.len*(.75+.25*Math.sin(t*1.7+i*2.1));
+    c.save();c.rotate(a);const g=c.createLinearGradient(0,0,len,0);g.addColorStop(0,rgba(o.col,o.alpha));g.addColorStop(1,rgba(o.col,0));
+    c.fillStyle=g;c.beginPath();c.moveTo(0,-2);c.lineTo(len,-o.w);c.lineTo(len,o.w);c.lineTo(0,2);c.closePath();c.fill();c.restore();
+  }
+  c.restore();
+}
+function shock(c,t,o){
+  const q=(t%o.period)/o.period/(o.len||.35);if(q>1)return;
+  floor(c,c=>{setGlow(c,o.glow||o.col,10);c.globalAlpha=1-q;ring(c,o.r0+(o.r1-o.r0)*q,o.lw*(1-q*.6),o.col);c.globalAlpha=1;noGlow(c)});
+}
+function lightning(c,t,o){
+  const k=Math.floor(t/o.period), q=(t%o.period)/o.period; if(!(q<.06||(q>.1&&q<.14)))return;
+  for(let b=0;b<o.n;b++){
+    const sx=CX+(rnd(k,b)-.5)*200, sy=FY-215-rnd(k,b+3)*25, ex=CX+(rnd(k,b+6)-.5)*70, ey=FY-95+rnd(k,b+9)*40;
+    const pts=[[sx,sy]];for(let s=1;s<7;s++){const f=s/7;pts.push([sx+(ex-sx)*f+(rnd(k*7+s,b)-.5)*30,sy+(ey-sy)*f])}pts.push([ex,ey]);
+    for(const [lw,col,gl] of [[4,o.col,16],[1.4,'#ffffff',0]]){setGlow(c,o.glow||o.col,gl);c.lineWidth=lw;c.strokeStyle=col;c.lineJoin='miter';c.beginPath();pts.forEach((p,i)=>i?c.lineTo(...p):c.moveTo(...p));c.stroke()}
+    noGlow(c);
+  }
+}
+
+/* ---------- floor seals (circles) ---------- */
+function runeSeal(c,t,o){ // the liked Void circle
+  floor(c,c=>{
+    const R=o.R;setGlow(c,o.glow,o.gb||14);c.save();c.rotate(t*o.spin);
+    ring(c,R,3.2,o.c1);ring(c,R*.8,1.6,o.c1);
+    c.lineWidth=1.7;c.strokeStyle=o.c2;
+    for(let i=0;i<(o.glyphs||14);i++){const a=i/(o.glyphs||14)*TAU;c.save();c.rotate(a);c.translate(R*.9,0);c.rotate(Math.PI/2);glyph(c,i+(o.seed||0),R*.055);c.restore()}
+    c.lineWidth=1.5;c.strokeStyle=o.c1;for(let i=0;i<24;i++){const a=i/24*TAU;c.beginPath();c.moveTo(Math.cos(a)*R*1.03,Math.sin(a)*R*1.03);c.lineTo(Math.cos(a)*R*1.1,Math.sin(a)*R*1.1);c.stroke()}
+    c.restore();c.save();c.rotate(-t*o.spin*1.6);
+    c.lineWidth=2.2;c.strokeStyle=o.c1;poly(c,3,R*.78,-Math.PI/2);c.stroke();poly(c,3,R*.4,Math.PI/2);c.stroke();ring(c,R*.4,1.2,o.c2);
+    c.restore();ring(c,R*.1,2,o.c2);noGlow(c);
+  });
+}
+function gearSeal(c,t,o){ // Bronze
+  floor(c,c=>{const R=o.R;setGlow(c,o.glow,10);c.save();c.rotate(t*o.spin);ring(c,R,3,o.c1);ring(c,R*.84,1.4,o.c2);
+    c.fillStyle=o.c1;for(let i=0;i<12;i++){c.save();c.rotate(i/12*TAU);c.fillRect(R,-R*.05,R*.1,R*.1);c.restore()}
+    c.restore();noGlow(c)});
+}
+function silverSeal(c,t,o){
+  floor(c,c=>{const R=o.R;setGlow(c,o.glow,12);c.save();c.rotate(t*o.spin);ring(c,R,2.6,o.c1);
+    c.setLineDash([10,7]);ring(c,R*.84,1.6,o.c2);c.setLineDash([]);
+    for(let i=0;i<4;i++){c.save();c.rotate(i/4*TAU);c.translate(R,0);c.rotate(Math.PI/4);c.fillStyle=o.c1;c.fillRect(-6,-6,12,12);c.restore()}
+    c.restore();c.save();c.rotate(-t*o.spin*1.4);c.lineWidth=1.4;c.strokeStyle=o.c2;poly(c,4,R*.62,0);c.stroke();poly(c,4,R*.62,Math.PI/4);c.stroke();c.restore();noGlow(c)});
+}
+function solarSeal(c,t,o){ // Gold
+  floor(c,c=>{const R=o.R;setGlow(c,o.glow,14);c.save();c.rotate(t*o.spin);
+    c.fillStyle=o.c1;for(let i=0;i<16;i++){const a=i/16*TAU,l=i%2?R*.22:R*.36;c.beginPath();c.moveTo(Math.cos(a-.07)*R*1.02,Math.sin(a-.07)*R*1.02);c.lineTo(Math.cos(a)*(R+l),Math.sin(a)*(R+l));c.lineTo(Math.cos(a+.07)*R*1.02,Math.sin(a+.07)*R*1.02);c.closePath();c.fill()}
+    ring(c,R,3.4,o.c1);ring(c,R*.82,1.5,o.c2);
+    c.fillStyle=o.c2;for(let i=0;i<20;i++){const a=i/20*TAU;c.beginPath();c.arc(Math.cos(a)*R*.91,Math.sin(a)*R*.91,R*.025,0,TAU);c.fill()}
+    c.restore();c.save();c.rotate(-t*o.spin*1.5);c.lineWidth=2;c.strokeStyle=o.c1;poly(c,8,R*.62,0,3);c.stroke();c.restore();noGlow(c)});
+}
+function hexSeal(c,t,o){ // Diamond
+  floor(c,c=>{const R=o.R;setGlow(c,o.glow,14);c.save();c.rotate(t*o.spin);
+    c.lineWidth=3;c.strokeStyle=o.c1;poly(c,6,R,0);c.stroke();ring(c,R*.86,1.4,o.c2);
+    for(let i=0;i<6;i++){const a=i/6*TAU;c.save();c.translate(Math.cos(a)*R,Math.sin(a)*R);c.rotate(a);c.fillStyle=o.c2;c.beginPath();c.moveTo(-9,0);c.lineTo(0,-5);c.lineTo(9,0);c.lineTo(0,5);c.closePath();c.fill();c.restore()}
+    c.restore();c.save();c.rotate(-t*o.spin*1.3);c.lineWidth=2;c.strokeStyle=o.c1;poly(c,3,R*.74,0);c.stroke();poly(c,3,R*.74,Math.PI);c.stroke();c.lineWidth=1.2;c.strokeStyle=o.c2;poly(c,6,R*.36,Math.PI/6);c.stroke();c.restore();noGlow(c)});
+}
+function rainbowSeal(c,t,o){
+  floor(c,c=>{const R=o.R;c.save();c.rotate(t*o.spin);
+    for(let i=0;i<7;i++){const col=hue(i*51+t*90);setGlow(c,col,12);c.lineWidth=4;c.strokeStyle=col;c.beginPath();c.arc(0,0,R,i/7*TAU+.04,(i+1)/7*TAU-.04);c.stroke()}
+    c.restore();c.save();c.rotate(-t*o.spin*1.4);
+    for(let k=0;k<7;k++){const a1=k*3/7*TAU,a2=(k+1)*3/7*TAU,col=hue(k*51+t*90+180);setGlow(c,col,10);c.lineWidth=2;c.strokeStyle=col;c.beginPath();c.moveTo(Math.cos(a1)*R*.8,Math.sin(a1)*R*.8);c.lineTo(Math.cos(a2)*R*.8,Math.sin(a2)*R*.8);c.stroke()}
+    c.restore();setGlow(c,'#fff',8);ring(c,R*.86,1.2,'rgba(255,255,255,.8)');noGlow(c)});
+}
+function secretSeal(c,t,o){
+  floor(c,c=>{const R=o.R;
+    c.save();c.rotate(t*o.spin);c.lineWidth=R*.13;c.strokeStyle='#0c0d10';c.beginPath();c.arc(0,0,R*.91,0,TAU);c.stroke();
+    setGlow(c,'#ffffff',14);ring(c,R*1.0,2.6,'#ffffff');ring(c,R*.83,1.6,'#ffffff');
+    c.lineWidth=1.6;c.strokeStyle='#e6e9ed';for(let i=0;i<18;i++){c.save();c.rotate(i/18*TAU);c.translate(R*.915,0);c.rotate(Math.PI/2);glyph(c,i+40,R*.045);c.restore()}
+    c.restore();
+    c.save();c.rotate(-t*o.spin*1.5);setGlow(c,'#ffffff',12);c.lineWidth=2.2;c.strokeStyle='#ffffff';poly(c,8,R*.72,0,3);c.stroke();
+    for(let i=0;i<8;i++){const a=i/8*TAU;c.save();c.translate(Math.cos(a)*R*.72,Math.sin(a)*R*.72);c.scale(1,1/P*.5);star4(c,0,0,10,'#ffffff');c.restore()}
+    c.restore();c.lineWidth=R*.06;c.strokeStyle='#0c0d10';c.beginPath();c.arc(0,0,R*.36,0,TAU);c.stroke();setGlow(c,'#fff',8);ring(c,R*.4,1.2,'#c9ced4');ring(c,R*.32,1.2,'#c9ced4');noGlow(c)});
+}
+
+/* ---------- cards ---------- */
+const MUTS=[
+ {k:'Bronze',col:'#e0874a',cards:[
+  {v:'A',name:'Мідна шестерня + жарини',desc:'Повільно обертове коло-шестерня на підлозі, мідні квадратні жарини здіймаються навколо тіла, дрібні зірочки-іскри.',
+   rbx:'Коло: ParticleEmitter на Attachment під ногами, 1 частинка (Rate 0.5, Lifetime 4, Orientation VelocityPerpendicular, RotSpeed 25, LockedToPart) з текстурою шестерні. Жарини: квадрат, Shape Cylinder Volume, Acceleration +Y, RotSpeed ±90. Іскри: 4-променева зірка, Rate 3.',
+   f:(c,t,L)=>{if(L==='floor')gearSeal(c,t,{R:106,spin:.35,c1:'#e0874a',c2:'#ffc08a',glow:'#ff8a3a'});
+     embers(c,t,L,{n:22,R:80,rise:150,size:8,speed:.32,col:'#ff9a55',edge:'#ffd2a8'});
+     twinkles(c,t,L,{n:6,R:75,h0:30,h1:140,size:8,speed:.7,col:'#ffc08a',edge:'#8f4a1f'})}},
+  {v:'B',name:'Лише жарини',desc:'Без кола: густіші мідні квадратики, що крутяться й злітають від ніг.',
+   rbx:'1 ParticleEmitter, текстура квадрат-жарина, Shape Disc Volume під ногами, Speed 2–4 угору, Rotation 0–90, RotSpeed ±120, Size 0.5→0.2.',
+   f:(c,t,L)=>embers(c,t,L,{n:32,R:85,rise:170,size:9,speed:.36,col:'#ff9a55',edge:'#ffd2a8'})},
+  {v:'C',name:'Лише шестерня',desc:'Одне чітке мідне коло з зубцями, що обертається; пульс-кільце раз на 2 с.',
+   rbx:'Коло — частинка VelocityPerpendicular (або Decal на прозорій плиті, яку крутить клієнт). Пульс — частинка-кільце, Size 2→7, Transparency 0→1.',
+   f:(c,t,L)=>{if(L==='floor'){gearSeal(c,t,{R:106,spin:.4,c1:'#e0874a',c2:'#ffc08a',glow:'#ff8a3a'});}if(L==='front')shock(c,t,{period:2,r0:60,r1:130,lw:3,col:'#ffb070'})}},
+ ]},
+ {k:'Silver',col:'#d6dde4',cards:[
+  {v:'A',name:'Срібна печатка + спіраль зірочок',desc:'Подвійне срібне коло з пунктиром; блискітки-зірочки зі шлейфом піднімаються спіраллю навколо тіла.',
+   rbx:'Коло — частинка VelocityPerpendicular. Спіраль: 2–3 Attachment, які клієнт водить по гвинту (cos/sin + підйом), на кожному Trail (Lifetime 0.3, WidthScale 1→0) + ParticleEmitter зірочки Rate 4.',
+   f:(c,t,L)=>{if(L==='floor')silverSeal(c,t,{R:103,spin:.3,c1:'#e8edf2',c2:'#9aa6b2',glow:'#cfe3ff'});
+     orbit(c,t,L,{n:4,R:80,h:10,climb:150,speed:.28,turns:1.6,shrink:1,trail:'#dfe6ee',trailW:3.5,size:13,draw:(c,x,y,s)=>star4(c,x,y,s,'#ffffff',0,'#7d8794')})}},
+  {v:'B',name:'Дві зірки на гвинті',desc:'Лише дві яскраві срібні зірки, що крутяться по спіралі зі шлейфом.',
+   rbx:'2 Attachment по гвинту + Trail; ParticleEmitter не потрібен (зірка — Billboard ImageLabel або частинка Rate 0 з Emit на старті з LockedToPart).',
+   f:(c,t,L)=>orbit(c,t,L,{n:2,R:80,h:0,climb:160,speed:.3,turns:2,trail:'#e8edf2',trailW:4.5,trailN:18,size:16,draw:(c,x,y,s)=>star4(c,x,y,s,'#ffffff',0,'#7d8794')})},
+  {v:'C',name:'Коло + мерехтіння',desc:'Срібне коло й чіткі зірочки, що спалахують навколо тіла.',
+   rbx:'Коло — частинка VelocityPerpendicular. Зірочки: ParticleEmitter Shape Cylinder Surface, Speed 0, Size 0→0.6→0, Lifetime 0.8.',
+   f:(c,t,L)=>{if(L==='floor')silverSeal(c,t,{R:103,spin:.3,c1:'#e8edf2',c2:'#9aa6b2',glow:'#cfe3ff'});twinkles(c,t,L,{n:10,R:80,h0:20,h1:150,size:14,speed:.9,col:'#ffffff',edge:'#7d8794'})}},
+ ]},
+ {k:'Gold',col:'#ffd23a',cards:[
+  {v:'A',name:'Сонячна печатка + полум\'я',desc:'Сонячне коло з променями на підлозі, стилізовані золоті язики полум\'я навколо ніг, промені світла за спиною, вибух зірочок.',
+   rbx:'Коло — частинка VelocityPerpendicular (текстура сонця). Полум\'я: текстура язика з чіткими краями, Shape Cylinder Surface, Orientation FacingCameraWorldUp, Size 1.5→0.3, Acceleration +Y. Промені — 5 Beam з градієнтною текстурою від Attachment за спиною. Вибух — Emit(10) зірочок раз на 1.5 с.',
+   f:(c,t,L)=>{if(L==='floor')solarSeal(c,t,{R:101,spin:.25,c1:'#ffd23a',c2:'#fff3a8',glow:'#ffbf00'});
+     if(L==='back')rays(c,t,{n:7,spread:1.9,len:150,w:9,cy:95,col:'ffd23a',alpha:.35});
+     flames(c,t,L,{n:12,R:66,h:58,w:12,cols:['#ffb81f','#fff3a8']});
+     if(L==='front')burst(c,t,{period:1.6,n:10,dist:110,cy:95,size:10,draw:(c,x,y,s)=>star4(c,x,y,s,'#fff3a8',0,'#b8860b')})}},
+  {v:'B',name:'Сонце + іскри',desc:'Сонячне коло і золоті зірочки, що злітають угору.',
+   rbx:'Коло — частинка VelocityPerpendicular. Іскри: зірочка, Shape Disc, Speed 3–5 угору, Drag 1, Lifetime 1.2.',
+   f:(c,t,L)=>{if(L==='floor')solarSeal(c,t,{R:101,spin:.25,c1:'#ffd23a',c2:'#fff3a8',glow:'#ffbf00'});embers(c,t,L,{n:16,R:80,rise:160,size:9,speed:.4,draw:(c,s)=>star4(c,0,0,s,'#ffe066',0,'#b8860b')})}},
+  {v:'C',name:'Корона полум\'я',desc:'Лише кільце стилізованих золотих язиків навколо ніг.',
+   rbx:'1 ParticleEmitter: текстура язика, Shape Cylinder Surface (радіус тіла), FacingCameraWorldUp, Rate 25, Lifetime 0.8.',
+   f:(c,t,L)=>flames(c,t,L,{n:14,R:68,h:64,w:12,cols:['#ffb81f','#fff3a8']})},
+ ]},
+ {k:'Diamond',col:'#6fe8ff',cards:[
+  {v:'A',name:'Кристалічна печатка + орбіти',desc:'Шестикутне коло з гексаграмою; огранені кристали кружляють двома зустрічними орбітами, крижані зірочки.',
+   rbx:'Коло — частинка VelocityPerpendicular. Орбіти: невидима деталь, яку клієнт обертає; кристали — ParticleEmitter з LockedToPart (обертаються разом) або 6 Attachment з BillboardGui кристала. Зірочки — Emit раз на 1.2 с.',
+   f:(c,t,L)=>{if(L==='floor')hexSeal(c,t,{R:106,spin:.3,c1:'#6fe8ff',c2:'#e6fdff',glow:'#3fd0ff'});
+     const sc=['#e6fdff','#8ff0ff','#3fa9ff','#2f6fd8'];
+     orbit(c,t,L,{n:5,R:86,h:70,w:1.3,tilt:.08,size:11,draw:(c,x,y,s,i)=>shard(c,x,y,s,sc,Math.sin(t*2+i)*.2)});
+     orbit(c,t,L,{n:4,R:62,h:125,w:-1.8,size:8,draw:(c,x,y,s,i)=>shard(c,x,y,s,sc,Math.sin(t*2+i)*.2)});
+     if(L==='front')twinkles(c,t,L,{n:6,R:70,h0:40,h1:150,size:9,speed:1,col:'#e6fdff',edge:'#2f8fe8'})}},
+  {v:'B',name:'Лише кристали на орбіті',desc:'Одна орбіта великих кристалів зі слідом.',
+   rbx:'Деталь, що обертається, + ParticleEmitter (LockedToPart, Speed 0, Lifetime 3) — або Attachment-и з Trail.',
+   f:(c,t,L)=>orbit(c,t,L,{n:6,R:84,h:80,w:1.5,tilt:.1,size:13,trail:'#8ff0ff',trailW:3,draw:(c,x,y,s,i)=>shard(c,x,y,s,['#e6fdff','#8ff0ff','#3fa9ff','#2f6fd8'],0)})},
+  {v:'C',name:'Шестикутник + кристали вгору',desc:'Шестикутне коло; маленькі кристали повільно піднімаються.',
+   rbx:'Коло — частинка VelocityPerpendicular. Кристали: ParticleEmitter Shape Disc, Speed 2 угору, FacingCameraWorldUp.',
+   f:(c,t,L)=>{if(L==='floor')hexSeal(c,t,{R:106,spin:.3,c1:'#6fe8ff',c2:'#e6fdff',glow:'#3fd0ff'});embers(c,t,L,{n:12,R:80,rise:160,size:13,speed:.3,noRot:1,draw:(c,s)=>{shard(c,0,0,s,['#e6fdff','#8ff0ff','#3fa9ff','#2f6fd8'])}})}},
+ ]},
+ {k:'Void',col:'#a24bff',cards:[
+  {v:'A',name:'Рунічне коло + темне полум\'я',desc:'Те саме рунічне коло (сподобалось), темно-фіолетові язики з світлим серцем, руни здіймаються, фіолетові кулі на орбіті зі шлейфом.',
+   rbx:'Коло — частинка VelocityPerpendicular з текстурою рун (зовнішнє й внутрішнє — дві частинки з різним RotSpeed). Полум\'я: текстура язика, Color 3d1478→a24bff, LightEmission 0.3. Руни: ParticleEmitter Speed 1.5 угору. Кулі: 3 Attachment по колу + Trail.',
+   f:(c,t,L)=>{if(L==='floor')runeSeal(c,t,{R:108,spin:.3,c1:'#b66bff',c2:'#e2b8ff',glow:'#a24bff'});
+     flames(c,t,L,{n:12,R:64,h:52,w:12,cols:['#4a189a','#c27bff'],edge:'#a24bff',edgeW:1.5});
+     embers(c,t,L,{n:7,R:80,rise:170,y0:20,size:16,speed:.22,noRot:1,draw:(c,s,i)=>{setGlow(c,'#a24bff',10);c.lineWidth=1.8;c.strokeStyle='#e2b8ff';glyph(c,i+3,s*.8);noGlow(c)}});
+     orbit(c,t,L,{n:3,R:84,h:95,w:1.6,tilt:.12,size:6,trail:'#b66bff',trailW:3,draw:(c,x,y,s)=>orb(c,x,y,s,'#ffffff','#b66bff')})}},
+  {v:'B',name:'Коло + руни вгору',desc:'Рунічне коло і світні руни-символи, що пливуть угору.',
+   rbx:'Коло — частинка VelocityPerpendicular. Руни: ParticleEmitter з атласом символів (Flipbook Grid 2×2, Random), Speed 1–2, Lifetime 2.',
+   f:(c,t,L)=>{if(L==='floor')runeSeal(c,t,{R:108,spin:.3,c1:'#b66bff',c2:'#e2b8ff',glow:'#a24bff'});
+     embers(c,t,L,{n:10,R:80,rise:180,y0:10,size:18,speed:.22,noRot:1,draw:(c,s,i)=>{setGlow(c,'#a24bff',10);c.lineWidth=2;c.strokeStyle='#e2b8ff';glyph(c,i+3,s*.8);noGlow(c)}})}},
+  {v:'C',name:'Подвійне рунічне коло',desc:'Лише коло: два шари рун, що крутяться назустріч.',
+   rbx:'2 частинки VelocityPerpendicular (різний розмір, RotSpeed +20 / −30).',
+   f:(c,t,L)=>{if(L==='floor'){runeSeal(c,t,{R:110,spin:.3,c1:'#b66bff',c2:'#e2b8ff',glow:'#a24bff'});runeSeal(c,t,{R:67,spin:-.5,c1:'#e2b8ff',c2:'#c27bff',glow:'#a24bff',glyphs:10,seed:20})}}},
+ ]},
+ {k:'Rainbow',col:'#ff6ad5',cards:[
+  {v:'A',name:'Призма + зоряна орбіта',desc:'Коло з веселкових сегментів і 7-кутною зіркою, кольоровий вогонь, що переливається, зірки на орбіті з веселковим шлейфом, вибух зірок.',
+   rbx:'Коло — частинка VelocityPerpendicular, Color з клієнта (перелив). Вогонь — текстура язика, ColorSequence веселки, яку клієнт зсуває. Орбіта — 4 Attachment + Trail з ColorSequence. Вибух — Emit(8) зірок.',
+   f:(c,t,L)=>{if(L==='floor')rainbowSeal(c,t,{R:106,spin:.35});
+     flames(c,t,L,{n:12,R:64,h:52,w:11,cols:(t,i)=>[hue(i*30+t*120,1,55),hue(i*30+t*120,1,85)]});
+     orbit(c,t,L,{n:4,R:86,h:100,w:1.7,tilt:.12,size:9,trail:(t,i,k)=>hue(i*90+k*14+t*120),trailW:4,draw:(c,x,y,s,i,t)=>star5(c,x,y,s,hue(i*90+t*120,1,62),t*2,'#ffffff')});
+     if(L==='front')burst(c,t,{period:1.8,n:8,dist:110,cy:95,size:10,draw:(c,x,y,s,i)=>star5(c,x,y,s,hue(i*45+t*120,1,62),0,'#fff')})}},
+  {v:'B',name:'Призма + орбіта',desc:'Веселкове коло і зірки на орбіті зі шлейфом.',
+   rbx:'Коло — частинка VelocityPerpendicular; 4 Attachment по колу + Trail з веселковою ColorSequence.',
+   f:(c,t,L)=>{if(L==='floor')rainbowSeal(c,t,{R:106,spin:.35});orbit(c,t,L,{n:4,R:86,h:90,w:1.7,tilt:.12,size:10,trail:(t,i,k)=>hue(i*90+k*14+t*120),trailW:4,draw:(c,x,y,s,i,t)=>star5(c,x,y,s,hue(i*90+t*120,1,62),t*2,'#ffffff')})}},
+  {v:'C',name:'Зоряний дощ',desc:'Різнокольорові зірки з білим контуром повільно злітають.',
+   rbx:'1 ParticleEmitter: текстура зірки з контуром, Color — веселка за часом життя, Speed 2–3, RotSpeed ±90.',
+   f:(c,t,L)=>embers(c,t,L,{n:18,R:82,rise:170,size:16,speed:.3,draw:(c,s,i,p)=>star5(c,0,0,s,hue(i*40+p*200,1,60),0,'#ffffff')})},
+ ]},
+ {k:'Secret',col:'#ffffff',cards:[
+  {v:'A',name:'Чорно-біла печатка + блискавки',desc:'Подвійне коло: біле з рунами + чорна смуга + 8-кутна зірка з зірочками, графітове полум\'я з білим контуром, білі кулі на орбіті зі шлейфом, промені, вибух зірок і блискавки.',
+   rbx:'Коло — 2 частинки VelocityPerpendicular (зовнішня з рунами, внутрішня зірка, RotSpeed назустріч). Полум\'я: текстура язика «темне тіло + біла обводка», LightEmission 0. Кулі: 3 Attachment + Trail. Промені — Beam. Блискавки: Beam з текстурою блискавки між 2 Attachment, вмикається на 0.1 с. Вибух — Emit(12).',
+   f:(c,t,L)=>{if(L==='floor')secretSeal(c,t,{R:110,spin:.25});
+     if(L==='back')rays(c,t,{n:9,spread:2.3,len:165,w:7,cy:95,col:'ffffff',alpha:.22});
+     flames(c,t,L,{n:12,R:66,h:58,w:12,cols:['#1a1c21','#3a3e46'],edge:'#ffffff',edgeW:2});
+     orbit(c,t,L,{n:3,R:90,h:105,w:-1.9,tilt:.15,size:7,trail:'#ffffff',trailW:3,draw:(c,x,y,s)=>orb(c,x,y,s,'#ffffff','#8b919b')});
+     if(L==='front'){burst(c,t,{period:1.4,n:12,dist:120,cy:95,size:11,draw:(c,x,y,s)=>star5(c,x,y,s,'#ffffff',0,'#2a2c30')});lightning(c,t,{period:1.9,n:2,col:'#ffffff',glow:'#cfd8ff'})}}},
+  {v:'B',name:'Печатка + білі зорі',desc:'Чорно-біле коло, білі зірки на орбіті зі шлейфом, блискавки.',
+   rbx:'Коло — 2 частинки VelocityPerpendicular; 4 Attachment + Trail; блискавка — Beam на 0.1 с.',
+   f:(c,t,L)=>{if(L==='floor')secretSeal(c,t,{R:110,spin:.25});orbit(c,t,L,{n:4,R:88,h:95,w:-1.8,tilt:.12,size:10,trail:'#ffffff',trailW:3,draw:(c,x,y,s,i,t)=>star5(c,x,y,s,'#ffffff',t,'#2a2c30')});if(L==='front')lightning(c,t,{period:2.2,n:1,col:'#ffffff',glow:'#cfd8ff'})}},
+  {v:'C',name:'Печатка + зоряні спалахи',desc:'Подвійне чорно-біле коло і білі зірочки з чорним контуром навколо тіла.',
+   rbx:'Коло — 2 частинки VelocityPerpendicular; зірочки — ParticleEmitter Shape Cylinder Surface, Size 0→0.7→0.',
+   f:(c,t,L)=>{if(L==='floor')secretSeal(c,t,{R:110,spin:.25});twinkles(c,t,L,{n:12,R:82,h0:20,h1:160,size:15,speed:.9,col:'#ffffff',edge:'#1a1c21'})}},
+ ]},
+];
+
+const cards=[];
+const rowsEl=document.getElementById('rows');
+for(const m of MUTS){
+  const row=document.createElement('section');row.className='row';row.dataset.mut=m.k;
+  row.innerHTML=`<h2><span class="dot" style="background:${m.col}"></span>${m.k}</h2><div class="grid"></div>`;
+  const grid=row.querySelector('.grid');
+  for(const cd of m.cards){
+    const el=document.createElement('div');el.className='card';
+    el.innerHTML=`<canvas width="${W*2}" height="${H*2}"></canvas><div class="meta"><div class="t"><b>${cd.v}</b>${m.k} — ${cd.name}</div><div class="d">${cd.desc}</div><div class="r">Roblox: ${cd.rbx}</div></div>`;
+    grid.appendChild(el);
+    const cv=el.querySelector('canvas'),c=cv.getContext('2d');cards.push({c,cd});
+  }
+  rowsEl.appendChild(row);
+}
+function draw(t){
+  for(const {c,cd} of cards){
+    c.setTransform(2,0,0,2,0,0);noGlow(c);c.globalAlpha=1;bg(c);shadow(c);
+    cd.f(c,t,'floor');cd.f(c,t,'back');noGlow(c);golem(c);cd.f(c,t,'front');noGlow(c);
+  }
+}
+window.renderAt=t=>{window.__freeze=true;draw(t)};
+const t0=performance.now();
+(function loop(){if(!window.__freeze)draw((performance.now()-t0)/1000);requestAnimationFrame(loop)})();
+</script>
+</body>
+</html>

@@ -1,6 +1,10 @@
 -- Важіль станції ролу: E (RollPrompt на фронті пульта) -> відтяг до гравця -> постріл назад -> удар -> повернення.
 -- У момент удару стріляє BindableEvent "Pulled" (player, role) — сюди підключиться система ролу.
 -- role = атрибут гравця RollRole ("Miner" / "Carrier"), його ставить RollRoleService (картки на екрані станції).
+-- v3 (27.10.2026, ролли v1): тягнути може лише власник ніші (атрибут ніші OwnerUserId); після удару підказка
+-- вмикається, лише коли скінчиться анімація ролу на підставках (атрибут ніші RollBusyUntil = час сервера, ставить RollService).
+-- v4 (27.10.2026): RollPrompt.Exclusivity = OneGlobally (разом із RollBuyPrompt на тій самій E видно лише одну, найближчу);
+-- рол не стартує, якщо гравець щойно (0,4 с) купив голема (RollBuyT), і ставить ніші RollPullT (блок покупки на 0,6 с).
 -- Hinge — невидима опора (Anchored); палиця, муфта й руків'я приварені до неї. Шестерня збоку крутиться разом з ривком.
 local TS = game:GetService("TweenService")
 local lever  = script.Parent
@@ -26,9 +30,24 @@ local function step(deg, t, style, dir, gearDeg)
 	tw.Completed:Wait()
 end
 
+-- ніша, у якій стоїть важіль (модель у Workspace/Niches)
+local function nicheOf(): Instance?
+	local n: Instance? = model
+	while n and n.Parent and n.Parent.Name ~= "Niches" do n = n.Parent end
+	return n and n.Parent and n or nil
+end
+
 local busy = false
 prompt.Triggered:Connect(function(player)
 	if busy then return end
+	local niche = nicheOf()
+	if not niche or niche:GetAttribute("OwnerUserId") ~= player.UserId then return end -- лише власник
+	local untilT = niche:GetAttribute("RollBusyUntil")
+	if type(untilT) == "number" and workspace:GetServerTimeNow() < untilT then return end -- рол ще йде
+	-- одне натискання E — одна дія: щойно була покупка на підставці (RollService, атрибут гравця RollBuyT) — не ролимо
+	local buyT = player:GetAttribute("RollBuyT")
+	if type(buyT) == "number" and workspace:GetServerTimeNow() - buyT < 0.4 then return end
+	niche:SetAttribute("RollPullT", workspace:GetServerTimeNow()) -- RollService не дасть купити в цей момент
 	busy = true
 	prompt.Enabled = false
 	step( 44, 0.28, Enum.EasingStyle.Sine,   Enum.EasingDirection.InOut, 90)  -- відтяг до себе
@@ -42,6 +61,12 @@ prompt.Triggered:Connect(function(player)
 	step(-18, 0.12, Enum.EasingStyle.Quad,   Enum.EasingDirection.InOut, -36) -- осідання
 	task.wait(0.15)
 	step(  0, 0.60, Enum.EasingStyle.Back,   Enum.EasingDirection.Out,   0)   -- назад у спокій
-	prompt.Enabled = true -- потім: вмикати після анімації ролу
+	-- чекаємо кінця анімації ролу (RollService ставить RollBusyUntil у момент удару)
+	while true do
+		local t = niche:GetAttribute("RollBusyUntil")
+		if type(t) ~= "number" or workspace:GetServerTimeNow() >= t or not niche.Parent then break end
+		task.wait(0.05)
+	end
+	prompt.Enabled = true
 	busy = false
 end)

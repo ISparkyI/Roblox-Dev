@@ -38,6 +38,7 @@ local function camPos(): Vector3
 end
 
 local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("PlotConfig"))
+local Catalog = require(RS:WaitForChild("Shared"):WaitForChild("GolemCatalog")) -- ящичок носія за Kind (Catalog.box)
 local StyleA = require(RS:WaitForChild("Shared"):WaitForChild("StyleA"))
 local UIS = game:GetService("UserInputService")
 local PlotAction = RS:WaitForChild("Remotes"):WaitForChild("PlotAction") :: RemoteEvent
@@ -60,7 +61,7 @@ end
 -- візуал шматка руди на місці «якоря» (невидима деталь): Union потрібного типу, найбільший розмір = maxDim.
 -- Кешується на якорі; інший тип — заміна моделі; key = nil — ховається.
 local chunkVisOf: { [BasePart]: { key: string, part: BasePart } } = setmetatable({}, { __mode = "k" }) :: any
-local function chunkVis(anchor: BasePart, key: string?, maxDim: number, parent: Instance)
+local function chunkVis(anchor: BasePart, key: string?, maxDim: number, parent: Instance, jitter: boolean?)
 	local e = chunkVisOf[anchor]
 	if not key or not CHUNK_TPL[key] then
 		if e and e.part.Parent then e.part.Transparency = 1 end
@@ -74,11 +75,35 @@ local function chunkVis(anchor: BasePart, key: string?, maxDim: number, parent: 
 		u.Anchored = true; u.CanCollide = false; u.CanQuery = false; u.CanTouch = false
 		u.Name = "ChunkVis"
 		u.Parent = parent
-		e = { key = key, part = u }
+		-- jitter (ящичок носія): як у ящику плоту — випадковий поворот у всіх осях (±25° нахил, будь-який поворот навколо Y);
+		-- положення всередині ящичка підправляє fitInBox (шматок не вилазить за стінки й дно)
+		local off = if jitter then CFrame.Angles(math.rad(math.random(-25, 25)), math.rad(math.random(0, 359)), math.rad(math.random(-25, 25))) else CFrame.identity
+		e = { key = key, part = u, off = off }
 		chunkVisOf[anchor] = e
 	end
 	e.part.Transparency = 0
-	e.part.CFrame = anchor.CFrame
+	e.part.CFrame = anchor.CFrame * (e.off or CFrame.identity)
+end
+
+-- шматок у ящичку носія: зсуваємо всередину, щоб його повернута рамка (× 0,75 — Union круглий, не заповнює кути рамки) не виходила за внутрішній об'єм
+-- (атрибути ящичка InnerX / InnerZ / InnerY0 / InnerY1 — у координатах його півота)
+local function fitInBox(part: BasePart, box: Model)
+	local pv = box:GetPivot()
+	local r = pv:ToObjectSpace(part.CFrame)
+	local h = part.Size / 2 * 0.75
+	local X, Y, Z = r.XVector, r.YVector, r.ZVector
+	local hx = math.abs(X.X) * h.X + math.abs(Y.X) * h.Y + math.abs(Z.X) * h.Z
+	local hy = math.abs(X.Y) * h.X + math.abs(Y.Y) * h.Y + math.abs(Z.Y) * h.Z
+	local hz = math.abs(X.Z) * h.X + math.abs(Y.Z) * h.Y + math.abs(Z.Z) * h.Z
+	local ix = (box:GetAttribute("InnerX") :: number?) or 1.68
+	local iz = (box:GetAttribute("InnerZ") :: number?) or 0.83
+	local y0 = (box:GetAttribute("InnerY0") :: number?) or 0.23
+	local y1 = (box:GetAttribute("InnerY1") :: number?) or 2
+	local p = r.Position
+	local x = math.clamp(p.X, -ix + hx, math.max(-ix + hx, ix - hx))
+	local z = math.clamp(p.Z, -iz + hz, math.max(-iz + hz, iz - hz))
+	local y = math.clamp(p.Y, y0 + hy, math.max(y0 + hy, y1 - hy))
+	part.CFrame = pv * CFrame.new(x, y, z) * r.Rotation
 end
 
 -- ===================== големи =====================
@@ -99,7 +124,10 @@ local function refreshLoad(g: G)
 		if CHUNK_TPL[key or ""] then
 			-- нова модель руди на місці деталі Load (сама деталь — лише «якір»), рухається разом із ящичком
 			p.Transparency = 1
-			chunkVis(p, if show then key else nil, math.max(p.Size.X, p.Size.Y, p.Size.Z) * 1.15, g.box or p.Parent :: Instance)
+			-- шматок більший за крок гнізд (× 1,2): сусідні налазять, прогалин немає (як у ящику плоту)
+			chunkVis(p, if show then key else nil, math.max(p.Size.X, p.Size.Y, p.Size.Z) * 1.2, g.box or p.Parent :: Instance, true)
+			local e = chunkVisOf[p]
+			if show and e and e.part.Parent and g.box then fitInBox(e.part, g.box) end
 		elseif show then
 			p.Transparency = 0
 			p.Color = CHUNK_COLOR[key]
@@ -137,13 +165,26 @@ local function addGolem(m: Model)
 		g.yaw = math.atan2(-d.X, -d.Z)
 	end
 	if m:GetAttribute("Role") == "carrier" then
-		local box = ASSETS.CarryBox:Clone()
+		local boxSrc = ASSETS:FindFirstChild(Catalog.box(m:GetAttribute("Kind"))) or ASSETS.CarryBox
+		local box = boxSrc:Clone()
+		-- голем більшого розміру (GolemCatalog.size, сервер робить ScaleTo) — ящичок того ж масштабу (локальна копія, ScaleTo тут безпечний)
+		local k = m:GetScale()
+		if math.abs(k - box:GetScale()) > 1e-4 then box:ScaleTo(k) end
+		box.Name = "CarryBox" -- аніматор шукає ящичок саме під цим ім'ям
 		local off = box:GetAttribute("Offset")
 		g.boxOff = CFrame.new(typeof(off) == "Vector3" and off or Vector3.new(0, 3.1, -2.2))
 		for _, p in (box:FindFirstChild("Load") :: Folder):GetChildren() do
 			if p:IsA("BasePart") then table.insert(g.loadParts, p) end
 		end
 		table.sort(g.loadParts, function(a, b) return (tonumber(string.sub(a.Name, 2)) or 0) < (tonumber(string.sub(b.Name, 2)) or 0) end)
+		-- у ящичку видно максимум 10 шматків: гнізда L1–L10 — сітка 5 × 2 по всьому (піднятому) дну,
+		-- заповнюються у випадковому порядку (руда розкидана по всьому дну з першого шматка)
+		do
+			local lp = g.loadParts
+			while #lp > 10 do table.remove(lp) end
+			local function shuffle(a: number, b: number) for k = b, a + 1, -1 do local j = math.random(a, k); lp[k], lp[j] = lp[j], lp[k] end end
+			shuffle(1, #lp)
+		end
 		box.Parent = m
 		g.box = box
 		refreshLoad(g)
@@ -258,15 +299,20 @@ local function hpBar(m: Model): (BillboardGui, { Frame }, TextLabel)
 	local pad = Instance.new("UIPadding")
 	for _, k in { "PaddingLeft", "PaddingRight", "PaddingTop", "PaddingBottom" } do (pad :: any)[k] = UDim.new(0, 2) end
 	pad.Parent = bar
-	local list = Instance.new("UIListLayout"); list.FillDirection = Enum.FillDirection.Horizontal; list.Padding = UDim.new(0, 2)
-	list.SortOrder = Enum.SortOrder.LayoutOrder; list.Parent = bar
+	-- сегменти без UIListLayout: кожен займає свою комірку [(i−1)/n; i/n] ширини рамки (мінус 1 px з боків, де сусід → проміжок 2 px).
+	-- Позиція й ширина кожного рахуються від рамки окремо, тож округлення пікселів не накопичується і останній сегмент
+	-- не вилазить за праву межу (раніше: ширина 1/n − 2(n−1)/n px + Padding 2 px у UIListLayout давала +n px на малому білборді).
+	-- n — ціле: MaxHP буває дробовим (мутації), тому ceil, від 1 до SEG_MAX.
 	local segs = {}
 	local mx = math.max(1, (m:GetAttribute("MaxHP") :: number?) or 1)
-	local n = math.min(SEG_MAX, mx)
+	local n = math.clamp(math.ceil(mx - 1e-6), 1, SEG_MAX)
 	for i = 1, n do
 		local f = Instance.new("Frame")
 		f.LayoutOrder = i; f.BorderSizePixel = 0
-		f.Size = UDim2.new(1 / n, -2 * (n - 1) / n, 1, 0)
+		local l = if i > 1 then 1 else 0
+		local r = if i < n then 1 else 0
+		f.Position = UDim2.new((i - 1) / n, l, 0, 0)
+		f.Size = UDim2.new(1 / n, -(l + r), 1, 0)
 		local g = Instance.new("UIGradient"); g.Rotation = 90
 		g.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(190, 190, 190)); g.Parent = f
 		f.Parent = bar
@@ -287,6 +333,29 @@ local function playHit(m: Model)
 	s.Parent = base
 	s:Play()
 	game:GetService("Debris"):AddItem(s, 1.5)
+end
+-- звук руйнування руди (PlotAssets/RockBreak, «Shale Break Low End Crackling Rock 2», 9119050441): лише на останньому ударі
+-- (атрибут Broken), 3D на руді, та сама дальність (90), що й у playHit.
+-- Нарізка на самому Sound: PlaybackRegion 0,08–0,58 с (без тиші на початку), гучність 0,3; тут — затухання до 0 за останні 0,25 с
+local BREAK_SND = ASSETS:FindFirstChild("RockBreak") :: Sound?
+local function playBreak(m: Model)
+	if not BREAK_SND then return end
+	local base = m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart")
+	if not base or (camPos() - base.Position).Magnitude > 90 then return end
+	local s = BREAK_SND:Clone()
+	s.PlaybackSpeed = BREAK_SND.PlaybackSpeed * (0.92 + math.random() * 0.16)
+	-- руда зникає через ~0,3 с — звук висить на невидимій точці в світі, щоб дограти до кінця
+	local a = Instance.new("Attachment")
+	a.WorldPosition = base.Position
+	a.Parent = workspace.Terrain
+	s.Parent = a
+	s:Play()
+	-- тривалість нарізки з урахуванням висоти: гасне до 0 точно в кінці регіону
+	local len = (s.PlaybackRegion.Max - s.PlaybackRegion.Min) / s.PlaybackSpeed
+	task.delay(math.max(0, len - 0.26), function()
+		if s.Parent then TweenService:Create(s, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Volume = 0 }):Play() end
+	end)
+	game:GetService("Debris"):AddItem(a, 1)
 end
 
 -- ===================== ріст руди (затверджений веб-макет ore_grow) =====================
@@ -453,8 +522,11 @@ local function addOre(m: Model)
 		local mx = math.max(1, (m:GetAttribute("MaxHP") :: number?) or 1)
 		local k = math.clamp(h / mx, 0, 1)
 		bb.Enabled = h < mx and h > 0
-		txt.Text = h .. " HP"
-		local filled = math.ceil(k * #segs)
+		-- шкода мутації буває дрібною (2.4) — HP показуємо з одним знаком, без хвоста float
+		local hr = math.floor(h * 10 + 0.5) / 10
+		txt.Text = (hr == math.floor(hr) and string.format("%d", hr) or string.format("%.1f", hr)) .. " HP"
+		-- ціле число сегментів без хвоста float (3.0000001 → 3); будь-яке HP > 0 — хоча б один сегмент
+		local filled = if h > 0 then math.max(1, math.ceil(k * #segs - 1e-6)) else 0
 		local col = Color3.fromHSV(0.29 * k, 0.85, 1) -- 0,29 ≈ зелений, 0 — червоний
 		for i, f in segs do
 			f.BackgroundColor3 = if i <= filled then col else Color3.fromHex("2a2f36")
@@ -475,8 +547,10 @@ local function addOre(m: Model)
 		growOre(m, gt0, gdur)
 	end
 	-- руйнування
+	local broke = false
 	m:GetAttributeChangedSignal("Broken"):Connect(function()
 		bb.Enabled = false
+		if not broke and m:GetAttribute("Broken") then broke = true; playBreak(m) end
 		local pivot = m:GetPivot()
 		local _, size = m:GetBoundingBox()
 		local center = pivot.Position + Vector3.new(0, size.Y * 0.35, 0)

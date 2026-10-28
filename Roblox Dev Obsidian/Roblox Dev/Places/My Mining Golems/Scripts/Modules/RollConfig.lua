@@ -47,4 +47,41 @@ function RollConfig.standPrice(count: number, stage: number): number?
 	return math.floor(RollConfig.STAND_BASE_PRICE * RollConfig.STAND_PRICE_STEP ^ (count - 1) * RollConfig.stageMult(stage))
 end
 
+-- ===== Рол големів (RollService — сервер, RollRevealClient — анімація; GDD - Roll) =====
+-- Анімація на кожній відкритій підставці (v3, 27.10.2026 — без обертання): FAKES випадкових появ (поява APPEAR →
+-- показ → зникнення VANISH), 5-та поява — справжній результат (RESULT_APPEAR + спалах). Уся анімація триває рівно TOTAL с
+-- від удару важеля до кінця появи результату на ОСТАННІЙ підставці: підставка i стартує зі зсувом (i − 1) × STAGGER,
+-- а тривалість циклу фейка (cycle) стискається так, щоб остання підставка закінчила рівно на TOTAL.
+RollConfig.TOTAL = 2.0
+RollConfig.FAKES = 4
+RollConfig.APPEAR = 0.1
+RollConfig.VANISH = 0.1
+RollConfig.RESULT_APPEAR = 0.2
+RollConfig.STAGGER = 0.04
+-- тривалість одного циклу фейка (поява + показ + зникнення) при count підставках: 1 підставка — 0,45 с, 5 — 0,41 с
+function RollConfig.cycle(count: number): number
+	return (RollConfig.TOTAL - RollConfig.RESULT_APPEAR - RollConfig.STAGGER * math.max(0, count - 1)) / RollConfig.FAKES
+end
+-- скільки триває анімація ролу на count підставках (до кінця появи результату на останній) — завжди TOTAL
+function RollConfig.revealTime(count: number): number
+	return RollConfig.TOTAL
+end
+
+-- вибір за шансами «1 до N»: items = { { odds = N, ... } }, luck — % (множник удачі M = 1 + luck / 100).
+-- Перевірка ВІД НАЙРІДШОГО (як у RNG-іграх): кожен небазовий випадає з шансом min(1, M / N), якщо рідший не випав;
+-- базовий (найменше N, звичайно 1) — якщо не випав жоден. Так множник масштабується без межі: M ≥ N найрідшого → завжди він.
+-- (До 28.10.2026 — кумулятивні інтервали з нормалізацією: після ~x10 множник переставав діяти, розподіл застигав на
+--  Bronze ~50 % / Secret ~0,01 % навіть при x1 000 000 000.) При звичайній удачі (x1,05) шанси майже ті самі. rnd — Random (сервер).
+function RollConfig.pick(items: { any }, luck: number, rnd: Random): any
+	if #items == 0 then return nil end
+	local list = table.clone(items)
+	table.sort(list, function(a, b) return a.odds > b.odds end) -- від найрідшого
+	local mult = 1 + math.max(0, luck) / 100
+	for i = 1, #list - 1 do
+		if rnd:NextNumber() < math.min(1, mult / math.max(1, list[i].odds)) then return list[i] end
+	end
+	return list[#list]
+end
+
+
 return RollConfig

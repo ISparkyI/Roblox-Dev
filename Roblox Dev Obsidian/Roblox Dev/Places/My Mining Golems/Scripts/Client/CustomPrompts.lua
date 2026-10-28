@@ -11,6 +11,8 @@
 --   лінія, нижній бортик, обводка; під іконкою й написом); у спокої вона покриває все це. Треба ТРИМАТИ E / мишку / палець: ліва межа тіні їде вправо і відкриває яскраву
 --   кнопку (це й є «заповнення»), відпустив раніше — тінь плавно повертається; дійшло до 100 % —
 --   рушій сам запускає Triggered (телепорт робить сервер, CaveEntrance). Блакитної заливки немає.
+-- Атрибути UIText / UIColor / UIIcon / UIDisabled можна міняти на льоту (напр. CaveStandsClient — кнопки стендів печери):
+--   кнопку перебудовано. UIDisabled = true — сіра кнопка: затиск не заповнюється, кнопка хитається з глухим звуком відмови.
 
 local Players = game:GetService("Players")
 local PPS = game:GetService("ProximityPromptService")
@@ -28,7 +30,7 @@ local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWei
 local W, H = 250, 74       -- полотно кнопки (одиниці дизайну StyleA)
 local BW, BH = 234, 66     -- сама кнопка
 
-local shown: { [ProximityPrompt]: { gui: BillboardGui, pop: UIScale, tok: number } } = {}
+local shown: { [ProximityPrompt]: { gui: BillboardGui, pop: UIScale, tok: number, conns: { any } } } = {}
 
 local SHADE = Color3.fromRGB(0, 0, 8)   -- тінь утримання: майже чорна з ледь синім відтінком
 local SHADE_T = 0.45                     -- прозорість: грань темнішає приблизно як колись від ImageColor3 (140, 140, 150)
@@ -38,7 +40,7 @@ local BACK_SPEED = 2.5                  -- відпустив раніше: ті
 -- обводкою (рішення користувача: головне — рівно, без щілин; кути прямі, як у стилі A), ClipsDescendants,
 -- ZIndex 2 — над гранню й візерунком, під відблиском, написом і іконкою. Правий край тіні прив'язаний
 -- до правого краю кнопки, ширина = 1 − p: ліва межа їде вправо і відкриває яскраву кнопку.
-local function holdFx(prompt: ProximityPrompt, btn: any)
+local function holdFx(prompt: ProximityPrompt, btn: any, conns: { any })
 	local clip = Instance.new("Frame")
 	clip.Name = "HoldClip"; clip.BackgroundTransparency = 1; clip.BorderSizePixel = 0; clip.ClipsDescendants = true; clip.Active = false
 	clip.Position = UDim2.fromOffset(0, 0); clip.Size = UDim2.fromScale(1, 1); clip.ZIndex = 2; clip.Parent = btn.root -- тінь на всю кнопку, разом з обводкою
@@ -60,16 +62,26 @@ local function holdFx(prompt: ProximityPrompt, btn: any)
 	local function run()
 		if not conn then conn = game:GetService("RunService").RenderStepped:Connect(step) end
 	end
-	prompt.PromptButtonHoldBegan:Connect(function() holding = true; run(); StyleA.tap() end)
-	prompt.PromptButtonHoldEnded:Connect(function() holding = false; run() end)
-	prompt.Triggered:Connect(function()
+	table.insert(conns, prompt.PromptButtonHoldBegan:Connect(function()
+		if prompt:GetAttribute("UIDisabled") then -- сіра кнопка: тримати марно — хитається, глухий звук відмови
+			StyleA.shake(btn) -- звук відмови deny грає StyleA.shake
+			return
+		end
+		holding = true; run(); StyleA.tap()
+	end))
+	table.insert(conns, prompt.PromptButtonHoldEnded:Connect(function() holding = false; run() end))
+	table.insert(conns, prompt.Triggered:Connect(function()
+		-- сіра кнопка (UIDisabled): рушій усе одно стріляє Triggered після HoldDuration — жодного візуалу утримання
+		-- (до 27.10.2026 тут на мить відкривалась яскрава кнопка і тінь спадала назад); лише shake + deny на початку затиску
+		if prompt:GetAttribute("UIDisabled") then holding = false; return end
 		-- дійшло до 100 %: кнопка ще мить повністю яскрава, потім тінь повертається
 		holding = false; p = 1; fill.Size = UDim2.fromScale(0, 1)
-		task.delay(0.25, run)
-	end)
+		task.delay(0.25, function() if fill.Parent then run() end end)
+	end))
+	table.insert(conns, { Disconnect = function() if conn then conn:Disconnect(); conn = nil end end }) -- перебудова: зупинити анімацію
 end
 
-local function build(prompt: ProximityPrompt)
+local function build(prompt: ProximityPrompt, conns: { any })
 	local widthStuds = (prompt:GetAttribute("UIWidth") :: number?) or 8.8
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "CustomPrompt"
@@ -90,7 +102,7 @@ local function build(prompt: ProximityPrompt)
 	local pop = Instance.new("UIScale"); pop.Scale = 0; pop.Parent = anim
 	local text = (prompt:GetAttribute("UIText") :: string?) or string.upper(prompt.ActionText)
 	local icon = prompt:GetAttribute("UIIcon") :: string?
-	local btn = StyleA.new(anim, { size = Vector2.new(BW, BH), position = Vector2.new(8, 4), color = (prompt:GetAttribute("UIColor") :: string?) or "green",
+	local btn = StyleA.new(anim, { size = Vector2.new(BW, BH), position = Vector2.new(8, 4), color = if prompt:GetAttribute("UIDisabled") then "gray" else (prompt:GetAttribute("UIColor") :: string?) or "green",
 		text = text, textSize = #text > 9 and 24 or 28, clickable = true, name = "PromptButton" })
 	if icon and icon ~= "" then
 		-- іконка ліворуч на грані (трохи вилазить за верхній край, як у стилі пака), напис — у правій частині
@@ -113,7 +125,7 @@ local function build(prompt: ProximityPrompt)
 	key.Parent = btn.root
 	if prompt.HoldDuration > 0 then
 		-- тримати мишкою / пальцем: натиснув — InputHoldBegin, відпустив або звів курсор — InputHoldEnd
-		holdFx(prompt, btn)
+		holdFx(prompt, btn, conns)
 		StyleA.bind(btn, { tap = false })
 		local down = false
 		local function release() if down then down = false; prompt:InputHoldEnd() end end
@@ -126,7 +138,7 @@ local function build(prompt: ProximityPrompt)
 			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then release() end
 		end)
 		btn.button.MouseLeave:Connect(release)
-		prompt.PromptHidden:Connect(release)
+		table.insert(conns, prompt.PromptHidden:Connect(release))
 	else
 		StyleA.bind(btn, { debounce = 0.25, tap = false, onClick = function()
 			if not prompt.Enabled then return end
@@ -142,10 +154,31 @@ PPS.PromptShown:Connect(function(prompt: ProximityPrompt)
 	if prompt.Style ~= Enum.ProximityPromptStyle.Custom then return end
 	local e = shown[prompt]
 	if not e then
-		local gui, pop = build(prompt)
-		e = { gui = gui, pop = pop, tok = 0 }
-		shown[prompt] = e
-		prompt.Destroying:Connect(function() if shown[prompt] then shown[prompt].gui:Destroy(); shown[prompt] = nil end end)
+		local conns = {}
+		local gui, pop = build(prompt, conns)
+		local entry = { gui = gui, pop = pop, tok = 0, conns = conns }
+		e = entry
+		shown[prompt] = entry
+		prompt.Destroying:Connect(function()
+			local cur = shown[prompt]
+			if cur then
+				for _, c in cur.conns do c:Disconnect() end
+				cur.gui:Destroy(); shown[prompt] = nil
+			end
+		end)
+		-- напис / колір / стан змінили на льоту — перебудувати кнопку (видимість і масштаб появи зберігаються)
+		prompt.AttributeChanged:Connect(function(name)
+			if name ~= "UIText" and name ~= "UIColor" and name ~= "UIIcon" and name ~= "UIDisabled" then return end
+			local cur = shown[prompt]
+			if not cur then return end
+			for _, c in cur.conns do c:Disconnect() end
+			local vis = cur.gui.Enabled
+			cur.gui:Destroy()
+			local nc = {}
+			cur.gui, cur.pop = build(prompt, nc)
+			cur.conns = nc
+			cur.gui.Enabled = vis; cur.pop.Scale = vis and 1 or 0 -- нова кнопка — одразу в повний розмір (стара анімація появи до неї не дійде)
+		end)
 	end
 	e.tok += 1
 	e.gui.Enabled = true

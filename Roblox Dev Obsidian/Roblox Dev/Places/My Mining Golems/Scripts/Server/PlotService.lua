@@ -44,6 +44,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("PlotConfig"))
 local DataService = require(script.Parent:WaitForChild("DataService"))
 local NicheService = require(script.Parent:WaitForChild("NicheService"))
+local Catalog = require(RS:WaitForChild("Shared"):WaitForChild("GolemCatalog")) -- модель голема за kind (Catalog.model)
 
 local ASSETS = RS:WaitForChild("PlotAssets")
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
@@ -91,7 +92,11 @@ local function invGolems(p: Player): { [number]: any }
 	end
 	return out
 end
-local function roleOf(g: any): string return (g and g.cls == "carrier") and "carrier" or "miner" end
+-- воїни (cls = "warrior") на плоти не ставляться (27.10.2026: раніше йшли як майнери)
+local function roleOf(g: any): string
+	local c = g and g.cls
+	return if c == "carrier" then "carrier" elseif c == "warrior" then "warrior" else "miner"
+end
 
 -- точка всередині плоту (локальні межі ±HALF)
 local function clampIn(pl: Plot, v: Vector3): Vector3
@@ -313,15 +318,22 @@ local function setLoad(g: Golem)
 	g.model:SetAttribute("LoadOres", table.concat(g.load, ","))
 end
 
+local function golemSize(kind: string): number
+	local def = Catalog.get(kind)
+	return (def and tonumber(def.size)) or 1
+end
+
 local function spawnGolem(pl: Plot, id: number, kind: string, role: string, mut: number?): Golem
-	local m = ASSETS.Golem:Clone()
+	local src = ASSETS:FindFirstChild(Catalog.model(kind)) or ASSETS.Golem -- модель з каталогу (Wooden → WoodenGolem), фолбек Stone
+	local m = src:Clone()
 	m.Name = (role == "carrier" and "Carrier_" or "Miner_") .. id
 	m:SetAttribute("GolemId", id); m:SetAttribute("Kind", kind); m:SetAttribute("Role", role); m:SetAttribute("Mut", mut or 0)
 	m:SetAttribute("Carry", role == "carrier")
-	if role == "carrier" then
-		local pick = m:FindFirstChild("Pickaxe")
-		if pick then for _, d in pick:GetDescendants() do if d:IsA("BasePart") then d.Transparency = 1 end end end
-	end
+	-- розмір з каталогу (GDD «Розмір — масштаб моделі»): ScaleTo навколо півота = Root, а Root стоїть на рівні стоп,
+	-- тож ноги лишаються на підлозі (Root 0,4 над плитками, як і при 1,0). Предмет додається після — під масштаб моделі.
+	local size = golemSize(kind)
+	if math.abs(size - 1) > 1e-3 then m:ScaleTo(m:GetScale() * size) end
+	Catalog.applyClassItems(m, role) -- майнер — клон префаба кірки в кулак, носій — без предмета
 	-- з'являються по колу навколо HomePoint, щоб не стояти один в одному
 	local k = #pl.golems
 	local a = k * math.rad(72) + rng:NextNumber() * 0.3
@@ -403,7 +415,8 @@ local function standPoint(pl: Plot, g: Golem, o: Ore): Vector3
 		ang = bestA
 	end
 	o.angles[g] = ang
-	local reach = Cfg.REACH + math.max(0, o.radius / 0.8 - Cfg.REACH_R) * 0.8
+	-- REACH — під голема розміру 1; більший голем (size, напр. Clay 1,05) стає пропорційно далі, бо й кірка довша
+	local reach = Cfg.REACH * golemSize(g.kind) + math.max(0, o.radius / 0.8 - Cfg.REACH_R) * 0.8
 	return clampIn(pl, o.pos + Vector3.new(math.cos(ang), 0, math.sin(ang)) * reach)
 end
 
@@ -698,7 +711,10 @@ end
 local function equipBest(st: State)
 	local inv = invGolems(st.player)
 	local miners, carriers = {}, {}
-	for id, g in inv do table.insert(roleOf(g) == "carrier" and carriers or miners, { id = id, kind = g.kind, mut = g.mut }) end
+	for id, g in inv do
+		local r = roleOf(g)
+		if r ~= "warrior" then table.insert(r == "carrier" and carriers or miners, { id = id, kind = g.kind, mut = g.mut }) end
+	end
 	table.sort(miners, function(a, b)
 		local pa, pb = Cfg.minerPower(a.kind, a.mut), Cfg.minerPower(b.kind, b.mut)
 		if pa ~= pb then return pa > pb end

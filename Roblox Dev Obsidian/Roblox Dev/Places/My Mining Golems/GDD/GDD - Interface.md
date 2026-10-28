@@ -38,6 +38,10 @@ updated: 2026-10-25
 
 **Вікна (Inventory, Sell, Forge, Place Golems).** Один розмір і одне місце на екрані для всіх — модуль `Shared/WindowFit.place`: рамка ≈68 % ширини екрана, заголовок + рамка ≈72 % висоти, рамка по центру по горизонталі, а по вертикалі блок «заголовок + рамка» по центру між верхньою смугою Roblox і хотбаром. Рамки мають однакові пропорції (Inventory 980 × 528 = Sell / Forge 1206 × 650), заголовок і X — у тих самих пропорціях. **Правило: якщо вміст не влазить — не збільшувати вікно, а гортати** (повзунок, коліщатко, затиск мишки / пальця). Клік усередині вікна його не закриває; закриває X, Esc або клік поза вікном.
 
+**Правило: на екрані лише одне вікно** (27.10.2026). Відкриття будь-якого вікна — Inventory, Index, PLOT N (Place Golems), Forge, Sell — закриває поточне його власною анімацією закриття. Діє для всіх способів відкриття: клавіші B / ~ / R, кнопки HUD, кола Forge / Sell. Механізм — модуль `Shared/WindowManager` (лише клієнт): кожне вікно реєструється `register(name, isOpen, close)` і на початку відкриття викликає `opened(name)`. Forge і Sell, закриті іншим вікном, не відкриваються знову, доки гравець не вийде з кола й не зайде знову. Хотбар — не вікно, лишається на екрані. Табло Roll Upgrades і табличка плоту — UI у світі (SurfaceGui), під правило не підпадають.
+
+**Вікна Feedback / Codes / Updates** (28.10.2026) — кнопки праворуч угорі HUD. Ті самі розмір і стиль, що в усіх вікон; правило «одне вікно» діє. UPDATES — новини з таблиці (закріплені зверху, NEW, червоний лічильник на кнопці, поки не відкрили). CODES — поле й REDEEM (нагороди Diamonds / Tickets / Money / зілля / голем, один раз на гравця). FEEDBACK — Bug / Idea / Other, до 500 символів, 1 відгук на 2 хв. Дані — Google Таблиця (Apps Script Web App), налаштування `ServerStorage/BackendConfig`. Без таблиці гра працює (запасні стани). Докладно — [Feedback Codes Updates](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F2D%2FFeedback%20Codes%20Updates%2FFeedback%20Codes%20Updates).
+
 **Підказки E** — свої (`ProximityPrompt.Style = Custom`, малює `CustomPrompts`): кнопка «стиль A» з клавішею E в куті й іконкою; ENTER CAVE — синя, ROLL — помаранчева. Атрибути — [Cave Entrance](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FCave%20Entrance%2FCave%20Entrance).
 
 ## Інвентар і хотбар
@@ -60,7 +64,7 @@ updated: 2026-10-25
 - **Далі:** пити зілля, справжні големи з ролу в інвентарі.
 
 ## Звуки інтерфейсу
-Звуки лежать у `SoundService`, грає їх модуль `ReplicatedStorage/Shared/UISounds` (`UISounds.play("tap" | "claim" | "lever" | "hover" | "purchase", minGap?)`).
+Звуки лежать у `SoundService`, грає їх модуль `ReplicatedStorage/Shared/UISounds` (`UISounds.play("tap" | "claim" | "lever" | "hover" | "purchase" | "deny", minGap?, speed?)`).
 
 | Ключ | Sound | Гучність | Коли |
 | --- | --- | --- | --- |
@@ -69,8 +73,18 @@ updated: 2026-10-25
 | `lever` | `LeverPull` | 0,25 | важіль ролу (спрацювання ROLL) |
 | `hover` | `ButtonHover` | 0,05 | наведення на кнопку / картку / слот |
 | `purchase` | `PurchaseSuccess` | 0,5 | успішна покупка |
+| `deny` | `Deny` (копія `Tap`, PlaybackSpeed 0,6 — глухий) | 0,5 | натиснули сіру / недоступну кнопку (замість `tap`): `StyleA.shake` / `StyleA.deny()` — картки покращень без грошей, сірий Claim All, LOCKED / сірі підказки E, Delete / Lock / Sell без вибору, заблоковані слоти тощо |
 
-`minGap` — щоб один клік не давав два звуки (кнопка + картка).
+
+**Звуки світу й загрузочного екрана** (не UISounds):
+
+| Sound | Де лежить | Гучність | Коли |
+| --- | --- | --- | --- |
+| `PickaxeHit` (9120146349) | `ReplicatedStorage/PlotAssets` | 2 (3D), у лого 0,8 | удар голема по руді (`PlotClient`); удари кірки в лого (`OrekoLoadingScreen`) |
+| `RockBreak` (9119050441, «Shale Break Low End Crackling Rock 2») | `ReplicatedStorage/PlotAssets` | 0,3 (3D), у лого теж 0,3; ~0,5 с (нарізка `PlaybackRegion` 0,08–0,58 с (тиша на початку файлу відрізана), затухання до 0 за останні 0,25 с) | руда ламається від останнього удару (`Broken`, 3D на руді, до 90 стадів); третій удар у лого — кора обсипається |
+| `BackgroundMusic` | `SoundService` | 0,05 | фонова музика: від 50 % шкали загрузочного екрана, fade-in 1 с |
+
+`minGap` — щоб один клік не давав два звуки (кнопка + картка). `tap` грає наприкінці кадру: якщо той самий клік закінчився відмовою (`deny` за ±0,12 с), `tap` не звучить — недоступна кнопка дає лише `deny`.
 
 ![[inventory_game_tools_v3.jpg]]
 

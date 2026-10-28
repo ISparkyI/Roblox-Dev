@@ -5,7 +5,8 @@
 -- Хотбар: показує ЛИШЕ зайняті слоти, по центру, нумерація 1..n без пропусків. Слот з'являється, коли предмет беруть у руку
 --   (Hold у вікні), і зникає, коли його прибирають з рук (та сама цифра / клік ще раз, Put Away, Unpin) — решта зсуваються.
 --   Предмет при цьому лишається в інвентарі. 1–n або клік — перемкнути предмет у руці (лаймова рамка, слот піднімається,
---   над хотбаром «Coal ×25 · in hand»). Перемкнувся на інший — попередній слот лишається.
+--   плашки «… · in hand» над хотбаром більше немає (v24) — наведення на слот хотбара показує підказку з деталями предмета).
+--   Перемкнувся на інший — попередній слот лишається. Големи на плотах (PlotPlaced) в інвентарі й хотбарі не показуються (v24).
 --   Стандартний рюкзак Roblox вимкнено (StarterGui Backpack).
 -- Вікно: вкладки Golems / Ores·Bars / Potions (власні іконки), сітка слотів 5 у ряд (гортається колесом, перетягуванням і повзунком),
 --   клік по предмету — картка внизу (Hold / Put Away, Hotbar / Unpin). Нічого не вибрано (у режимах — нічого не
@@ -43,7 +44,10 @@ local HttpService = game:GetService("HttpService")
 local Forge = require(RS:WaitForChild("Shared"):WaitForChild("ForgeConfig"))
 local Items = require(RS.Shared:WaitForChild("ItemConfig"))
 local Catalog = require(RS.Shared:WaitForChild("GolemCatalog")) -- назви, рідкість, стати големів
+local MutationText = require(RS.Shared:WaitForChild("MutationText")) -- анімований градієнт назви мутації (картка)
+local MutationSlotFX = require(RS.Shared:WaitForChild("MutationSlotFX")) -- фон слота за мутацією (наведення / вибраний)
 local NF = require(RS.Shared:WaitForChild("NumberFormat"))
+local GolemSort = require(RS.Shared:WaitForChild("GolemSort")) -- сортування големів і кнопка зі списком SORT BY
 local StyleA = require(RS.Shared:WaitForChild("StyleA"))
 local ItemVP = require(RS.Shared:WaitForChild("ItemViewport")) -- 3D-моделі руди й злитків у слотах замість PNG
 local Action = RS:WaitForChild("Remotes"):WaitForChild("InventoryAction")
@@ -55,6 +59,13 @@ task.spawn(function()
 	for _ = 1, 20 do
 		if pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) end) then break end
 		task.wait(0.5)
+	end
+	-- (v25) рюкзак Roblox має бути вимкнений ЗАВЖДИ: якщо щось його ввімкнуло — знову вимикаємо (перевірка раз на секунду)
+	while true do
+		task.wait(1)
+		pcall(function()
+			if StarterGui:GetCoreGuiEnabled(Enum.CoreGuiType.Backpack) then StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false) end
+		end)
 	end
 end)
 
@@ -272,6 +283,7 @@ local function hoverStep(dt: number)
 	if next(hoverSet) == nil and hoverConn then hoverConn:Disconnect(); hoverConn = nil end
 end
 local function wakeHover(s)
+	if s.fxSync then s.fxSync() end -- фон за мутацією: увімкнений при наведенні й на вибраному слоті
 	hoverSet[s] = true
 	if not hoverConn then hoverConn = RunService.RenderStepped:Connect(hoverStep) end
 end
@@ -295,27 +307,29 @@ local function makeSlot(parent, x, y, S, mini)
 	local iw = S - 2 * pad
 	local gcx, gcy = P + pad + iw / 2, P + pad * (mini and 0.8 or 0.75) + iw / 2
 	local R = S * 0.5
-	local glow = frame(card, 0, 0, S + 2 * P, S + 2 * P, nil, { BackgroundTransparency = 1, ZIndex = 3 })
-	local circles = {}
-	for i = GLOW_N, 1, -1 do
-		local rr = R * i / GLOW_N
-		local g = frame(glow, gcx - rr, gcy - rr, rr * 2, rr * 2, WHITE, { BackgroundTransparency = 1, ZIndex = 1 })
-		corner(g, UDim.new(0.5, 0))
-		circles[i] = g
-	end
+	-- v20: радіальне сяйво рідкості прибрано — у спокої всі слоти однакові темні (рідкість — текстом). При наведенні й на вибраному
+	-- слоті — анімований фон за мутацією голема (Shared/MutationSlotFX; не-големи — стиль Normal), поява / зникнення 0,15 с.
+	local mfx = MutationSlotFX.new(card, { pos = Vector2.new(P, P), size = Vector2.new(S, S), z = 3 })
+	-- руда / злитки / зілля (27.10.2026): ледь помітна підсвітка кольором руди — один ImageLabel з м'якою радіальною текстурою
+	local tint = new("ImageLabel", { Name = "Tint", BackgroundTransparency = 1, Image = "rbxassetid://122253463048651", ImageTransparency = 0.86,
+		Position = UDim2.fromOffset(gcx - R, gcy - R), Size = UDim2.fromOffset(R * 2, R * 2), ZIndex = 3, Visible = false }, card)
 	local icon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(P + pad, P + pad * (mini and 0.8 or 0.75)),
 		Size = UDim2.fromOffset(iw, iw), ZIndex = 4, Visible = false }, card)
-	local name = textAt(card, P + 7, P + 16, S - 10, 14, "", WHITE, 2.2, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 5, Visible = false })
+	-- назва — впритул до верхнього краю слота (малий відступ); зелений damage — по центру НАД слотом (нижче)
+	local name = textAt(card, P + 7, P + 11, S - 10, 14, "", WHITE, 2.2, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 5, Visible = false })
 	local nameMax = new("UITextSizeConstraint", { MaxTextSize = 14, MinTextSize = 8 }, name) -- для звуженої назви (поруч номер хотбара)
 	local cnt = textAt(card, P, P + S - (mini and 14 or 17), S - 8, mini and 19 or 22, "", WHITE, 2.6, { TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 5, Visible = false })
 	local rar = textAt(card, P, P + S - 14, S - 8, 13, "", WHITE, 2, { TextXAlignment = Enum.TextXAlignment.Right, FontFace = XBOLD, ZIndex = 5, Visible = false })
+	-- голем у сітці: зелений підпис сили («2 dmg» / «2 ore») — по центру НАД слотом, поза рамкою (не перекриває голема й лаймову рамку вибору);
+	-- зі значком хотбара / галочкою справа — центрується лівіше них. Слова мутації в слоті немає (26.10.2026)
+	local dmgTxt = textAt(card, P, P - 13, S, 12, "", C("7dff5a"), 2, { TextXAlignment = Enum.TextXAlignment.Center, FontFace = XBOLD, ZIndex = 5, Visible = false })
 	local keyNum = mini and textAt(card, P + 6, P + 13, 30, 15, "", C("c9ced4"), 2.2, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6 }) or nil
 	local ring = frame(card, P - 1, P - 1, S + 2, S + 2, nil, { BackgroundTransparency = 1, ZIndex = 7, Visible = false })
 	local ringStroke = stroke(ring, C("c8ff6a"), 4)
 	local lockImg = new("ImageLabel", { BackgroundTransparency = 1, Image = Items.ICONS.lock_inv or Items.ICONS.lock, ScaleType = Enum.ScaleType.Fit, ZIndex = 8, Visible = false,
 		Position = UDim2.fromOffset(P + (mini and -5 or -8), P + S - (mini and 24 or 32)), Size = UDim2.fromOffset(mini and 26 or 36, mini and 26 or 36) }, holder)
-	-- бейдж класу голема: у сітці 30×30 зліва посередині (між назвою й замком), у хотбарі 22×22; у вікні підтвердження — без бейджа
-	local badge = (not mini and classBadge(holder, P - 7, P + 36, 30, 8)) or (S == HS and classBadge(holder, P - 5, P + 24, 22, 8)) or nil
+	-- бейджів класу (кірка/ящик/меч) на слотах більше немає — ні в сітці, ні в хотбарі (26.10.2026; кнопки фільтра класів лишаються)
+	local badge = nil
 	local check = makeCheck(holder, P + S - 18, P - 10, C("ff4f5e"))
 	local hot = nil -- значок «у хотбарі N»
 	local hit = new("TextButton", { Name = "Hit", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Position = UDim2.fromOffset(P, P),
@@ -324,17 +338,23 @@ local function makeSlot(parent, x, y, S, mini)
 	local s = { holder = holder, card = card, scale = scale, sc = 1, rot = 0, ly = 0, rel = 0, hover = false, down = false, lift = false,
 		cx = x + S / 2, cy = y + S / 2, item = nil, onClick = nil, S = S }
 	function s.place(nx: number, ny: number) s.cx, s.cy = nx + S / 2, ny + S / 2; holder.Position = UDim2.fromOffset(s.cx, s.cy + s.ly) end
+	function s.fxSync() mfx.setOn(s.item ~= nil and not s.dimmed and (s.hover or s.sel) == true) end
 	function s.set(it, opt)
 		opt = opt or {}
 		s.item = it
 		local has = it ~= nil
-		local tc = has and it.tone or WHITE
-		local tbl = has and GLOW_ITEM or GLOW_EMPTY
-		for i = 1, GLOW_N do circles[i].BackgroundColor3 = tc; circles[i].BackgroundTransparency = tbl[i] end
-		toneStroke.Color = tc; toneStroke.Transparency = has and 0.67 or 0.94
+		toneStroke.Color = WHITE; toneStroke.Transparency = 0.94 -- у спокої всі слоти однакові
+		mfx.setMut(has and (it.golem and (it.mut or 0) or 0) or nil)
+		tint.Visible = has and not it.golem
+		if tint.Visible then tint.ImageColor3 = it.tone or WHITE end
+		s.sel = opt.ring ~= nil
+		s.dimmed = opt.dim == true
 		icon.Visible = has
 		if has then icon.Image = it.icon end
-		ItemVP.set(icon, has and (it.vp or it.key) or nil) -- голем з моделлю — it.vp ("GolemVP:<ID>:<клас>")
+		-- голем з моделлю — it.vp ("GolemVP:<ID>:<клас>"); слоти сітки будують 3D лише у видимій зоні (s.lazyVP, до 300 големів)
+		s.icon = icon
+		s.vpKey = has and (it.vp or it.key) or nil
+		if s.lazyVP then s.vpDirty = true; s.lazyVP(s) else ItemVP.set(icon, s.vpKey) end
 		name.Visible = has and not mini
 		if has and not mini then
 			local ts = (#it.name > 12) and 12 or 14
@@ -350,6 +370,12 @@ local function makeSlot(parent, x, y, S, mini)
 		if has and not it.golem then cnt.Text = "×" .. NF.short(it.n) end
 		rar.Visible = has and it.golem == true and not mini
 		if has and it.golem then rar.Text = it.rar; rar.TextColor3 = it.tone end
+		dmgTxt.Visible = has and it.golem == true and not mini and it.dmg ~= nil
+		if dmgTxt.Visible then
+			dmgTxt.Text = it.dmg
+			dmgTxt.Size = UDim2.fromOffset((opt.hotIndex or opt.check) and S - 36 or S, dmgTxt.Size.Y.Offset)
+		end
+		s.fxSync()
 		if keyNum then keyNum.Text = opt.keyNum or "" end
 		ring.Visible = opt.ring ~= nil
 		if opt.ring then ringStroke.Color = opt.ring end
@@ -399,6 +425,7 @@ local function makeSlot(parent, x, y, S, mini)
 	end)
 	s.hit = hit
 	function s.shake()
+		StyleA.deny() -- звук відмови (tap цього кліку скасовується)
 		local p0 = holder.Position
 		task.spawn(function()
 			for _, dx in { -8, 8, -5, 5, -2, 0 } do holder.Position = p0 + UDim2.fromOffset(dx, 0); task.wait(0.03) end
@@ -435,6 +462,7 @@ local lockSet = {}
 local pinSet = {} -- закріплені кнопкою Hotbar (InvPinned): їхній слот не зникає, коли предмет прибирають з рук
 local hotbar = {} -- 9 ключів ("" — порожньо)
 local heldKey = ""
+local golemTotal = 0 -- усі големи гравця разом із тими, що на плотах (ліміт Items.MAX_GOLEMS)
 local function rebuild()
 	items, byKey = {}, {}
 	local function add(it) table.insert(items, it); byKey[it.key] = it end
@@ -450,16 +478,27 @@ local function rebuild()
 	for _, d in Items.POTIONS do
 		add({ key = "Pot_" .. d.key, tab = "potions", name = d.name, sub = d.desc, n = num("Pot_" .. d.key), icon = d.icon, tone = d.tone })
 	end
-	for _, g in decodeAttr("InvGolems", {}) do
+	local RI = {}
+	for i, r in Catalog.RARITIES do RI[r] = i end
+	golemTotal = 0
+	local placedSet = {}
+	for _, id in decodeAttr("PlotPlaced", {}) do placedSet[id] = true end
+	for gi, g in decodeAttr("InvGolems", {}) do
 		local def = Catalog.get(g.kind)
-		if def and type(g.id) == "number" then
+		if def and type(g.id) == "number" then golemTotal += 1 end
+		-- голем на плоті (PlotPlaced) в інвентарі не показується (v24): він у вікні плоту як ON PLOT; ліміт і лічильник N / MAX — без них
+		if def and type(g.id) == "number" and not placedSet[g.id] then
 			local cls = Catalog.cls(g.cls)
 			local mut = Catalog.mut(g.mut)
-			local mutTxt = mut > 0 and (Catalog.mutation(mut).key .. " ") or ""
 			add({ key = "Golem_" .. g.id, tab = "golems", name = def.name, n = 1, golem = true,
-				sub = mutTxt .. def.rarity .. " " .. (CLASS_NAME[cls] or "Miner") .. " · " .. Catalog.statText(def.id, cls, mut),
+				-- мутація в картці — окремою міткою з градієнтом поруч із назвою (infoMut), не в підписі
+				sub = def.rarity .. " " .. (CLASS_NAME[cls] or "Miner") .. " · " .. Catalog.statText(def.id, cls, mut),
 				kind = def.id, cls = cls, mut = mut, rar = def.rarity, icon = Catalog.icon(def.id), tone = Catalog.rarityColor(def.rarity),
-				vp = ItemVP.golemKey(def.id, cls) }) -- 3D-модель у слоті (поки лише Stone Golem); без моделі — іконка
+				vp = ItemVP.golemKey(def.id, cls), -- 3D-модель у слоті (поки лише Stone Golem); без моделі — іконка
+				-- сортування (Shared/GolemSort) і зелений підпис сили в слоті: майнер / воїн — шкода, носій — місткість (з мутацією)
+				order = gi, power = Catalog.power(def.id, cls, mut), ri = RI[def.rarity] or 0,
+				dmg = (function() local st = Catalog.stats(def.id, cls, mut) return cls == "carrier" and (NF.compact(st.cap or 0) .. " ore") or (NF.compact(st.dmg or 0) .. " dmg") end)(), -- 98.1K dmg
+				mutKey = mut > 0 and Catalog.mutation(mut).key or nil, mutColor = mut > 0 and Catalog.mutation(mut).color or nil })
 		end
 	end
 	lockSet = {}
@@ -494,6 +533,113 @@ for i = 1, Items.HOTBAR do
 	hot[i] = s
 end
 
+-- ===== підказка над слотом хотбара (v24, 27.10.2026) =====
+-- замість плашки «… · in hand»: наведення на слот хотбара (≈0,15 с) — темне квадратне віконце над слотом (як FilterTip):
+-- голем — назва, мутація (градієнт Shared/MutationText) і множник, рідкість (колір) і клас, стати, ціна, шанс «1 in N»;
+-- руда / злитки / зілля — назва, кількість, ціна за штуку або опис. Не виходить за екран; на сенсорних екранах без мишки — не показується.
+local refreshTip: () -> () -- нижче (у блоці do — без нових локальних верхнього рівня, ліміт 200)
+do
+local TIP_W = 250
+local tipGui = new("ScreenGui", { Name = "HotbarTip", ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 6 }, playerGui)
+local tip = new("Frame", { Name = "Tip", BackgroundColor3 = C("1b1e23"), BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 1),
+	Size = UDim2.fromOffset(TIP_W, 0), AutomaticSize = Enum.AutomaticSize.Y, Visible = false, ZIndex = 50 }, tipGui)
+stroke(tip, INK, 3)
+local tipScale = new("UIScale", {}, tip)
+new("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 9), PaddingBottom = UDim.new(0, 10) }, tip)
+new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2) }, tip)
+local tipLines = {}
+local function tipLine(i: number): TextLabel
+	local l = tipLines[i]
+	if not l then
+		l = new("TextLabel", { Name = "L" .. i, BackgroundTransparency = 1, LayoutOrder = i, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+			FontFace = XBOLD, TextSize = 15, TextColor3 = WHITE, TextXAlignment = Enum.TextXAlignment.Left, RichText = true, TextWrapped = true, ZIndex = 51 }, tip)
+		stroke(l, INK, 1.5, 0, true) -- обводка: Secret (темний текст + біла обводка, Shared/MutationText) читається на темному
+		tipLines[i] = l
+	end
+	return l
+end
+local function hex(c: Color3): string return c:ToHex() end
+local function trim2(x: number): string return (string.format("%.2f", x):gsub("0+$", ""):gsub("%.$", "")) end
+local function oddsTxt(kind: string, mut: number): string
+	local g = Catalog.get(kind)
+	local u = Catalog.MUTATIONS[mut + 1]
+	local n = math.max(1, g and g.odds or 1) * ((mut == 0 or not u) and 1 or math.max(1, u.odds or 1))
+	return "1 in " .. (n < 10 and trim2(n) or NF.compact(math.floor(n + 0.5)))
+end
+local function fillTip(it): boolean
+	local lines: { { string } } = {} -- { текст, шрифт, розмір, колір }
+	local mutLine = nil
+	if it.golem then
+		local st = Catalog.stats(it.kind, it.cls, it.mut)
+		table.insert(lines, { it.name, "H", 20 })
+		if (it.mut or 0) > 0 then
+			local mu = Catalog.mutation(it.mut)
+			mutLine = #lines + 1
+			table.insert(lines, { mu.key .. " [x" .. trim2(mu.power or 1) .. "]", "X", 17 })
+		end
+		table.insert(lines, { '<font color="#' .. hex(Catalog.rarityColor(it.rar)) .. '">' .. it.rar .. "</font>"
+			.. '<font color="#c9ced4"> · ' .. (CLASS_NAME[it.cls] or "Miner") .. "</font>", "X", 15 })
+		local sp = "x" .. trim2(math.floor(st.speed * 100 + 0.5) / 100)
+		if it.cls == "carrier" then
+			table.insert(lines, { '<font color="#7dff5a">Capacity ' .. NF.compact(st.cap or 0) .. " ore</font>", "X", 15 })
+		else
+			table.insert(lines, { '<font color="#7dff5a">Damage ' .. Catalog.num(st.dmg or 0) .. "</font>", "X", 15 })
+			if it.cls == "warrior" and st.hp then table.insert(lines, { '<font color="#7dff5a">HP ' .. NF.compact(st.hp) .. "</font>", "X", 15 }) end
+		end
+		table.insert(lines, { '<font color="#c9ced4">Speed ' .. sp .. "</font>", "X", 15 })
+		table.insert(lines, { '<font color="#ffd23a">Price ' .. NF.money(st.price or 0) .. "</font>", "X", 15 })
+		table.insert(lines, { '<font color="#8a9099">Chance ' .. oddsTxt(it.kind, it.mut or 0) .. "</font>", "X", 14 })
+	else
+		table.insert(lines, { it.name, "H", 20 })
+		table.insert(lines, { '<font color="#' .. hex((it.tone or WHITE):Lerp(WHITE, 0.45)) .. '">×' .. NF.full(it.n) .. "</font>", "X", 16 })
+		if it.sub and it.sub ~= "" then table.insert(lines, { '<font color="#c9ced4">' .. it.sub .. "</font>", "X", 15 }) end
+	end
+	for i, ln in lines do
+		local l = tipLine(i)
+		l.Visible = true
+		l.Text = ln[1]
+		l.FontFace = ln[2] == "H" and HEAVY or XBOLD
+		l.TextSize = ln[3]
+		if i == mutLine then MutationText.apply(l, it.mut) else MutationText.clear(l) end
+		local ls = l:FindFirstChildOfClass("UIStroke")
+		if ls then ls.Thickness = i == mutLine and 2.5 or 1.5 end -- товща обводка мутації: Secret (темний текст) читається на темному фоні
+	end
+	for i = #lines + 1, #tipLines do tipLines[i].Visible = false; MutationText.clear(tipLines[i]) end
+	return true
+end
+local tipSlot, tipTok = nil, 0
+local TOUCH_ONLY = UIS.TouchEnabled and not UIS.MouseEnabled
+local function placeTip(s)
+	local hit = s.hit
+	local sc = math.clamp(hbScale.Scale, 0.7, 1.15)
+	tipScale.Scale = sc
+	local vs, o = tipGui.AbsoluteSize, tipGui.AbsolutePosition -- Position — від початку ScreenGui (з IgnoreGuiInset він вище екрана на висоту топбару)
+	local hw = TIP_W * sc / 2 + 6
+	local x = math.clamp(hit.AbsolutePosition.X - o.X + hit.AbsoluteSize.X / 2, hw, math.max(hw, vs.X - hw))
+	local y = math.max(hit.AbsolutePosition.Y - o.Y - 10, tip.AbsoluteSize.Y + 6)
+	tip.Position = UDim2.fromOffset(x, y)
+end
+local function hideTip() tipTok += 1; tipSlot = nil; tip.Visible = false end
+local function showTip(s)
+	if not s.item or not s.holder.Visible then hideTip() return end
+	fillTip(s.item)
+	tipSlot = s
+	tip.Visible = true
+	placeTip(s)
+	task.defer(function() if tipSlot == s then placeTip(s) end end) -- висота з AutomaticSize — після кадру
+end
+refreshTip = function() if tipSlot then if tipSlot.hover and tipSlot.item then showTip(tipSlot) else hideTip() end end end
+for _, s in hot do
+	s.hit.MouseEnter:Connect(function()
+		if TOUCH_ONLY then return end
+		tipTok += 1
+		local my = tipTok
+		task.delay(0.15, function() if my == tipTok and s.hover and s.item then showTip(s) end end)
+	end)
+	s.hit.MouseLeave:Connect(function() if tipSlot == s or tipSlot == nil then hideTip() end end)
+end
+end
+
 local hbOpenOrder = 5
 local function fitHotbar()
 	local cam = workspace.CurrentCamera
@@ -526,13 +672,8 @@ local function refreshHotbar()
 			top = it ~= nil and heldKey == hotbar[i], locked = it ~= nil and lockSet[hotbar[i]] == true })
 		hot[i].holder.ZIndex = (it and heldKey == hotbar[i]) and 5 or 1 -- вибраний слот над сусідами (рамку не перекриває наступний)
 	end
-	local it = heldKey ~= "" and live(heldKey) or nil
-	if it then
-		heldBg:setText(it.name .. (it.golem and "" or (" ×" .. NF.short(it.n))) .. " · in hand")
-		if not heldPill.Visible then heldPill.Visible = true end
-	else
-		heldPill.Visible = false
-	end
+	heldPill.Visible = false -- плашку «… · in hand» прибрано (v24); деталі — підказка при наведенні на слот
+	refreshTip()
 end
 
 local isOpenRef, renderAllRef = function() return false end, function() end -- задаються нижче (вікно)
@@ -630,10 +771,10 @@ end
 -- що видно в сітці: предмети поточної вкладки; на вкладці Golems — лише вибраного класу (фільтр)
 local function visibleItems()
 	local t = tabItems(tab)
-	if tab ~= "golems" or filt == "all" then return t end
+	if tab ~= "golems" then return t end
 	local f = {}
-	for _, it in t do if it.cls == filt then table.insert(f, it) end end
-	return f
+	for _, it in t do if filt == "all" or it.cls == filt then table.insert(f, it) end end
+	return GolemSort.sort(f, GolemSort.current(player)) -- вибране сортування (Best на All — за класом, далі сила)
 end
 
 -- ===== вкладки =====
@@ -691,9 +832,23 @@ for i, spec in FILT do
 	b.root.MouseLeave:Connect(function() if fTipText.Text == spec[2] then fTip.Visible = false end end)
 	fBtns[k] = { b = b, pt = pt }
 end
+-- ===== сортування (лише вкладка Golems): кнопка StyleA 126×48 праворуч у рядку заголовка (на місці колишнього лічильника,
+-- правий край 906 — не заходить під X) і список SORT BY під нею (Shared/GolemSort). Вибір — атрибут InvSort (зберігається на сервері).
+local SORT_X, SORT_W = 780, 126
+local sortBtn = makeButton(content, SORT_X, FY, SORT_W, FB, { shadowDy = 5, color = "gray", z = 5 })
+local sortMenu = GolemSort.menu({ button = sortBtn, w = SORT_W, h = FB, layer = pop,
+	panelPos = Vector2.new(WX + SORT_X + SORT_W - 236, WY + FY + FB + 10),
+	onPick = function(key)
+		player:SetAttribute("InvSort", key) -- одразу (сервер підтвердить той самий ключ)
+		Action:FireServer("Sort", key)
+	end })
+sortBtn.onClick = function() sortMenu.toggle() end
 -- кнопки фільтра: видно лише на вкладці Golems (і в режимах видалення / блокування), колір і кількість кожного класу
 local function refreshFilt()
 	fBar.Visible = tab == "golems"
+	sortBtn.root.Visible = tab == "golems"; sortBtn.shadow.Visible = tab == "golems"
+	if tab ~= "golems" then sortMenu.close() end
+	sortMenu.refresh(GolemSort.current(player))
 	local g = tabItems("golems")
 	for _, spec in FILT do
 		local k = spec[1]
@@ -722,10 +877,12 @@ local function setThumb()
 	vth.Position = UDim2.fromOffset(0, gmax() > 0 and gscroll / gmax() * (gh - 2 * GP - th) or 0)
 	vsb.Visible = gmax() > 0
 end
+local refreshGridVP: (() -> ())? = nil -- нижче: 3D у слотах, що з'явились під час гортання
 local function setG(v: number)
 	gscroll = math.clamp(v, 0, gmax())
 	gstrip.Position = UDim2.fromOffset(0, -gscroll)
 	setThumb()
+	if refreshGridVP then refreshGridVP() end
 end
 local drag, dragEndAt = nil, -1
 local paint, paintEndAt = nil, -1 -- вибір перетягуванням у режимах видалення / блокування (нижче)
@@ -754,10 +911,32 @@ end)
 -- пул слотів сітки (росте за потреби)
 local gslots = {}
 local slotClick -- нижче
+-- лінива 3D-модель (до 300 големів): ViewportFrame лише в слотах у видимій зоні сітки ± 1 ряд;
+-- слот поза зоною знищує свій ViewportFrame (пам'ять не росте з кількістю големів)
+local function gridVP(s)
+	local icon = s.icon
+	if not icon then return end
+	local margin = GS + GG
+	local vis = s.holder.Visible and s.vpKey ~= nil and s.cy + GS / 2 >= gscroll - margin and s.cy - GS / 2 <= gscroll + gh + margin
+	local want = if vis then s.vpKey else nil
+	-- vpDirty: s.set щойно поставив PNG — 3D треба виставити знову; під час гортання — лише зміни зони
+	if s.vpShown == want and not s.vpDirty then return end
+	s.vpShown = want
+	s.vpDirty = false
+	if want then
+		ItemVP.set(icon, want)
+	else
+		ItemVP.set(icon, nil)
+		local b = icon:FindFirstChild("ItemVP")
+		if b then b:Destroy() end
+	end
+end
+refreshGridVP = function() for _, s in gslots do gridVP(s) end end
 local function gridSlot(i: number)
 	local s = gslots[i]
 	if not s then
 		s = makeSlot(gstrip, 0, 0, GS, false)
+		s.lazyVP = gridVP
 		-- у режимах — вибір перетягуванням (сітка не гортається), інакше — гортання сітки перетягуванням
 		s.onPress = function(inp) if mode then beginPaint(s, inp) else beginDrag(inp, false) end end
 		hitMap[s.hit] = s
@@ -778,11 +957,16 @@ new("UIGradient", { Rotation = 90, Color = cseq({ { 0, "353b43" }, { 1, "1b1e23"
 	Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 0.4) }) }, info)
 stroke(info, INK, 3)
 local infoIcon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(14, 7), Size = UDim2.fromOffset(86, 86), ZIndex = 2 }, info)
-local infoBadge = classBadge(info, 8, 60, 30, 3) -- бейдж класу голема біля іконки (лівий нижній кут)
+-- бейджа класу біля іконки більше немає (26.10.2026) — клас написано в підписі
 -- текст картки — від іконки до кнопки Hold з відступом INFO_PAD: назва зменшується, щоб влізти; підпис переноситься (до 2 рядків)
 local INFO_PAD = 14
 local INFO_TW = 384 - INFO_PAD - 112
 local infoName = textAt(info, 112, 32, INFO_TW, 28, "", WHITE, 3, { TextXAlignment = Enum.TextXAlignment.Left, RichText = true, ZIndex = 2 })
+-- назва мутації голема — справа від назви, анімований градієнт (Shared/MutationText); Normal не пишемо
+local INFO_MUT = 20
+local infoMut = textAt(info, 112, 33, 120, INFO_MUT, "", WHITE, 2.4, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 2, Visible = false,
+	AutomaticSize = Enum.AutomaticSize.X })
+infoMut.Size = UDim2.fromOffset(0, INFO_MUT * 1.2)
 local infoSub = label(info, 112, 55, INFO_TW, 40, 16, "", SUB_TXT, 1.8, { TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
 	TextWrapped = true, LineHeight = 1.05, FontFace = XBOLD, ZIndex = 2 })
 -- зменшує шрифт мітки, поки текст не влізе по ширині (і по висоті — для перенесеного тексту)
@@ -797,6 +981,7 @@ local bHold = makeButton(info, 384, 12, 132, 72, { shadowDy = 6, color = "green"
 local bPin = makeButton(info, 526, 12, 108, 72, { shadowDy = 6, color = "blue", text = "Hotbar", textSize = 22, z = 3 })
 local function showInfoItem(on: boolean)
 	infoIcon.Visible = on; infoName.Visible = on; infoSub.Visible = on; infoHint.Visible = not on
+	if not on then infoMut.Visible = false end
 	for _, b in { bHold, bPin } do b.root.Visible = on; b.shadow.Visible = on end
 end
 
@@ -819,8 +1004,8 @@ local function keepSelVisible()
 	local key = selKey or (mode and lastPickKey and picked[lastPickKey] and lastPickKey) or nil
 	local i = key and gridIndex[key]
 	if not i then return end
-	local y = math.floor((i - 1) / GCOLS) * (GS + GG) + GP + 4
-	if y + GS + GP > gscroll + gh then setG(y + GS + GP - gh) elseif y - GP < gscroll then setG(y - GP) end
+	local y = math.floor((i - 1) / GCOLS) * (GS + GG) + GP + 14
+	if y + GS + GP > gscroll + gh then setG(y + GS + GP - gh) elseif y - GP - 10 < gscroll then setG(math.max(0, y - GP - 10)) end
 end
 local function applyGh(v: number)
 	gh = v
@@ -979,14 +1164,15 @@ local function renderGrid()
 	local total = math.max(#list + (tab == "golems" and 2 or 4), GCOLS * (wantCard() and 2 or 3)) -- без картки видно 3 ряди
 	local rows = math.ceil(total / GCOLS)
 	local count = rows * GCOLS
-	gH = rows * (GS + GG) - GG + 2 * GP + 8
+	-- верхній відступ першого ряду GP + 14 (було GP + 4): над слотом — зелений damage
+	gH = rows * (GS + GG) - GG + 2 * GP + 18
 	gstrip.Size = UDim2.fromOffset(GW, gH)
 	emptyTxt.Visible = #list == 0 and tab == "golems"
 	if emptyTxt.Visible then emptyTxt.Text = FILT_EMPTY[filt] or "No golems yet" end
 	for i = 1, count do
 		local s = gridSlot(i)
 		s.holder.Visible = true
-		s.place(((i - 1) % GCOLS) * (GS + GG) + GP, math.floor((i - 1) / GCOLS) * (GS + GG) + GP + 4)
+		s.place(((i - 1) % GCOLS) * (GS + GG) + GP, math.floor((i - 1) / GCOLS) * (GS + GG) + GP + 14)
 		local it = list[i]
 		if it then
 			gridIndex[it.key] = i
@@ -1011,12 +1197,13 @@ local function renderGrid()
 	hdr.Text = tab == "golems" and "Golems" or tab == "ores" and "Ores / Bars" or "Potions"
 	local n = 0
 	for _, it in list do n += it.n end
-	cap.Text = tab == "golems" and (#tabItems("golems") .. " / " .. Items.MAX_GOLEMS .. " golems") or tab == "ores" and (#list .. " kinds · " .. NF.full(n) .. " items") or (#list .. " kinds")
+	-- на вкладці Golems місткість — у підписі вкладки, праворуч — кнопка сортування
+	cap.Text = tab == "golems" and "" or tab == "ores" and (#list .. " kinds · " .. NF.full(n) .. " items") or (#list .. " kinds")
 	for k, t in tabBtns do
 		local l = tabItems(k)
 		local c = 0
 		for _, it in l do c += it.n end
-		t.c.Text = k == "golems" and (#l .. " golems") or (NF.full(c) .. " items")
+		t.c.Text = k == "golems" and (#l .. " / " .. Items.MAX_GOLEMS .. " golems") or (NF.full(c) .. " items") -- лише інвентар (без големів на плотах), як ліміт на сервері
 	end
 	refreshFilt()
 	-- кнопки режиму
@@ -1046,7 +1233,6 @@ local function renderInfo()
 	-- картка ховається — вміст не міняємо (з'їжджає вниз з попереднім текстом, без миготіння підказки)
 	if not wantCard() then setCard(false); return end
 	showInfoItem(show)
-	infoBadge.set((show and it and it.golem) and it.cls or nil)
 	if mode == "delete" then
 		infoHint.Text = 'Tap items to delete · <font color="#ff8a96">' .. pickedCount() .. " selected</font> · locked can't be deleted"
 	elseif mode == "lock" then
@@ -1060,7 +1246,23 @@ local function renderInfo()
 	ItemVP.set(infoIcon, it.vp or it.key, 1.13) -- у панелі опису: у межах іконки, не налазить на текст
 	infoName.Text = it.name .. (it.golem and "" or (' <font size="22" color="#c9ced4">×' .. NF.full(it.n) .. "</font>"))
 	infoSub.Text = it.sub .. (lockSet[it.key] and " · locked" or "")
+	-- мутація — справа від назви: спершу її ширина, назва звужується на неї, далі мітка стає за кінцем тексту назви
+	local hasMut = it.golem == true and (it.mut or 0) > 0
+	infoMut.Visible = hasMut
+	local k = math.max(info.AbsoluteSize.X / 646, 0.01) -- TextBounds — у пікселях екрана, позиції — у одиницях дизайну
+	local mw = 0
+	if hasMut then
+		infoMut.Text = Catalog.mutation(it.mut).key
+		MutationText.apply(infoMut, it.mut)
+		mw = infoMut.TextBounds.X / k + 10
+	else
+		MutationText.clear(infoMut)
+	end
+	infoName.Size = UDim2.fromOffset(INFO_TW - mw, infoName.Size.Y.Offset)
 	fitText(infoName, 28, 16)
+	if hasMut then
+		infoMut.Position = UDim2.fromOffset(112 + math.min(infoName.TextBounds.X / k, INFO_TW - mw) + 10, infoMut.Position.Y.Offset)
+	end
 	fitText(infoSub, 16, 12)
 	local hi = tableFind(hotbar, it.key)
 	local inHand = heldKey == it.key
@@ -1332,6 +1534,7 @@ end
 open = function()
 	if isOpen then return end
 	isOpen = true
+	require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).opened("Inventory") -- одне вікно на екрані: інші закриваються
 	animToken += 1
 	local my = animToken
 	refreshAll()
@@ -1358,6 +1561,7 @@ close = function()
 	if not isOpen then return end
 	isOpen = false
 	closeConfirm()
+	sortMenu.close()
 	if mode then setMode(nil) end
 	pcall(function() CAS:UnbindAction("InventoryEsc") end)
 	animToken += 1
@@ -1385,6 +1589,8 @@ backdrop.InputBegan:Connect(function(inp)
 	close()
 end)
 
+-- одне вікно на екрані (Shared/WindowManager): відкрилось інше вікно — інвентар закривається
+require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).register("Inventory", function() return isOpen end, function() close() end)
 -- кнопка рюкзака в HUD (MainHUD → UIEvents/HUDButton "Inventory") і клавіша B; 1–9 — хотбар
 task.spawn(function()
 	local ev = RS:WaitForChild("UIEvents", 30)
@@ -1399,6 +1605,14 @@ UIS.InputBegan:Connect(function(inp, gp)
 	if i then toggleHeld(i) return end
 	if inp.KeyCode == Enum.KeyCode.B then if isOpen then close() else open() end end
 end)
+-- «~» (Backquote) — так само, як B: відкрити / закрити НАШ інвентар (v25). CAS з високим пріоритетом і Sink — Roblox не отримує
+-- клавішу (його рюкзак на «~» не відкривається); у полі вводу тексту — пропускаємо далі
+CAS:BindActionAtPriority("InventoryBackquote", function(_, state)
+	if state ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Sink end
+	if UIS:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
+	if isOpen then close() else open() end
+	return Enum.ContextActionResult.Sink
+end, false, Enum.ContextActionPriority.High.Value + 100, Enum.KeyCode.Backquote)
 
 -- дані: будь-яка зміна інвентаря → оновлення (раз за кадр)
 local pending = false
@@ -1408,7 +1622,7 @@ local function schedule()
 	task.defer(function() pending = false; refreshAll() end)
 end
 player.AttributeChanged:Connect(function(name)
-	if string.sub(name, 1, 4) == "Ore_" or string.sub(name, 1, 5) == "Bars_" or string.sub(name, 1, 4) == "Pot_" or string.sub(name, 1, 3) == "Inv" then schedule() end
+	if string.sub(name, 1, 4) == "Ore_" or string.sub(name, 1, 5) == "Bars_" or string.sub(name, 1, 4) == "Pot_" or string.sub(name, 1, 3) == "Inv" or name == "PlotPlaced" then schedule() end
 end)
 refreshAll()
 fit()

@@ -70,22 +70,18 @@ local function golemTemplate(g: any, cls: string): Model?
 	for _, d in m:GetDescendants() do
 		if d:IsA("LuaSourceContainer") or d:IsA("ValueBase") then d:Destroy() end
 	end
-	if cls ~= "miner" then
-		local pick = m:FindFirstChild("Pickaxe"); if pick then pick:Destroy() end
-	end
+	Catalog.applyClassItems(m, cls, true) -- майнер — кірка, воїн — меч, непотрібні групи видалені (не зсувають кадр)
 	m:PivotTo(CFrame.new())
 	if cls == "carrier" then
-		local box = assets:FindFirstChild("CarryBox")
+		local box = assets:FindFirstChild(Catalog.box(g.id)) or assets:FindFirstChild("CarryBox")
 		if box and box:IsA("Model") then
 			local b = box:Clone()
 			for _, d in b:GetDescendants() do if d:IsA("LuaSourceContainer") then d:Destroy() end end
-			local _, gs = m:GetBoundingBox()
-			local _, bs = b:GetBoundingBox()
-			local k = math.min(1, gs.X * 0.55 / math.max(bs.X, bs.Z))
-			b:ScaleTo(b:GetScale() * k)
-			local _, bs2 = b:GetBoundingBox()
-			local gcf, gs2 = m:GetBoundingBox()
-			b:PivotTo(CFrame.new(gcf.Position.X + gs2.X * 0.18, gcf.Position.Y - gs2.Y / 2 + bs2.Y / 2, gcf.Position.Z - gs2.Z / 2 - bs2.Z * 0.15))
+			b.Name = "CarryBox"
+			-- носій тримає ящичок у руках (поза як у грі, GolemCatalog.poseCarry), розмір ящичка — справжній
+			local gd = src:FindFirstChild("GolemData")
+			local ok, data = pcall(function() return gd and require(gd :: ModuleScript) end)
+			Catalog.poseCarry(m, ok and data or nil, b)
 			b.Parent = m
 		end
 	end

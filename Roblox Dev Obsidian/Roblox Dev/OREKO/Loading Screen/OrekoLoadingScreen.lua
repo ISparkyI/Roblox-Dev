@@ -1,11 +1,12 @@
 -- OrekoLoadingScreen (ReplicatedFirst, LocalScript)
--- Загрузочний екран студії OREKO. Порт веб-макета oreko_splash.html v3.4.
--- Логотип (камінь + кірка «MADE BY» + назва OREKO) однаковий для всіх плейсів; фон/кольори можна міняти в CONFIG.
+-- Загрузочний екран студії OSIRIUS (до 27.10.2026 — OREKO; внутрішні імена Oreko* лишились). Порт веб-макета oreko_splash.html v3.4.
+-- Логотип (камінь + кірка «MADE BY» + назва OSIRIUS) однаковий для всіх плейсів; фон/кольори можна міняти в CONFIG.
 -- Координати — у «юнітах» макета (сцена 1000 × 562.5), UIScale підганяє під екран.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
+local SoundService = game:GetService("SoundService")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 
 ReplicatedFirst:RemoveDefaultLoadingScreen()
@@ -20,7 +21,7 @@ local CONFIG = {
 	maxWait = 30, -- аварійний вихід (с)
 }
 
------------------------------------------------------------------ ASSETS (OREKO, спільні для всіх плейсів)
+----------------------------------------------------------------- ASSETS (логотип студії OSIRIUS, спільні для всіх плейсів)
 -- картинки логотипу збережені з «alpha bleeding» (прозорі пікселі мають колір сусідів) — без цього Roblox дає білі обводки на краях
 local IMG = {
 	stone = "rbxassetid://127704892563527",
@@ -33,9 +34,18 @@ local IMG = {
 	bgTile = "rbxassetid://114055270976915",
 	studsTile = "rbxassetid://134764452695368",
 	vignette = "rbxassetid://84008052171508",
-	name = "rbxassetid://101967857130070", -- назва OREKO картинкою (Montserrat 900 у контурах): текст Roblox розмивається на великих розмірах
-	nameGlow = "rbxassetid://95840774309233",
+	name = "rbxassetid://129333938588274", -- назва OSIRIUS картинкою (Montserrat 900 у контурах): текст Roblox розмивається на великих розмірах (до 27.10.2026 OREKO: 101967857130070)
+	nameGlow = "rbxassetid://92089445415596", -- (OREKO: 95840774309233)
 }
+-- звук удару кірки — той самий, що коли големи б'ють руду (ReplicatedStorage/PlotAssets/PickaxeHit, PlotClient: гучність 2 у 3D,
+-- висота ×0,9–1,1). Тут 2D-звук, тому гучність менша (як удар з ~20 стадів у грі).
+local HIT_SFX = { id = "rbxassetid://9120146349", volume = 0.8 }
+-- тріск каменю, що осипається, на третьому ударі — той самий звук, що й при руйнуванні руди в грі
+-- (ReplicatedStorage/PlotAssets/RockBreak, «Shale Break Low End Crackling Rock 2 (SFX)»). Тут числом: ReplicatedFirst стартує раніше за ReplicatedStorage
+-- нарізка 0,08–0,58 с (без тиші на початку) і затухання до 0 за останні fade с — як у PlotAssets/RockBreak + PlotClient
+local BREAK_SFX = { id = "rbxassetid://9119050441", volume = 0.3, region = NumberRange.new(0.08, 0.58), fade = 0.25 }
+-- до цієї частки шкали фонова музика мовчить: далі SoundService атрибут LoadingMusicOK = true (скрипт музики чекає його)
+local MUSIC_AT = 0.5
 local INK = Color3.fromHex("14161a")
 local FONT = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
 
@@ -190,7 +200,7 @@ local shakeScale = new("UIScale", {}, shake)
 
 -- back stone + name
 local stoneImg = img(shake, IMG.stone, ST.x, ST.y, ST.w, ST.h, 1)
-local NM = { x = 200, y = 258, w = 600, h = 148 } -- рамка картинки назви (тінь + контур + золото)
+local NM = { x = 180, y = 258, w = 640, h = 148 } -- рамка картинки назви (тінь + контур + золото); OSIRIUS ширша за OREKO (було x 200, w 600)
 -- шари в shake: 1 камінь · 2 кірка (коли лежить) · 3 її блиск · 4 передня частина каменю · 5 назва · 6 спалах назви · 7 блиск каменю · 8 шматки · 9 тріщини
 local stoneFront = img(shake, IMG.stoneFront, ST.x, ST.y, ST.w, ST.h, 4)
 local nameImg = img(shake, IMG.name, NM.x, NM.y, NM.w, NM.h, 5)
@@ -305,6 +315,35 @@ local hl = frame(fill, 0, 1, LB.w - 6, 6, Color3.new(1, 1, 1), 3)
 hl.BackgroundTransparency = 0.65
 local ltxt = label(load, "LOADING 0%", 21, 500, LB.y + LB.h / 2, 360, 30, 4)
 stroke(ltxt, 2.5)
+
+-- звук ударів кірки (2D, у нашому ScreenGui) і дозвіл для фонової музики
+local hitSnd = new("Sound", { Name = "PickHit", SoundId = HIT_SFX.id, Volume = HIT_SFX.volume }, gui)
+local breakSnd = new("Sound", { Name = "RockBreak", SoundId = BREAK_SFX.id, Volume = BREAK_SFX.volume,
+	PlaybackRegionsEnabled = true, PlaybackRegion = BREAK_SFX.region }, gui)
+-- події звуку: { час, гучність ×, висота, звук? }: два удари; третій (кора обсипається) — удар трохи нижчий
+-- + тріск каменю RockBreak; падіння кірки в камінь (B + 1.3) — тихий глухий стук
+local SFX = { { HITS[1], 1, 1 }, { HITS[2], 1, 1.04 }, { HITS[3], 1, 0.92 }, { HITS[3], 1, 1, breakSnd }, { B + 1.3, 0.7, 0.8 } }
+local function playHitSfx(vol, pitch, src)
+	src = src or hitSnd
+	local s = src:Clone()
+	s.Volume = src.Volume * vol
+	s.PlaybackSpeed = pitch * (0.97 + math.random() * 0.06)
+	s.Parent = gui
+	s:Play()
+	if src == breakSnd then -- тріск затухає за останні fade с нарізки
+		local len = (BREAK_SFX.region.Max - BREAK_SFX.region.Min) / s.PlaybackSpeed -- з урахуванням висоти
+		task.delay(math.max(0, len - BREAK_SFX.fade - 0.01), function()
+			if s.Parent then game:GetService("TweenService"):Create(s, TweenInfo.new(BREAK_SFX.fade - 0.01, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Volume = 0 }):Play() end
+		end)
+	end
+	task.delay(1.5, function() s:Destroy() end)
+end
+local musicOK = false
+local function allowMusic()
+	if musicOK then return end
+	musicOK = true
+	SoundService:SetAttribute("LoadingMusicOK", true)
+end
 
 -- dark overlay
 local dark = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 10 }, gui)
@@ -517,6 +556,7 @@ local function frameAt(t, dt, elapsed)
 	clip.Size = UDim2.fromOffset((LB.w - 6) * shown, LB.h - 6)
 	ltxt.Text = shown >= 1 and "READY!" or ("LOADING " .. math.floor(shown * 100) .. "%")
 	if shown >= 1 and not readyAt and t >= LOAD_AT then readyAt = t end
+	if shown >= MUSIC_AT then allowMusic() end -- фонова музика — від 50 % шкали
 	-- outro: logo pops away, bar springs down, quick darkening, place
 	local OUT = readyAt and readyAt + 0.35 or 1e9
 	local show, bo = k(t, LOAD_AT, LOAD_AT + 0.4), k(t, OUT + 0.05, OUT + 0.6)
@@ -552,7 +592,7 @@ local startClock = os.clock()
 -- «прогрів»: кожна картинка логотипу вже намальована в повний розмір, але майже прозора (під фоном) —
 -- тоді Roblox заздалегідь завантажує її у відеопам'ять і поп-ап на старті не пропускає кадрів
 local NATIVE = { stone = { 980, 384 }, stoneFront = { 980, 384 }, stoneWhite = { 980, 384 }, chunks = { 896, 697 }, cracks = { 590, 688 },
-	pick = { 980, 980 }, pickWhite = { 980, 980 }, name = { 1024, 253 }, nameGlow = { 1024, 253 } }
+	pick = { 980, 980 }, pickWhite = { 980, 980 }, name = { 1024, 237 }, nameGlow = { 1024, 237 } }
 -- прогрівочні картинки лежать в окремому ScreenGui ПІД нашим (DisplayOrder на 1 менший): їх повністю закриває непрозорий фон, але Roblox їх малює
 local warmGui = new("ScreenGui", { Name = "OrekoLoadingWarm", IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = gui.DisplayOrder - 1 }, gui.Parent)
 local preload = {}
@@ -563,6 +603,8 @@ for key, id in pairs(IMG) do
 	table.insert(preload, w)
 end
 table.insert(preload, ltxt)
+table.insert(preload, hitSnd) -- звуки вантажаться разом з картинками логотипу
+table.insert(preload, breakSnd)
 table.insert(preload, madeBy)
 task.spawn(function()
 	local done = false
@@ -589,12 +631,17 @@ task.spawn(function()
 	local conn
 	conn = RunService.RenderStepped:Connect(function(dt)
 		-- час анімації йде кроками не довшими за 1/30 с: якщо кадр підлагне, анімація сповільниться, а не перескочить
+		local t0 = t
 		t += math.min(dt, 1 / 30)
 		layout(t)
 		local dbg = script:GetAttribute("DebugT") -- тест: заморозити кадр на часі t (атрибут прибрати перед публікацією)
 		if dbg then shown = script:GetAttribute("DebugP") or 0 readyAt = script:GetAttribute("DebugReadyAt") frameAt(dbg, 0, 0) return end
+		for _, e in ipairs(SFX) do
+			if t0 < e[1] and t >= e[1] then playHitSfx(e[2], e[3], e[4]) end
+		end
 		frameAt(t, dt, os.clock() - startClock)
 		if finished then
+			allowMusic() -- на випадок, якщо шкала так і не дійшла до 50 %
 			conn:Disconnect()
 			gui:Destroy()
 		end

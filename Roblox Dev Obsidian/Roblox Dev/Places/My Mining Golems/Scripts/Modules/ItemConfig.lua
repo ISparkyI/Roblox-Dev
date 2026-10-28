@@ -51,13 +51,15 @@ Config.POTIONS = {
 
 Config.ORE_TONE = { Coal = Color3.fromHex("6d737c"), Copper = Color3.fromHex("e0743c"), Iron = Color3.fromHex("d9b08a") }
 Config.HOTBAR = 9
-Config.MAX_GOLEMS = 40
+Config.MAX_GOLEMS = 300
 
 -- ТЕСТ (лише Studio, лише коли в збереженні ще немає секції Inventory): зілля й големи для перевірки вкладок
 Config.TEST_POTIONS = { Luck = 2, Speed = 1, Money = 3, Strength = 1 }
 -- запис "ID", "ID:carrier", "ID@мутація" (0..7) — клас (майнер за замовчуванням) і мутація (Normal за замовчуванням)
-Config.TEST_GOLEMS = { "wooden", "wooden:carrier", "stone", "stone@3", "stone:carrier", "clay", "gravel:carrier", "mossback@1", "flint",
-	"rustbolt:carrier", "lantern", "ironclad@2", "quartzling", "silverjaw:carrier", "geode", "obsidian@5", "magmaheart", "aurelian", "astral@7" }
+-- (26.10.2026) Stone Golem-майнер на кожну мутацію 0..7 (у Stone є 3D-модель) + носії з мутаціями + різні големи каталогу (25 з 40)
+Config.TEST_GOLEMS = { "stone@0", "stone@1", "stone@2", "stone@3", "stone@4", "stone@5", "stone@6", "stone@7",
+	"stone:carrier", "stone:carrier@3", "stone:carrier@7", "wooden", "wooden:carrier", "clay", "gravel:carrier", "flint",
+	"rustbolt:carrier", "lantern", "ironclad@2", "quartzling", "silverjaw:carrier", "geode@4", "obsidian@5", "aurelian@6", "astral@7" }
 
 -- усі стакові ключі (порядок = порядок у вкладках)
 function Config.stackKeys(): { string }
@@ -70,6 +72,17 @@ end
 
 function Config.isStack(key: string): boolean
 	return string.sub(key, 1, 4) == "Ore_" or string.sub(key, 1, 5) == "Bars_" or string.sub(key, 1, 4) == "Pot_"
+end
+
+-- кількість големів В ІНВЕНТАРІ — без тих, що працюють на плотах (PlotPlaced). Нею рахуються ліміт MAX_GOLEMS (купівля на
+-- підставці ролу, TAKE зі стенда печери, AddGolem) і лічильник «N / MAX golems» (27.10.2026). Голем, знятий з плоту, повертається
+-- завжди — навіть якщо інвентар уже повний (тоді лічильник може бути більшим за MAX, нові големи не додаються, доки не звільниться місце).
+function Config.invGolemCount(golems: any, placed: any): number
+	local set = {}
+	if type(placed) == "table" then for _, id in placed do set[id] = true end end
+	local n = 0
+	if type(golems) == "table" then for _, g in golems do if type(g) == "table" and not set[g.id] then n += 1 end end end
+	return n
 end
 
 return Config

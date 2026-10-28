@@ -1081,6 +1081,7 @@ local animToken = 0
 
 local function open()
 	isOpen = true
+	require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).opened("Forge") -- одне вікно на екрані: інші закриваються
 	animToken += 1
 	local my = animToken
 	fit()
@@ -1118,6 +1119,8 @@ closeBtn.onClick = function()
 	dismissed = true -- до виходу з кола й повторного входу
 	close()
 end
+-- одне вікно на екрані (Shared/WindowManager): відкрилось інше вікно — Forge закривається й не відкривається знову, доки гравець не вийде з кола
+require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).register("Forge", function() return isOpen end, function() dismissed = true; close() end)
 
 -- своя кузня: ніша з OwnerUserId = UserId → Forge (шукаємо щоразу: ніші перебудовуються, кузня може стрімитися)
 local function findMyForge(): Model?

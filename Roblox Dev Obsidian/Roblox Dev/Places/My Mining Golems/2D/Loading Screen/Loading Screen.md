@@ -1,24 +1,28 @@
 ---
 tags: [ui, loading-screen]
 status: active
-version: 5
-updated: 2026-10-25
+version: 8
+updated: 2026-10-27
 ---
 
 # Loading Screen
 
 ← [[My Mining Golems - 2D|2D]]
 
-Загрузочний екран цього плейсу — студійний «MADE BY OREKO» (кірка розбиває камінь, золоте OREKO, шкала завантаження). Логотип спільний для всіх плейсів; загальна інструкція й asset id — у [OREKO Loading Screen](obsidian://open?vault=Roblox%20Dev&file=OREKO%2FLoading%20Screen%2FOREKO%20Loading%20Screen). Тут — тільки те, що стосується цього плейсу.
+Загрузочний екран цього плейсу — студійний «MADE BY OSIRIUS» (кірка розбиває камінь, золоте OSIRIUS, шкала завантаження; до 27.10.2026 — OREKO). Логотип спільний для всіх плейсів; загальна інструкція й asset id — у [OREKO Loading Screen](obsidian://open?vault=Roblox%20Dev&file=OREKO%2FLoading%20Screen%2FOREKO%20Loading%20Screen). Тут — тільки те, що стосується цього плейсу.
 
 ![[mmg_loading_screen.jpg]]
+
+![[osirius_studio_t4.6_name.jpg]]
+*Вище — ще з назвою OREKO; нижче — актуальний кадр з OSIRIUS (4,6 с, 27.10.2026).*
 
 ## Де в Roblox
 | Що | Значення |
 | --- | --- |
 | Скрипт | `ReplicatedFirst/OrekoLoadingScreen` (`LocalScript`), копія в `Scripts/Client/OrekoLoadingScreen.lua` |
 | Інтерфейс | `PlayerGui/OrekoLoadingScreen` (`ScreenGui`, `DisplayOrder 1000`, `IgnoreGuiInset`), будується кодом і знищується після виходу |
-| Бекап | `ServerStorage/NicheBackup/OrekoLoadingScreen_v1` (вимкнений) |
+| Бекап | `ServerStorage/NicheBackup/OrekoLoadingScreen_v1`, `…_v2` (до перейменування в OSIRIUS), `…_v3` (до звуку), `BackgroundMusic_v1`; усі вимкнені |
+| Музика | `StarterPlayerScripts/BackgroundMusic` чекає `SoundService.LoadingMusicOK` (ставить загрузочний екран на 50 % шкали або при закритті; тайм-аут 30 с), fade-in 1 с до `Volume` 0,05 |
 
 ## Налаштування цього плейсу (`CONFIG`)
 Поки стандартні — під печеру й руду:
@@ -46,6 +50,10 @@ updated: 2026-10-25
 - [x] v3: кірка входить у верхню грань каменю, поява каменю — поп-ап з точки.
 - [x] v4: без білих обводок і лінії в контурі, без сірої смуги під корою, без «привида» лого на фоні, без шматків у кутку на першому кадрі; поп-ап плавний (75 кадрів у Studio).
 - [x] v5: шкала 50–100 % = попереднє завантаження картинок HUD і табел ніш (картки на стендах одразу з картинками); після виходу камера за спиною гравця (скрипт `SpawnCamera`).
+- [x] v6 (27.10.2026): назва студії в лого: OREKO → OSIRIUS (27.10.2026) — нові картинки назви, перевірено кадри 3,0 / 4,6 / 4,95 с у Play.
+- [x] v7 (27.10.2026): звук ударів кірки (`PickaxeHit` 9120146349) на 1,35 / 2,0 / 2,65 с + тихий стук на 3,95 с; музика мовчить до 50 % шкали, далі fade-in 1 с — перевірено в Play.
+- [x] v8 (27.10.2026): на третьому ударі (кора обсипається) — тріск каменю `RockBreak` (той самий звук, що при руйнуванні руди в грі); бекап `NicheBackup/Sounds_RockBreak_v1`.
+- [x] v9 (27.10.2026): тріск тихіший (лого 0,9 → 0,3, руда 1,5 → 0,3), ~0,5 с з затуханням; бекап `NicheBackup/Sounds_RockBreak_v2`.
 - [ ] Перевірити в опублікованій грі на телефоні (повільне завантаження).
 
 ## Досвід і рішення

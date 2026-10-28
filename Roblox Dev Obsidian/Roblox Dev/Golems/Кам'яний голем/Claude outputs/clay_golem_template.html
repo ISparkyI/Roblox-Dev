@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clay Golem — 3D макет</title>
+<style>
+  :root{
+    --bg:#1d2129; --panel:#262b35; --panel2:#2d333f; --line:#3a4150; --text:#e8ebf0; --muted:#9aa3b2;
+    --accent:#c4714a; --accent2:#e3ab80;
+  }
+  @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#1d2129; } }
+  :root[data-theme="dark"]{ --bg:#1d2129; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:14px 16px 6px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+  header h1{margin:0;font-size:20px;font-weight:650}
+  header .sub{color:var(--muted)}
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;padding:8px 16px 16px}
+  @media (max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}}
+  .stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:420px;height:62vh}
+  .stage canvas{display:block;width:100%;height:100%}
+  .tag{position:absolute;left:12px;top:10px;color:var(--muted);font-size:12px;pointer-events:none}
+  .bar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+  .bar .lbl{color:var(--muted);font-size:12px;align-self:center;margin-right:4px;min-width:62px}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font:inherit;cursor:pointer}
+  button:hover{border-color:#5a6475}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .card h2{margin:0 0 8px;font-size:15px}
+  .card table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .card td{padding:4px 0;border-top:1px solid var(--line);vertical-align:top}
+  .card td:first-child{color:var(--muted);width:92px;padding-right:8px}
+  .sw{display:flex;flex-wrap:wrap;gap:6px}
+  .sw div{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .sw i{width:18px;height:18px;border-radius:4px;border:1px solid rgba(255,255,255,.15);display:inline-block}
+  .items{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;height:320px;margin:12px 16px 20px}
+  .items canvas{display:block;width:100%;height:100%}
+  .items .names{position:absolute;left:0;right:0;bottom:8px;display:grid;grid-template-columns:repeat(3,1fr);text-align:center;color:var(--muted);font-size:13px;pointer-events:none}
+  body.shot .wrap{grid-template-columns:minmax(0,1fr)}
+  body.shot header,body.shot .side,body.shot .bar,body.shot .tag{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Clay Golem</h1>
+  <span class="sub">глиняний голем · Common · «важкий, повільний» · size 1.05 · веб-макет у блоковому стилі</span>
+</header>
+<div class="wrap">
+  <div>
+    <div class="stage" id="stage"><div class="tag" id="tag">перетягни — обертання, колесо — масштаб</div></div>
+    <div class="bar"><span class="lbl">Клас</span>
+      <button data-cls="miner" class="on">Майнер · кірка</button>
+      <button data-cls="carrier">Носій · ящичок</button>
+      <button data-cls="warrior">Воїн · меч</button>
+      <button data-cls="none">Без предмета</button>
+    </div>
+    <div class="bar"><span class="lbl">Анімація</span>
+      <button data-anim="idle" class="on">Idle</button>
+      <button data-anim="walk">Walk</button>
+      <button data-anim="action">Mine / Attack</button>
+    </div>
+    <div class="bar"><span class="lbl">Вид</span>
+      <button data-view="front">Спереду</button>
+      <button data-view="q">3/4</button>
+      <button data-view="qL">3/4 зліва</button>
+      <button data-view="side">Збоку</button>
+      <button data-view="back">Ззаду</button>
+      <button id="turn" class="on">Турнтейбл</button>
+      <button id="studs" class="on">Studs</button>
+    </div>
+  </div>
+  <div class="side">
+    <div class="card">
+      <h2>Стиль для референсу</h2>
+      <table id="style"></table>
+    </div>
+    <div class="card">
+      <h2>Палітра</h2>
+      <div class="sw" id="sw"></div>
+    </div>
+    <div class="card" id="stats"></div>
+  </div>
+</div>
+<div class="items" id="items"><div class="names"><span>Глиняна кірка (майнер)</span><span>Глиняний ящичок (носій)</span><span>Глиняний меч (воїн)</span></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const DATA = /*DATA*/null;
+const STYLE = [
+  ["Матеріал / тема","мокра теракотова глина з гончарні; важкий, повільний, добродушний трудяга"],
+  ["Силует","кремезний і приземкуватий: пузо вперед, широкі обвислі плечі, короткі товсті ноги з пласкими стопами, маленька голова з «защипом» зверху"],
+  ["Палітра","теракота #c4714a, мокра глина #8c4a33, камінці #a39e94 (+ суха глина #e3ab80 у предметах) + спільні #f1f5f8, #1c2836, #f2a0b4"],
+  ["Фірмові деталі","відбиток долоні на пузі, сліди пальців на спині, патьоки мокрої глини з плечей і гомілок, втиснуті камінці, тріщини"],
+  ["Обличчя","великі очі, брови трохи вгору до центру, рожеві щічки, проста усмішка — спокійний і лагідний"],
+  ["Меч","лезо з випаленої теракоти зі світлими краями, дол «проведений пальцем», гарда — валик мокрої глини з камінцем, руків'я з глиняними кільцями"],
+  ["Кірка","голова з теракоти з камінцем, леза зі світлої випаленої глини з відбитком пальця, держак — скачаний валик мокрої глини"],
+  ["Ящик","глибоке глиняне корито: товсті стінки, світлий загорнутий обідок, вушка-ручки, відбитки пальців і камінець спереду; руду видно зверху"],
+  ["Не робити","без гончарного круга й округлих форм, без глазурі й блиску, без дрібних тріщин-текстур — лише блоки"],
+];
+const SW = [["main","теракота"],["wet","мокра глина"],["pebble","камінці"],["dry","суха глина (предмети)"],["light","світлий"],["dark","темний"],["pink","щічки"]];
+
+// ---------- спільне ----------
+const col = {}; for (const k in DATA.colors) col[k] = new THREE.Color(DATA.colors[k]).convertSRGBToLinear();
+const NO_STUDS = /^(EyeWhite|Pupil|EyeShine|Brow|Cheek|Mouth|MouthCorner|PickGlint)/;
+function studsTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#ececec'; g.fillRect(0,0,64,64);
+  g.fillStyle = '#c9c9c9'; g.beginPath(); g.arc(34,35,19,0,7); g.fill();
+  g.fillStyle = '#f7f7f7'; g.beginPath(); g.arc(31,31,19,0,7); g.fill();
+  g.fillStyle = '#ffffff'; g.beginPath(); g.arc(28,28,9,0,7); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.06)'; g.strokeRect(0.5,0.5,63,63);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+  return t;
+}
+const STUDS = studsTexture();
+const matCache = {};
+function mat(colKey, studs){
+  const key = colKey + (studs?'s':'');
+  if (!matCache[key]) matCache[key] = new THREE.MeshLambertMaterial({color: col[colKey], map: studs ? STUDS : null});
+  return matCache[key];
+}
+const studMeshes = [];
+const TILE = 0.5; // 0,5 од. моделі = 0,25 стада на один stud
+function boxGeo(s){
+  const g = new THREE.BoxGeometry(s[0], s[1], s[2]);
+  const uv = g.attributes.uv; const dims = [[s[2],s[1]],[s[2],s[1]],[s[0],s[2]],[s[0],s[2]],[s[0],s[1]],[s[0],s[1]]];
+  for (let f=0; f<6; f++) for (let i=0;i<4;i++){ const k=f*4+i; uv.setXY(k, uv.getX(k)*dims[f][0]/TILE, uv.getY(k)*dims[f][1]/TILE); }
+  return g;
+}
+function blockMesh(b, studsOn){
+  const studs = !NO_STUDS.test(b.name);
+  const m = new THREE.Mesh(boxGeo(b.s), mat(b.col, studs && studsOn));
+  m.castShadow = true; m.receiveShadow = true; m.userData.col = b.col; m.userData.studs = studs;
+  if (studs) studMeshes.push(m);
+  const cf = b.cf; const p = new THREE.Vector3(cf[0],cf[1],cf[2]);
+  const M = new THREE.Matrix4().set(cf[3],cf[4],cf[5],0, cf[6],cf[7],cf[8],0, cf[9],cf[10],cf[11],0, 0,0,0,1);
+  m.quaternion.setFromRotationMatrix(M); m.position.copy(p); m.name = b.name;
+  return m;
+}
+function setStuds(on){ for (const m of studMeshes) m.material = mat(m.userData.col, on && m.userData.studs); }
+function prefabGroup(pf){ const g = new THREE.Group(); for (const b of pf.blocks) g.add(blockMesh(b, true)); return g; }
+const ORE_KEYS = ['ore_copper','ore_stone','ore_coal','ore_iron'];
+function oreChunk(seed){
+  const rnd = mulberry(seed); const g = new THREE.Group();
+  const k = ORE_KEYS[Math.floor(rnd()*ORE_KEYS.length)];
+  const a = new THREE.Mesh(boxGeo([1.55,1.3,1.4]), mat(k, false));
+  const b = new THREE.Mesh(boxGeo([1.0,0.95,1.0]), mat(k==='ore_coal'?'ore_stone':k, false));
+  b.position.set(0.45,0.45,-0.2); b.rotation.set(0.5,0.7,0.2);
+  g.add(a,b); g.traverse(o=>{ if(o.isMesh){o.castShadow=true;} });
+  g.rotation.set((rnd()-.5)*0.8, rnd()*6.28, (rnd()-.5)*0.8);
+  return g;
+}
+function mulberry(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function boxWithOre(n){
+  const g = prefabGroup(DATA.prefabs.ClayCarryBox);
+  const slots = DATA.prefabs.ClayCarryBox.load.slice(); const rnd = mulberry(7);
+  for (let i=slots.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [slots[i],slots[j]]=[slots[j],slots[i]]; }
+  for (let i=0;i<n;i++){ const s=slots[i]; const o=oreChunk(100+i); o.position.set(s.cf[0]+(rnd()-.5)*0.25, 3.25+(rnd()*0.2), s.cf[2]+(rnd()-.5)*0.2); g.add(o); }
+  return g;
+}
+const R_H = new THREE.Matrix4().makeRotationX(1.449);
+
+// ---------- головна сцена ----------
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+renderer.outputEncoding = THREE.sRGBEncoding; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x232831);
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 500);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 6.6, 0); controls.enableDamping = true; controls.minDistance = 12; controls.maxDistance = 90;
+function lights(sc){
+  sc.add(new THREE.HemisphereLight(0xe6ecf7, 0x3b3530, 0.75));
+  const d = new THREE.DirectionalLight(0xfff4e8, 0.85); d.position.set(-14, 26, 20); d.castShadow = true;
+  d.shadow.mapSize.set(2048,2048); const sc2 = d.shadow.camera; sc2.left=-16; sc2.right=16; sc2.top=20; sc2.bottom=-6; sc2.far=80; d.shadow.bias=-0.0006; d.shadow.normalBias=0.02;
+  sc.add(d);
+  const f = new THREE.DirectionalLight(0xc8d6ff, 0.28); f.position.set(18, 10, -14); sc.add(f);
+}
+lights(scene);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(15, 48), new THREE.MeshLambertMaterial({color:new THREE.Color(0x2c323d).convertSRGBToLinear()}));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+
+// кістки
+const bones = {}; const bonePos = {};
+for (const b of DATA.bones) bonePos[b.name] = new THREE.Vector3(...b.pos);
+const golem = new THREE.Group(); scene.add(golem);
+for (const b of DATA.bones){
+  const g = new THREE.Group(); g.name = b.name; bones[b.name] = g;
+  const pp = b.parent ? bonePos[b.parent] : new THREE.Vector3();
+  g.position.copy(bonePos[b.name]).sub(pp);
+  (b.parent ? bones[b.parent] : golem).add(g);
+}
+for (const b of DATA.blocks){
+  if (b.group) continue;
+  const m = blockMesh(b, true); m.position.sub(bonePos[b.bone]); bones[b.bone].add(m);
+}
+golem.scale.setScalar(1.0);
+// предмети в кулаці Fist_L
+const fistBlk = DATA.blocks.find(b=>b.name==='Fist_L'); const fistC = new THREE.Vector3(fistBlk.cf[0],fistBlk.cf[1],fistBlk.cf[2]);
+function handItem(pf){
+  const holder = new THREE.Group(); holder.position.copy(fistC).sub(bonePos['Forearm_L']);
+  holder.quaternion.setFromRotationMatrix(R_H); holder.add(prefabGroup(pf)); bones['Forearm_L'].add(holder); return holder;
+}
+const pickaxe = handItem(DATA.prefabs.ClayPickaxe), sword = handItem(DATA.prefabs.ClaySword);
+const carryBox = boxWithOre(7); bones['Torso'].add(carryBox);
+
+// ---------- пози й анімації ----------
+const ANIM_SPEED = 0.9;  // Швидкість Clay майнера/воїна (носій 0.95)
+let cls = 'miner', anim = 'idle', turntable = true, t0 = performance.now(), frozenT = null;
+const HOLD = {UpperArm_R:[-0.95,0,0.32], UpperArm_L:[-0.95,0,-0.32], Forearm_R:[-0.55,0,0], Forearm_L:[-0.55,0,0]};
+function setRot(name, x, y, z){ bones[name].rotation.set(x||0, y||0, z||0, 'ZYX'); }
+const parentOf = {}; for (const b of DATA.bones) parentOf[b.name] = b.parent;
+const restPos = {}; for (const n in bones) restPos[n] = bones[n].position.clone();
+function placeCarryBox(){
+  for (const n in bones){ bones[n].rotation.set(0,0,0); bones[n].position.copy(restPos[n]); }
+  for (const n in HOLD) setRot(n, ...HOLD[n]);
+  golem.updateMatrixWorld(true);
+  const a = new THREE.Vector3(), b = new THREE.Vector3();
+  const fl = golem.getObjectByName('Fist_L'), fr = golem.getObjectByName('Fist_R');
+  fl.getWorldPosition(a); fr.getWorldPosition(b); const mid = a.add(b).multiplyScalar(0.5);
+  bones['Torso'].worldToLocal(mid);
+  carryBox.position.set(mid.x, mid.y - 3.7, mid.z + 0.2);
+}
+placeCarryBox();
+function setClass(c){
+  cls = c; pickaxe.visible = c==='miner'; sword.visible = c==='warrior'; carryBox.visible = c==='carrier';
+  document.querySelectorAll('[data-cls]').forEach(b=>b.classList.toggle('on', b.dataset.cls===c));
+  const btn = document.querySelector('[data-anim="action"]'); btn.textContent = c==='warrior' ? 'Attack' : c==='carrier' ? 'PickUp / Drop' : 'Mine';
+}
+function setAnim(a){ anim = a; t0 = performance.now(); document.querySelectorAll('[data-anim]').forEach(b=>b.classList.toggle('on', b.dataset.anim===a)); }
+const ease = x => x<0?0:x>1?1:x*x*(3-2*x);
+function pose(t){
+  for (const n in bones){ bones[n].rotation.set(0,0,0); bones[n].position.copy(restPos[n]); bones[n].scale.set(1,1,1); }
+  const sp = cls==='carrier' ? 0.95 : ANIM_SPEED;
+  const holdTool = cls==='miner' || cls==='warrior';
+  // базова поза класу
+  if (cls==='carrier') for (const n in HOLD) setRot(n, ...HOLD[n]);
+  if (holdTool){ setRot('UpperArm_L', 0.1, 0, -0.08); setRot('Forearm_L', -1.25, 0, 0.32); }  // лікоть 90°, держак майже вертикально
+  const T = t*sp;
+  if (anim==='idle'){
+    const br = Math.sin(T*2*Math.PI/2.8);
+    bones.Torso.position.y += br*0.12; bones.Torso.rotation.x += br*0.015;
+    bones.Head.rotation.z = Math.sin(T*2*Math.PI/5.6)*0.05; bones.Head.rotation.x = -br*0.03;
+    if (cls!=='carrier'){
+      bones.UpperArm_R.rotation.z += 0.04 + br*0.03;
+      bones.UpperArm_L.rotation.z += -0.04 - br*0.03;
+    } else {
+      // нетерпляче постукування ногою (Idle повний)
+      const tap = Math.max(0, Math.sin(T*2*Math.PI/0.9)); bones.Shin_R.rotation.x = -tap*0.12; bones.Thigh_R.rotation.x = -tap*0.06;
+    }
+  } else if (anim==='walk'){
+    const P = 1.35; const ph = T*2*Math.PI/P; const s = Math.sin(ph), c = Math.cos(ph);
+    bones.Thigh_R.rotation.x = -s*0.42; bones.Thigh_L.rotation.x = s*0.42;
+    bones.Shin_R.rotation.x = Math.max(0, c)*0.45; bones.Shin_L.rotation.x = Math.max(0, -c)*0.45;
+    bones.Hips.position.y += -0.42*Math.abs(s); bones.Hips.rotation.z = s*0.06;
+    bones.Torso.rotation.y = s*0.10; bones.Torso.rotation.z = -s*0.05; bones.Torso.rotation.x = 0.06;
+    bones.Head.rotation.z = s*0.04;
+    if (cls!=='carrier'){
+      bones.UpperArm_R.rotation.x += s*0.38;
+      if (!holdTool) bones.UpperArm_L.rotation.x += -s*0.38; else bones.UpperArm_L.rotation.x += -s*0.18;
+    }
+  } else if (anim==='action'){
+    if (cls==='carrier'){
+      // PickUp → Drop: нахил і підйом ящичка
+      const P = 2.4, u = (T%P)/P; const bend = Math.sin(u*Math.PI*2)>0 ? Math.sin(u*Math.PI*2) : 0;
+      bones.Torso.rotation.x = bend*0.35; bones.Hips.position.y -= bend*0.5;
+      bones.Thigh_R.rotation.x = -bend*0.5; bones.Thigh_L.rotation.x = -bend*0.5; bones.Shin_R.rotation.x = bend*0.7; bones.Shin_L.rotation.x = bend*0.7;
+    } else {
+      // Mine / Attack: стійка → замах над плечем (0,45 с) → удар (0,62 с) → віддача (0,74 с) → повернення; 1,4 с при x1
+      const P = 1.4, u = (T%P)/P;
+      const K = [[0,0.1,-1.25,0,0],[0.32,-2.7,-0.3,-0.12,-0.2],[0.44,-0.45,0.45,0.22,0.12],[0.53,-0.6,0.2,0.16,0.08],[1,0.1,-1.25,0,0]];
+      let i = 0; while (u > K[i+1][0]) i++;
+      const k0 = K[i], k1 = K[i+1], f = i===1 ? Math.pow((u-k0[0])/(k1[0]-k0[0]), 1.8) : ease((u-k0[0])/(k1[0]-k0[0]));
+      const L = j => k0[j] + (k1[j]-k0[j])*f;
+      bones.UpperArm_L.rotation.set(L(1), 0, -0.08); bones.Forearm_L.rotation.set(L(2), 0, 0);
+      bones.Torso.rotation.x = L(3); bones.Torso.rotation.y = L(4);
+      const up = Math.max(0, -L(3))/0.12, dn = Math.max(0, L(3))/0.22;
+      bones.UpperArm_R.rotation.x += 0.25*up - 0.2*dn;
+      bones.Head.rotation.x = -0.06*up + 0.08*dn;
+    }
+  }
+  // Face: кліпання
+  const bl = (t % 3.7); const blink = bl < 0.14 ? 1 - Math.sin(bl/0.14*Math.PI) * 0.9 : 1;
+  bones.Eye_R.scale.y = bones.Eye_L.scale.y = blink;
+}
+
+// ---------- види ----------
+const VIEWS = {front:[0,7.3,44], q:[28,12.5,34], qL:[-17,10.5,40], side:[44,7.3,0], back:[0,7.3,-44]};
+function setView(v){ const p = VIEWS[v]; camera.position.set(...p); controls.target.set(0,6.6,0); controls.update(); }
+setView('q');
+function setTurntable(on){ turntable = on; document.getElementById('turn').classList.toggle('on', on); }
+
+// ---------- ряд предметів ----------
+const itemsEl = document.getElementById('items');
+const ir = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+ir.outputEncoding = THREE.sRGBEncoding; ir.shadowMap.enabled = true; ir.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+itemsEl.insertBefore(ir.domElement, itemsEl.firstChild);
+const iscene = new THREE.Scene(); iscene.background = new THREE.Color(0x232831); lights(iscene);
+const icam = new THREE.PerspectiveCamera(30, 3, 0.1, 300); icam.position.set(0, 15, 36); icam.lookAt(0, 3.6, 0);
+const itemSpin = [];
+function addItem(obj, x, center){ const piv = new THREE.Group(); piv.position.set(x,0,0); obj.position.sub(center); piv.add(obj); iscene.add(piv); itemSpin.push(piv); }
+{ // кірка стоїть держаком вертикально
+  const p = prefabGroup(DATA.prefabs.ClayPickaxe); const g = new THREE.Group(); g.add(p); g.rotation.y = Math.PI/2; const w = new THREE.Group(); w.add(g);
+  addItem(w, -13, new THREE.Vector3(0,-2.2,0));
+  const s = prefabGroup(DATA.prefabs.ClaySword); const g2 = new THREE.Group(); g2.add(s); g2.rotation.y = Math.PI/2; const w2 = new THREE.Group(); w2.add(g2);
+  addItem(w2, 13, new THREE.Vector3(0,-2.6,0));
+  const b = boxWithOre(7); const w3 = new THREE.Group(); w3.add(b); addItem(w3, 0, new THREE.Vector3(0,-0.2,0));
+  iscene.fog = new THREE.Fog(0x232831, 55, 110);
+  const ig = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshLambertMaterial({color:new THREE.Color(0x2c323d).convertSRGBToLinear()})); ig.rotation.x = -Math.PI/2; ig.position.y = -0.2; ig.receiveShadow = true; iscene.add(ig);
+}
+
+// ---------- UI ----------
+document.querySelectorAll('[data-cls]').forEach(b=>b.onclick=()=>setClass(b.dataset.cls));
+document.querySelectorAll('[data-anim]').forEach(b=>b.onclick=()=>setAnim(b.dataset.anim));
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ setTurntable(false); setView(b.dataset.view); });
+document.getElementById('turn').onclick=()=>setTurntable(!turntable);
+let studsOn = true; document.getElementById('studs').onclick=(e)=>{ studsOn=!studsOn; setStuds(studsOn); e.target.classList.toggle('on', studsOn); };
+document.getElementById('style').innerHTML = STYLE.map(([a,b])=>`<tr><td>${a}</td><td>${b}</td></tr>`).join('');
+document.getElementById('sw').innerHTML = SW.map(([k,n])=>`<div><i style="background:${DATA.colors[k]}"></i>${n} <code>${DATA.colors[k]}</code></div>`).join('');
+const st = DATA.stats;
+document.getElementById('stats').innerHTML = `<h2>Модель</h2><table>
+<tr><td>Тіло</td><td>${st.bodyBlocks} блоків (${st.rotatedBlocks} повернутих), ${st.bodyTriangles} трикутників, 6 кольорів</td></tr>
+<tr><td>Правило 0,1</td><td>виправлено ${st.rule01_fixed}, залишилось ${st.rule01_remaining}</td></tr>
+<tr><td>Розмір</td><td>${st.sizeStuds.join(' × ')} стада (у грі ×1,05: ${st.sizeStudsInGame.join(' × ')})</td></tr>
+<tr><td>Предмети</td><td>кірка ${st.pickaxeBlocks}, меч ${st.swordBlocks}, ящичок ${st.boxBlocks} блоків + 10 гнізд руди</td></tr>
+<tr><td>Скелет</td><td>${DATA.bones.length} кісток (як Stone + рот), предмет у кулаці Fist_L</td></tr>
+<tr><td>Швидкість</td><td>анімації ×0,9 (майнер, воїн), ×0,95 (носій)</td></tr></table>`;
+
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix();
+  const iw = itemsEl.clientWidth, ih = itemsEl.clientHeight; ir.setSize(iw, ih, false); icam.aspect = iw/ih;
+  icam.fov = iw/ih < 2.2 ? 30 * 2.2/(iw/ih) : 30; icam.updateProjectionMatrix();
+  const spread = Math.max(12, Math.min(19, iw/ih*4.6)); itemSpin[0].position.x = -spread; itemSpin[1].position.x = spread;
+}
+window.addEventListener('resize', resize); resize();
+let last = performance.now();
+function frame(now){
+  const dt = (now-last)/1000; last = now;
+  const t = frozenT!==null ? frozenT : (now - t0)/1000;
+  pose(t);
+  if (turntable && frozenT===null){ const a = dt*0.35; const p = camera.position.clone().sub(controls.target); p.applyAxisAngle(new THREE.Vector3(0,1,0), a); camera.position.copy(controls.target).add(p); }
+  controls.update(); renderer.render(scene, camera);
+  if (frozenT===null) for (const s of itemSpin) s.rotation.y += dt*0.5;
+  ir.render(iscene, icam);
+  requestAnimationFrame(frame);
+}
+setClass('miner');
+requestAnimationFrame(frame);
+// для скриншотів
+window.api = { setClass, setAnim, setView, setTurntable, setStuds,
+  freeze(t){ frozenT = t; }, itemsAngle(a){ for (const s of itemSpin) s.rotation.y = a; },
+  scene, golem, bones, carryBox,
+  shot(on){ document.body.classList.toggle('shot', on); resize(); }, camera, controls };
+</script>
+</body>
+</html>

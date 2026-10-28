@@ -46,6 +46,7 @@ local HttpService = game:GetService("HttpService")
 
 local Shared = RS:WaitForChild("Shared")
 local Catalog = require(Shared:WaitForChild("GolemCatalog"))
+local MutationText = require(Shared:WaitForChild("MutationText")) -- анімовані градієнти назв мутацій (пігулки, картка)
 local StyleA = require(Shared:WaitForChild("StyleA"))
 local ItemVP = require(Shared:WaitForChild("ItemViewport"))
 local WindowFit = require(Shared:WaitForChild("WindowFit"))
@@ -241,6 +242,7 @@ end
 -- (недоступна кнопка, b.enabled = false) зсуває всю групу: тінь, іконка, напис і лічильник не відстають від кнопки.
 -- Іконку й напис кладемо в b.group (ZIndex 4–5, над основою 2 і тінню 1). opt: name, shadowDy, color, z, shine, icon, iconPad.
 local function shakeGroup(grp: GuiObject)
+	StyleA.deny() -- звук відмови (tap цього кліку скасовується)
 	if grp:GetAttribute("Shaking") then return end
 	grp:SetAttribute("Shaking", true)
 	local p0 = grp.Position
@@ -268,33 +270,18 @@ local function makeGroupButton(parent, x, y, w, h, opt)
 	return b
 end
 
--- сяйво: прозорість i-го з n вкладених кіл, щоб непрозорість на відстані d була A · (1 − d / R)^P
-local function glowTable(A, P, n)
-	n = n or GLOW_N
-	local function op(f) return A * math.max(0, 1 - f) ^ P end
-	local t = {}
-	for i = 1, n do
-		local a = 1 - (1 - op((i - 1) / n)) / math.max(1e-6, 1 - op(i / n))
-		t[i] = 1 - math.clamp(a, 0, 1)
-	end
-	return t
-end
--- вкладені кола / овали сяйва в контейнері; повертає список (1 — найменше)
+-- сяйво (27.10.2026): один ImageLabel з м'якою радіальною текстурою (soft_radial256, Image 122253463048651 / Decal 92624674231424)
+-- замість вкладених кіл (було видно «драбинку»). glowTable → { t = прозорість текстури }: ледь помітна підсвітка (~0,85–0,98).
+local function glowTable(A, P, n) return { t = 1 - A * 0.16 } end
 local function glowDisc(parent, cx, cy, rx, ry, n, z)
-	local box = frame(parent, 0, 0, 0, 0, nil, { BackgroundTransparency = 1, ZIndex = z or 1 })
-	local list = {}
-	for i = n, 1, -1 do
-		local w, h = rx * 2 * i / n, ry * 2 * i / n
-		local c = frame(box, cx - w / 2, cy - h / 2, w, h, WHITE, { BackgroundTransparency = 1, ZIndex = 1 })
-		corner(c, UDim.new(0.5, 0))
-		list[i] = c
-	end
-	return list
+	local img = new("ImageLabel", { Name = "Glow", BackgroundTransparency = 1, Image = "rbxassetid://122253463048651", ImageTransparency = 1,
+		Position = UDim2.fromOffset(cx - rx, cy - ry), Size = UDim2.fromOffset(rx * 2, ry * 2), ZIndex = z or 1 }, parent)
+	return { img }
 end
 local function setGlow(list, color, tbl)
-	for i, c in list do
-		c.BackgroundColor3 = color
-		c.BackgroundTransparency = tbl and tbl[i] or 1
+	for _, c in list do
+		c.ImageColor3 = color
+		c.ImageTransparency = tbl and tbl.t or 1
 	end
 end
 local GLOW_ITEM = glowTable(0.85, 0.9)
@@ -315,6 +302,7 @@ local function trimNum(x: number, d: number): string
 	return s
 end
 local function fmt(n: number): string
+	if n < 1000 and n ~= math.floor(n) then return Catalog.num(n) end -- дрібна шкода мутації: 2.4
 	local s = string.format("%d", math.floor(n + 0.5))
 	local out = (s:reverse():gsub("(%d%d%d)", "%1,")):reverse()
 	if string.sub(out, 1, 1) == "," then out = string.sub(out, 2) end
@@ -332,7 +320,7 @@ local function short(n: number): string
 	end
 	return fmt(n)
 end
-local function spd(v: number): string return "x" .. trimNum(v, 2) end
+local function spd(v: number): string return "x" .. trimNum(math.floor(v * 100 + 0.5) / 100, 2) end -- як GolemCatalog.statText: 1.125 → x1.13
 local function money(v: number): string
 	if v == 0 then return "FREE" end
 	return "$" .. (v >= 1e5 and short(v) or fmt(v))
@@ -355,17 +343,8 @@ end
 local function pct(v: number): string return trimNum(math.floor(v * 10 + 0.5) / 10, 1) .. "%" end
 
 local function font(hex: string, t: string): string return '<font color="#' .. hex .. '">' .. t .. "</font>" end
-local RAINBOW = { "ff5a5a", "ffa53a", "ffe14a", "6ee05a", "4fd2ff", "7a8cff", "e06bff" }
-local function rainbow(t: string): string
-	local out = {}
-	for i = 1, #t do table.insert(out, font(RAINBOW[(i - 1) % #RAINBOW + 1], string.sub(t, i, i))) end
-	return table.concat(out)
-end
-local function mutRich(k: number): string
-	local u = Catalog.MUTATIONS[k + 1]
-	if u.key == "Rainbow" then return rainbow(u.key) end
-	return font(u.color:ToHex(), u.key)
-end
+-- назви мутацій (пігулки, картка) з 26.10.2026 — Shared/MutationText (градієнт з анімацією); старі RAINBOW / rainbow / mutRich
+-- (RichText по літерах) прибрано — скрипт біля ліміту 200 локальних змінних верхнього рівня.
 local function L(t) return font("9aa3ad", t) end
 local function statRich(id: string, cls: string, k: number): string
 	local s = Catalog.stats(id, cls, k)
@@ -660,8 +639,9 @@ for i, u in Catalog.MUTATIONS do
 	stroke(inner, u.color, 2, 0.67)
 	local clip = frame(root, 2, 2, CH_W - 4, CH_H - 4, nil, { BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 3 })
 	local glow = glowDisc(clip, (CH_W - 4) / 2, (CH_H - 4) / 2, (CH_W - 4) * 0.53, (CH_H - 4) * 0.53, CHIP_N, 1)
-	local nm = textAt(root, 4, 14, CH_W - 8, 15, u.key == "Rainbow" and rainbow(u.key) or u.key, u.color, 1.8, { RichText = true, ZIndex = 6 })
+	local nm = textAt(root, 4, 14, CH_W - 8, 15, u.key, u.color, 1.8, { ZIndex = 6 })
 	fitText(nm, 15, 11)
+	MutationText.apply(nm, k) -- свій градієнт кожної мутації (Normal — суцільний білий)
 	local ct = textAt(root, 0, 29, CH_W, 12, "", MUTED, 1.6, { FontFace = XBOLD, ZIndex = 6 })
 	local ring = frame(root, -1, -1, CH_W + 2, CH_H + 2, nil, { BackgroundTransparency = 1, ZIndex = 7, Visible = false })
 	stroke(ring, RING, 4)
@@ -764,6 +744,7 @@ local function hoverStep(dt: number)
 	if next(hoverSet) == nil and hoverConn then hoverConn:Disconnect(); hoverConn = nil end
 end
 local function wakeHover(s)
+	if s.fxSync then s.fxSync() end -- фон мутації сторінки на наведеній / вибраній картці
 	hoverSet[s] = true
 	if not hoverConn then hoverConn = RunService.RenderStepped:Connect(hoverStep) end
 end
@@ -786,6 +767,9 @@ local function makeCard(parent, x, y, name, scroll, sz)
 	local tone = frame(card, P + 3, P + 3, S - 6, S - 6, nil, { BackgroundTransparency = 1, ZIndex = 3 })
 	local toneStroke = stroke(tone, WHITE, 3, 0.94)
 	local glow = glowDisc(card, P + S / 2, P + S / 2, S * 0.5, S * 0.5, GLOW_N, 3)
+	-- фон за мутацією сторінки (Shared/MutationSlotFX) — на наведеній і вибраній відкритій картці голема (не для руди);
+	-- require тут, а не вгорі — скрипт біля ліміту 200 локальних верхнього рівня
+	local mfx = require(Shared:WaitForChild("MutationSlotFX")).new(card, { pos = Vector2.new(P, P), size = Vector2.new(S, S), z = 3 })
 	local pad = S * 0.17
 	local iw = S - 2 * pad
 	local icon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(P + pad, P + pad * 1.05),
@@ -834,7 +818,11 @@ local function makeCard(parent, x, y, name, scroll, sz)
 		if can then rwTxt.Text = "+" .. d.claim end
 		ring.Visible = d.sel == true
 		holder.ZIndex = d.sel and 5 or 2
+		mfx.setMut((d.found and d.mut) or nil)
+		s.sel = d.sel == true
+		s.fxSync()
 	end
+	function s.fxSync() mfx.setOn(s.hover or s.sel) end
 	-- Claim: оверлей (затемнення, «+N», кнопка) плавно зникає всіма шарами — копія поверх, оригінал ховає set()
 	function s.fadeClaim()
 		if not dim.Visible then return end
@@ -932,6 +920,8 @@ local infoGlow = glowDisc(info, 52, 44, 41, 41, GLOW_N, 1)
 local infoIcon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(14, 6), Size = UDim2.fromOffset(76, 76), ZIndex = 3 }, info)
 local infoName = textAt(info, 104, 23, 316, 26, "", WHITE, 3, { TextXAlignment = LEFT, ZIndex = 3 })
 local infoSub = textAt(info, 104, 48, 316, 15, "", SUB_TXT, 1.8, { TextXAlignment = LEFT, FontFace = XBOLD, RichText = true, ZIndex = 3 })
+-- назва мутації в підписі картки — окрема мітка одразу за текстом infoSub (градієнт MutationText)
+local infoMut = textAt(info, 104, 48, 120, 15, "", WHITE, 1.8, { TextXAlignment = LEFT, FontFace = XBOLD, ZIndex = 3, Visible = false })
 local infoStat = textAt(info, 104, 69, 322, 13, "", SUB_TXT, 1.6, { TextXAlignment = LEFT, FontFace = XBOLD, RichText = true, ZIndex = 3 })
 local oddsBox = frame(info, 432, 8, 202, 72, WHITE, { ZIndex = 3 })
 vgrad(oddsBox, { { 0, "1c1f24" }, { 1, "121418" } }); stroke(oddsBox, INK, 3)
@@ -1002,7 +992,7 @@ renderGrid = function(resetScroll: boolean)
 		local g = c.g
 		local k = keyOf(id, cls, mut)
 		c.set({ found = found[k] == true, claim = claimable(k) and REWARD[mut + 1] or nil, sel = sel == id, tone = Catalog.rarityColor(g.rarity),
-			name = g.name, icon = Catalog.icon(id), vp = ItemVP.golemKey(id, cls), odds = oddsTxt(id, mut) })
+			name = g.name, icon = Catalog.icon(id), vp = ItemVP.golemKey(id, cls), odds = oddsTxt(id, mut), mut = mut })
 	end
 	if resetScroll then gscroll = 0 end -- при відкритті й зміні класу / мутації — на початок
 	setG(gscroll)
@@ -1050,6 +1040,7 @@ renderInfo = function()
 		infoName.Text = isFound and o.key or "???"
 		fitText(infoName, 26, 18)
 		infoSub.Text = font(o.tone:ToHex(), "Ore") .. " · Map 1"
+		infoMut.Visible = false; MutationText.clear(infoMut)
 		if isFound then
 			infoStat.Text = L("HP") .. " " .. o.hp .. " · " .. L("Ore") .. " " .. money(o.price) .. " · "
 				.. (o.smelt and (L("Bar") .. " " .. money(math.floor(o.price * Forge.BAR_MULT + 1e-6))) or L("Can't smelt"))
@@ -1075,7 +1066,12 @@ renderInfo = function()
 	fitText(infoName, 26, 18)
 	local cn = "Miner"
 	for _, c in CLS do if c[1] == cls then cn = c[3] end end
-	infoSub.Text = font(tc:ToHex(), g.rarity) .. " " .. cn .. " · " .. mutRich(mut)
+	infoSub.Text = font(tc:ToHex(), g.rarity) .. " " .. cn .. " · "
+	infoMut.Text = Catalog.MUTATIONS[mut + 1].key
+	infoMut.Visible = true
+	MutationText.apply(infoMut, mut)
+	local k1 = math.max(info.AbsoluteSize.X / 646, 0.01) -- TextBounds — у пікселях екрана
+	infoMut.Position = UDim2.fromOffset(104 + infoSub.TextBounds.X / k1 + 4, infoMut.Position.Y.Offset)
 	infoStat.Text = isFound and statRich(g.id, cls, mut) or L("Roll it to reveal stats")
 	oddsTitle.Text = "ROLL CHANCE"
 	oddsTx.Text = oddsTxt(g.id, mut)
@@ -1327,14 +1323,8 @@ open = function()
 	isOpen = true
 	animToken += 1
 	local my = animToken
-	-- одне вікно за раз: Inventory закриваємо (його ж перемикачем), Forge / Sell / PlotPlace ховаємо до закриття Index
-	local inv = playerGui:FindFirstChild("InventoryWindow")
-	local invRoot = inv and inv:FindFirstChild("ModalRoot")
-	if invRoot and invRoot.Visible and hudEvent then hudEvent:Fire("Inventory") end
-	for _, n in { "ForgeWindow", "SellWindow", "PlotPlaceWindow" } do
-		local g = playerGui:FindFirstChild(n)
-		if g and g:IsA("ScreenGui") and g.Enabled then g.Enabled = false; hiddenGuis[g] = true end
-	end
+	-- одне вікно на екрані (Shared/WindowManager, 27.10.2026): інші вікна закриваються своєю анімацією
+	require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).opened("Index")
 	-- хотбар лишається видно над затемненням (як у INVENTORY)
 	-- (Inventory, що закривається, за 0,12 с повертає хотбару свій порядок — тож ставимо ще раз після цього)
 	local hb = playerGui:FindFirstChild("Hotbar")
@@ -1378,6 +1368,8 @@ close = function()
 	end)
 end
 closeBtn.onClick = function() close() end
+-- одне вікно на екрані (Shared/WindowManager): відкрилось інше вікно — Index закривається
+require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).register("Index", function() return isOpen end, function() close() end)
 local function inside(o: GuiObject, p: Vector2, top: number?): boolean
 	local a, s = o.AbsolutePosition, o.AbsoluteSize
 	return p.X >= a.X and p.X <= a.X + s.X and p.Y >= a.Y - (top or 0) and p.Y <= a.Y + s.Y

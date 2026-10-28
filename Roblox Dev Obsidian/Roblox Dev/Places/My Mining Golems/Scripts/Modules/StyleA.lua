@@ -40,7 +40,7 @@
 --     hoverAlways = true — збільшувати при наведенні й тоді, коли дія недоступна;
 --     tap = false — без звуку натискання (у кнопки свій звук, напр. покупка). За замовчуванням успішний клік грає
 --     UISounds "tap" (недоступна кнопка лише хитається, без звуку). StyleA.tap() — той самий звук для кнопок без bind. Повертає список з'єднань.
---   StyleA.shake(obj), StyleA.faceRect(w, h) → x, y, fw, fh; StyleA.sliceScale(h).
+--   StyleA.shake(obj) (хитання + звук відмови deny), StyleA.deny() (лише звук відмови), StyleA.faceRect(w, h) → x, y, fw, fh; StyleA.sliceScale(h).
 --   StyleA.follow(obj, gui) — елемент, що візуально належить кнопці, але лежить поруч (тінь-сусід, бейдж, підпис), масштабується
 --     й хитається разом з нею (власний UIScale = obj.scale.Scale, якір переноситься в центр без зміни місця).
 --     Діти obj.root рухаються самі — їх реєструвати не треба.
@@ -99,12 +99,21 @@ local WHITE = Color3.new(1, 1, 1)
 
 -- звук натискання (Shared/UISounds, лише на клієнті); minGap 0,08 с — щоб два обробники одного кліку не дали подвійний tap
 local uiSounds: any = nil
-function StyleA.tap()
+local function sounds()
 	if uiSounds == nil then
 		local ok, m = pcall(function() return require(script.Parent:WaitForChild("UISounds", 5) :: ModuleScript) end)
 		uiSounds = ok and m or false
 	end
-	if uiSounds then uiSounds.play("tap", 0.08) end
+	return uiSounds
+end
+function StyleA.tap()
+	local s = sounds()
+	if s then s.play("tap", 0.08) end
+end
+-- глухий звук відмови (сіра / недоступна кнопка); tap того ж кліку UISounds скасовує сам — звучить лише deny
+function StyleA.deny()
+	local s = sounds()
+	if s then s.play("deny", 0.15) end
 end
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
 local SHAKE = { -10, 10, -7, 7, -3, 0 }
@@ -344,6 +353,7 @@ end
 
 -- хитання недоступної кнопки (не накладається саме на себе; повертає кнопку на місце, з якого почало)
 function StyleA.shake(obj)
+	StyleA.deny() -- звук відмови й на повторні кліки під час хитання (minGap 0,15)
 	if obj.shaking then return end
 	obj.shaking = true
 	local root = obj.root

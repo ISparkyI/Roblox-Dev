@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clay Golem — 3D макет</title>
+<style>
+  :root{
+    --bg:#1d2129; --panel:#262b35; --panel2:#2d333f; --line:#3a4150; --text:#e8ebf0; --muted:#9aa3b2;
+    --accent:#c4714a; --accent2:#e3ab80;
+  }
+  @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#1d2129; } }
+  :root[data-theme="dark"]{ --bg:#1d2129; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:14px 16px 6px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+  header h1{margin:0;font-size:20px;font-weight:650}
+  header .sub{color:var(--muted)}
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;padding:8px 16px 16px}
+  @media (max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}}
+  .stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-height:420px;height:62vh}
+  .stage canvas{display:block;width:100%;height:100%}
+  .tag{position:absolute;left:12px;top:10px;color:var(--muted);font-size:12px;pointer-events:none}
+  .bar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+  .bar .lbl{color:var(--muted);font-size:12px;align-self:center;margin-right:4px;min-width:62px}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font:inherit;cursor:pointer}
+  button:hover{border-color:#5a6475}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .side{display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .card h2{margin:0 0 8px;font-size:15px}
+  .card table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .card td{padding:4px 0;border-top:1px solid var(--line);vertical-align:top}
+  .card td:first-child{color:var(--muted);width:92px;padding-right:8px}
+  .sw{display:flex;flex-wrap:wrap;gap:6px}
+  .sw div{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .sw i{width:18px;height:18px;border-radius:4px;border:1px solid rgba(255,255,255,.15);display:inline-block}
+  .items{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;height:320px;margin:12px 16px 20px}
+  .items canvas{display:block;width:100%;height:100%}
+  .items .names{position:absolute;left:0;right:0;bottom:8px;display:grid;grid-template-columns:repeat(3,1fr);text-align:center;color:var(--muted);font-size:13px;pointer-events:none}
+  body.shot .wrap{grid-template-columns:minmax(0,1fr)}
+  body.shot header,body.shot .side,body.shot .bar,body.shot .tag{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Clay Golem</h1>
+  <span class="sub">глиняний голем · Common · «важкий, повільний» · size 1.05 · веб-макет у блоковому стилі</span>
+</header>
+<div class="wrap">
+  <div>
+    <div class="stage" id="stage"><div class="tag" id="tag">перетягни — обертання, колесо — масштаб</div></div>
+    <div class="bar"><span class="lbl">Клас</span>
+      <button data-cls="miner" class="on">Майнер · кірка</button>
+      <button data-cls="carrier">Носій · ящичок</button>
+      <button data-cls="warrior">Воїн · меч</button>
+      <button data-cls="none">Без предмета</button>
+    </div>
+    <div class="bar"><span class="lbl">Анімація</span>
+      <button data-anim="idle" class="on">Idle</button>
+      <button data-anim="walk">Walk</button>
+      <button data-anim="action">Mine / Attack</button>
+    </div>
+    <div class="bar"><span class="lbl">Вид</span>
+      <button data-view="front">Спереду</button>
+      <button data-view="q">3/4</button>
+      <button data-view="qL">3/4 зліва</button>
+      <button data-view="side">Збоку</button>
+      <button data-view="back">Ззаду</button>
+      <button id="turn" class="on">Турнтейбл</button>
+      <button id="studs" class="on">Studs</button>
+    </div>
+  </div>
+  <div class="side">
+    <div class="card">
+      <h2>Стиль для референсу</h2>
+      <table id="style"></table>
+    </div>
+    <div class="card">
+      <h2>Палітра</h2>
+      <div class="sw" id="sw"></div>
+    </div>
+    <div class="card" id="stats"></div>
+  </div>
+</div>
+<div class="items" id="items"><div class="names"><span>Глиняна кірка (майнер)</span><span>Глиняний ящичок (носій)</span><span>Глиняний меч (воїн)</span></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const DATA = {"golem":"Clay Golem","id":"clay","kind":"clay","catalogSize":1.05,"units":"1 од. моделі = 0,5 стада; cf = [x,y,z, R00,R01,R02, R10,R11,R12, R20,R21,R22] (як CFrame.new у Roblox); s = розмір","colors":{"main":"#c4714a","wet":"#8c4a33","pebble":"#a39e94","light":"#f1f5f8","dark":"#1c2836","pink":"#f2a0b4","dry":"#e3ab80","ore_copper":"#e8772e","ore_stone":"#7d8590","ore_coal":"#2e3138","ore_iron":"#d9b49a"},"bones":[{"name":"Root","parent":null,"pos":[0.0,0.0,-0.2986]},{"name":"Hips","parent":"Root","pos":[0.0,4.85,-0.2986]},{"name":"Torso","parent":"Hips","pos":[0.0,5.6,-0.2986]},{"name":"Head","parent":"Torso","pos":[0.0,9.9,0.4514]},{"name":"UpperArm_R","parent":"Torso","pos":[5.2,9.4,-0.2986]},{"name":"Forearm_R","parent":"UpperArm_R","pos":[5.5,6.9,0.0014]},{"name":"UpperArm_L","parent":"Torso","pos":[-5.2,9.4,-0.2986]},{"name":"Forearm_L","parent":"UpperArm_L","pos":[-5.5,6.9,0.0014]},{"name":"Thigh_R","parent":"Hips","pos":[2.0,4.6,-0.2986]},{"name":"Shin_R","parent":"Thigh_R","pos":[2.1,3.15,-0.2986]},{"name":"Thigh_L","parent":"Hips","pos":[-2.0,4.6,-0.2986]},{"name":"Shin_L","parent":"Thigh_L","pos":[-2.1,3.15,-0.2986]},{"name":"Eye_R","parent":"Head","pos":[0.85,11.4,2.1764]},{"name":"Pupil_R","parent":"Eye_R","pos":[0.78,11.29,2.2764]},{"name":"Brow_R","parent":"Head","pos":[0.9,12.3,2.2014]},{"name":"Eye_L","parent":"Head","pos":[-0.85,11.4,2.1764]},{"name":"Pupil_L","parent":"Eye_L","pos":[-0.78,11.29,2.2764]},{"name":"Brow_L","parent":"Head","pos":[-0.9,12.3,2.2014]},{"name":"Mouth","parent":"Head","pos":[0.0,10.46,2.3014]},{"name":"MouthCorner_R","parent":"Head","pos":[0.65,10.6,2.3014]},{"name":"MouthCorner_L","parent":"Head","pos":[-0.65,10.6,2.3014]}],"blocks":[{"name":"Foot_R","bone":"Shin_R","col":"wet","cf":[2.15,0.5,0.0514,0.995,0.0,0.09983,0.0,1.0,0.0,-0.09983,0.0,0.995],"s":[3.3,1.0,3.9]},{"name":"Foot_L","bone":"Shin_L","col":"wet","cf":[-2.15,0.5,0.0514,0.995,0.0,-0.09983,0.0,1.0,0.0,0.09983,0.0,0.995],"s":[3.3,1.0,3.9]},{"name":"Toe_R","bone":"Shin_R","col":"wet","cf":[2.3347,0.45,1.8921,0.63329,0.0,0.77391,0.0,1.0,0.0,-0.77391,0.0,0.63329],"s":[2.1,0.8,2.1]},{"name":"Toe_L","bone":"Shin_L","col":"wet","cf":[-2.3347,0.45,1.8921,0.63329,0.0,-0.77391,0.0,1.0,0.0,0.77391,0.0,0.63329],"s":[2.1,0.8,2.1]},{"name":"Shin_R","bone":"Shin_R","col":"main","cf":[2.1,2.05,-0.2986,0.9982,0.0,0.05996,0.0,1.0,0.0,-0.05996,0.0,0.9982],"s":[2.7,2.3,2.7]},{"name":"Shin_L","bone":"Shin_L","col":"main","cf":[-2.1,2.05,-0.2986,0.9982,0.0,-0.05996,0.0,1.0,0.0,0.05996,0.0,0.9982],"s":[2.7,2.3,2.7]},{"name":"ShinDrip_R","bone":"Shin_R","col":"wet","cf":[2.733,2.4,1.0659,0.99102,-0.1195,0.05996,0.11971,0.99281,0.0,-0.05953,0.00718,0.9982],"s":[0.7,1.3,0.4]},{"name":"ShinDrip_L","bone":"Shin_L","col":"wet","cf":[-2.733,2.4,1.0659,0.99102,0.1195,-0.05996,-0.11971,0.99281,0.0,0.05953,0.00718,0.9982],"s":[0.7,1.3,0.4]},{"name":"KneePebble_R","bone":"Shin_R","col":"pebble","cf":[1.6349,2.95,1.1318,0.85499,-0.18028,0.48631,0.27219,0.95411,-0.12485,-0.44148,0.23911,0.86482],"s":[0.7,0.5,0.5]},{"name":"KneePebble_L","bone":"Shin_L","col":"pebble","cf":[-1.6349,2.95,1.1318,0.85499,0.18028,-0.48631,-0.27219,0.95411,-0.12485,0.44148,0.23911,0.86482],"s":[0.7,0.5,0.5]},{"name":"Thigh_R","bone":"Thigh_R","col":"main","cf":[2.0,3.85,-0.2986,0.995,0.0,-0.09983,0.0,1.0,0.0,0.09983,0.0,0.995],"s":[2.9,1.6,2.9]},{"name":"Thigh_L","bone":"Thigh_L","col":"main","cf":[-2.0,3.85,-0.2986,0.995,0.0,0.09983,0.0,1.0,0.0,-0.09983,0.0,0.995],"s":[2.9,1.6,2.9]},{"name":"Pelvis","bone":"Hips","col":"wet","cf":[0.0,4.85,-0.2986,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[6.2,1.6,3.7]},{"name":"Torso","bone":"Torso","col":"main","cf":[0.0,7.5,-0.2986,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[7.6,4.0,4.6]},{"name":"Belly","bone":"Torso","col":"main","cf":[0.0,6.85,1.7014,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[5.6,2.9,1.2]},{"name":"BellyLow","bone":"Torso","col":"main","cf":[0.0,6.75,2.0514,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[4.4,2.2,1.2]},{"name":"Chest","bone":"Torso","col":"main","cf":[0.0,9.45,-0.4486,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[8.8,1.7,5.1]},{"name":"HandPalm","bone":"Torso","col":"wet","cf":[0.55,6.6,2.7514,0.99022,-0.13954,0.0,0.13954,0.99022,0.0,0.0,0.0,1.0],"s":[1.5,1.3,0.2]},{"name":"HandFinger1","bone":"Torso","col":"wet","cf":[-0.1411,7.563,2.7514,0.97134,-0.2377,0.0,0.2377,0.97134,0.0,0.0,0.0,1.0],"s":[0.32,0.9,0.2]},{"name":"HandFinger2","bone":"Torso","col":"wet","cf":[0.2608,7.7206,2.7514,0.98558,-0.16918,0.0,0.16918,0.98558,0.0,0.0,0.0,1.0],"s":[0.32,1.05,0.2]},{"name":"HandFinger3","bone":"Torso","col":"wet","cf":[0.6837,7.7297,2.7514,0.9992,-0.03999,0.0,0.03999,0.9992,0.0,0.0,0.0,1.0],"s":[0.32,0.95,0.2]},{"name":"HandFinger4","bone":"Torso","col":"wet","cf":[1.078,7.5833,2.7514,0.9968,0.07991,0.0,-0.07991,0.9968,0.0,0.0,0.0,1.0],"s":[0.3,0.75,0.2]},{"name":"HandThumb","bone":"Torso","col":"wet","cf":[-0.3977,6.5169,2.7514,0.77125,-0.63654,0.0,0.63654,0.77125,0.0,0.0,0.0,1.0],"s":[0.75,0.32,0.2]},{"name":"Crack1","bone":"Torso","col":"wet","cf":[-2.35,8.6,2.0814,0.90045,-0.43497,0.0,0.43497,0.90045,0.0,0.0,0.0,1.0],"s":[0.22,1.5,0.2]},{"name":"Crack2","bone":"Torso","col":"wet","cf":[-1.7552,7.9434,2.0814,0.90045,0.43497,0.0,-0.43497,0.90045,0.0,0.0,0.0,1.0],"s":[0.22,0.9,0.2]},{"name":"ChestPebble","bone":"Torso","col":"pebble","cf":[2.6,9.0,2.1014,0.82438,-0.41009,0.39017,0.45036,0.89275,-0.01323,-0.3429,0.18662,0.92065],"s":[0.7,0.55,0.5]},{"name":"BackSlab","bone":"Torso","col":"wet","cf":[0.0,7.9,-2.6986,0.9992,-0.03992,0.0024,0.03999,0.9974,-0.05992,0.0,0.05996,0.9982],"s":[5.0,3.2,0.6]},{"name":"FingerMark1","bone":"Torso","col":"main","cf":[-0.0348,8.7688,-2.997,0.99281,-0.11964,0.0024,0.11957,0.99102,-0.05992,0.00479,0.05977,0.9982],"s":[3.8,0.32,0.2]},{"name":"FingerMark2","bone":"Torso","col":"main","cf":[0.199,7.929,-3.048,0.99995,0.01007,0.0024,-0.00991,0.99815,-0.05992,-0.003,0.05989,0.9982],"s":[3.6,0.32,0.2]},{"name":"FingerMark3","bone":"Torso","col":"main","cf":[-0.0668,7.0692,-3.099,0.98724,-0.15925,0.0024,0.1591,0.98544,-0.05992,0.00718,0.05953,0.9982],"s":[3.4,0.32,0.2]},{"name":"BackPebble1","bone":"Torso","col":"pebble","cf":[1.9,9.9,-2.8486,0.86009,-0.32865,0.39017,0.17435,0.90815,0.38062,-0.47943,-0.25934,0.83839],"s":[0.8,0.6,0.6]},{"name":"BackPebble2","bone":"Torso","col":"pebble","cf":[-2.3,6.3,-2.7486,0.80831,-0.53776,-0.23969,0.44158,0.823,-0.35732,0.38942,0.18299,0.9027],"s":[0.6,0.5,0.5]},{"name":"Head","bone":"Head","col":"main","cf":[0.0,11.15,0.5014,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[3.8,2.7,3.4]},{"name":"HeadLump","bone":"Head","col":"main","cf":[0.25,12.75,0.1014,0.8732,-0.09983,0.47703,0.08761,0.995,0.04786,-0.47943,0.0,0.87758],"s":[2.8,0.8,2.5]},{"name":"HeadPinch","bone":"Head","col":"wet","cf":[-0.35,13.3,-0.0486,0.92065,0.14622,-0.36198,-0.18662,0.97924,-0.0791,0.3429,0.14038,0.92882],"s":[1.3,0.7,1.2]},{"name":"Jaw","bone":"Head","col":"main","cf":[0.0,10.1,0.8014,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[3.3,0.8,3.0]},{"name":"EyeWhite_R","bone":"Eye_R","col":"light","cf":[0.85,11.4,2.1764,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.2,1.25,0.25]},{"name":"EyeWhite_L","bone":"Eye_L","col":"light","cf":[-0.85,11.4,2.1764,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.2,1.25,0.25]},{"name":"Pupil_R","bone":"Pupil_R","col":"dark","cf":[0.78,11.29,2.2764,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.66,0.83,0.25]},{"name":"Pupil_L","bone":"Pupil_L","col":"dark","cf":[-0.78,11.29,2.2764,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.66,0.83,0.25]},{"name":"EyeShine_R","bone":"Pupil_R","col":"light","cf":[0.64,11.5225,2.3764,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.18,0.165,0.25]},{"name":"EyeShine_L","bone":"Pupil_L","col":"light","cf":[-0.64,11.5225,2.3764,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.18,0.165,0.25]},{"name":"Brow_R","bone":"Brow_R","col":"wet","cf":[0.9,12.3,2.2014,0.98877,0.14944,0.0,-0.14944,0.98877,0.0,0.0,0.0,1.0],"s":[1.3,0.32,0.3]},{"name":"Brow_L","bone":"Brow_L","col":"wet","cf":[-0.9,12.3,2.2014,0.98877,-0.14944,0.0,0.14944,0.98877,0.0,0.0,0.0,1.0],"s":[1.3,0.32,0.3]},{"name":"Cheek_R","bone":"Head","col":"pink","cf":[1.5375,10.75,2.2764,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.525,0.26,0.25]},{"name":"Cheek_L","bone":"Head","col":"pink","cf":[-1.5375,10.75,2.2764,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.525,0.26,0.25]},{"name":"Mouth","bone":"Mouth","col":"dark","cf":[0.0,10.46,2.3014,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.1,0.28,0.3]},{"name":"MouthCorner_R","bone":"MouthCorner_R","col":"dark","cf":[0.65,10.6,2.3014,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.3,0.26,0.5]},{"name":"MouthCorner_L","bone":"MouthCorner_L","col":"dark","cf":[-0.65,10.6,2.3014,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.3,0.26,0.5]},{"name":"UpperArm_R","bone":"UpperArm_R","col":"main","cf":[5.25,8.0,-0.2986,0.9968,0.0,0.07991,0.0,1.0,0.0,-0.07991,0.0,0.9968],"s":[2.5,2.6,2.6]},{"name":"UpperArm_L","bone":"UpperArm_L","col":"main","cf":[-5.25,8.0,-0.2986,0.9968,0.0,-0.07991,0.0,1.0,0.0,0.07991,0.0,0.9968],"s":[2.5,2.6,2.6]},{"name":"Shoulder_R","bone":"UpperArm_R","col":"main","cf":[5.0,9.85,-0.2986,0.97884,0.19867,0.04898,-0.19842,0.98007,-0.00993,-0.04998,0.0,0.99875],"s":[3.2,1.7,3.5]},{"name":"Shoulder_L","bone":"UpperArm_L","col":"main","cf":[-5.0,9.85,-0.2986,0.97884,-0.19867,-0.04898,0.19842,0.98007,-0.00993,0.04998,0.0,0.99875],"s":[3.2,1.7,3.5]},{"name":"ShoulderDrip_R","bone":"UpperArm_R","col":"wet","cf":[6.0366,8.4155,0.6876,0.99379,0.09996,0.04898,-0.09959,0.99498,-0.00993,-0.04973,0.00499,0.99875],"s":[0.6,1.1,0.5]},{"name":"ShoulderDrip_L","bone":"UpperArm_L","col":"wet","cf":[-6.0366,8.4155,0.6876,0.99379,-0.09996,-0.04898,0.09959,0.99498,-0.00993,0.04973,0.00499,0.99875],"s":[0.6,1.1,0.5]},{"name":"ShoulderPebble_R","bone":"UpperArm_R","col":"pebble","cf":[4.8657,10.8465,0.1184,0.84869,0.00571,0.52886,0.09258,0.9829,-0.15918,-0.52073,0.18406,0.83365],"s":[0.75,0.5,0.65]},{"name":"ShoulderPebble_L","bone":"UpperArm_L","col":"pebble","cf":[-4.8657,10.8465,0.1184,0.84869,-0.00571,-0.52886,-0.09258,0.9829,-0.15918,0.52073,0.18406,0.83365],"s":[0.75,0.5,0.65]},{"name":"Forearm_R","bone":"Forearm_R","col":"main","cf":[5.55,5.75,0.0014,0.995,0.0,-0.09983,0.0,1.0,0.0,0.09983,0.0,0.995],"s":[2.8,2.4,3.0]},{"name":"Forearm_L","bone":"Forearm_L","col":"main","cf":[-5.55,5.75,0.0014,0.995,0.0,0.09983,0.0,1.0,0.0,-0.09983,0.0,0.995],"s":[2.8,2.4,3.0]},{"name":"ElbowCrack_R","bone":"Forearm_R","col":"wet","cf":[7.0325,6.0,0.2506,0.95056,0.29404,-0.09983,-0.29552,0.95534,0.0,0.09537,0.0295,0.995],"s":[0.2,1.3,0.5]},{"name":"ElbowCrack_L","bone":"Forearm_L","col":"wet","cf":[-7.0325,6.0,0.2506,0.95056,-0.29404,0.09983,0.29552,0.95534,0.0,-0.09537,0.0295,0.995],"s":[0.2,1.3,0.5]},{"name":"Fist_R","bone":"Forearm_R","col":"wet","cf":[5.65,3.45,0.1014,0.99281,0.0,0.11971,0.0,1.0,0.0,-0.11971,0.0,0.99281],"s":[3.4,2.6,3.4]},{"name":"Fist_L","bone":"Forearm_L","col":"wet","cf":[-5.65,3.45,0.1014,0.99281,0.0,-0.11971,0.0,1.0,0.0,0.11971,0.0,0.99281],"s":[3.4,2.6,3.4]},{"name":"Knuckles_R","bone":"Forearm_R","col":"main","cf":[5.8655,3.75,1.8884,0.99281,0.0,0.11971,0.0,1.0,0.0,-0.11971,0.0,0.99281],"s":[2.8,1.0,0.4]},{"name":"Knuckles_L","bone":"Forearm_L","col":"main","cf":[-5.8655,3.75,1.8884,0.99281,0.0,-0.11971,0.0,1.0,0.0,0.11971,0.0,0.99281],"s":[2.8,1.0,0.4]},{"name":"Thumb_R","bone":"Forearm_R","col":"wet","cf":[3.9707,3.55,1.2104,0.98785,-0.09912,0.11971,0.09983,0.995,0.0,-0.11911,0.01195,0.99281],"s":[0.5,1.2,1.0]},{"name":"Thumb_L","bone":"Forearm_L","col":"wet","cf":[-3.9707,3.55,1.2104,0.98785,0.09912,-0.11971,-0.09983,0.995,0.0,0.11911,0.01195,0.99281],"s":[0.5,1.2,1.0]},{"name":"Handle","group":"Pickaxe","bone":"Forearm_L","col":"wet","cf":[-5.65,3.8388,3.2777,1.0,0.0,0.0,0.0,0.1215,-0.99259,0.0,0.99259,0.1215],"s":[0.65,9.2,0.65]},{"name":"Grip","group":"Pickaxe","bone":"Forearm_L","col":"main","cf":[-5.65,3.4257,-0.0971,0.98007,0.0,0.19867,0.1972,0.1215,-0.97281,-0.02414,0.99259,0.11907],"s":[0.85,2.4,0.85]},{"name":"Pommel","group":"Pickaxe","bone":"Forearm_L","col":"dry","cf":[-5.65,3.2495,-1.5364,0.71091,0.0,0.70328,0.69807,0.1215,-0.70565,-0.08545,0.99259,0.08637],"s":[1.05,0.65,1.05]},{"name":"Band","group":"Pickaxe","bone":"Forearm_L","col":"dry","cf":[-5.65,3.8874,3.6747,0.85252,0.0,0.52269,0.51882,0.1215,-0.84621,-0.0635,0.99259,0.10358],"s":[0.8,0.4,0.8]},{"name":"Head","group":"Pickaxe","bone":"Forearm_L","col":"main","cf":[-5.65,4.4098,7.9429,1.0,0.0,0.0,0.0,0.1215,-0.99259,0.0,0.99259,0.1215],"s":[1.5,1.7,1.9]},{"name":"HeadRound","group":"Pickaxe","bone":"Forearm_L","col":"main","cf":[-5.65,4.4159,7.9925,0.70739,0.0,0.70683,0.70159,0.1215,-0.70215,-0.08588,0.99259,0.08594],"s":[1.15,2.1,1.15]},{"name":"HeadPebble","group":"Pickaxe","bone":"Forearm_L","col":"pebble","cf":[-5.03,4.1738,8.0725,0.9027,-0.31795,0.28989,0.24357,-0.1778,-0.95345,0.35469,0.93129,-0.08306],"s":[0.45,0.55,0.55]},{"name":"Pick1","group":"Pickaxe","bone":"Forearm_L","col":"dry","cf":[-5.65,2.8156,8.0876,1.0,0.0,0.0,0.0,0.02179,-0.99976,0.0,0.99976,0.02179],"s":[1.05,1.1,1.9]},{"name":"Pick2","group":"Pickaxe","bone":"Forearm_L","col":"dry","cf":[-5.65,1.3159,8.1203,1.0,0.0,0.0,0.0,-0.19691,-0.98042,0.0,0.98042,-0.19691],"s":[0.85,0.85,1.6]},{"name":"Pick3","group":"Pickaxe","bone":"Forearm_L","col":"dry","cf":[-5.65,0.1394,7.884,1.0,0.0,0.0,0.0,-0.41524,-0.90971,0.0,0.90971,-0.41524],"s":[0.62,0.62,1.3]},{"name":"Pick4","group":"Pickaxe","bone":"Forearm_L","col":"dry","cf":[-5.65,-0.6338,7.5311,1.0,0.0,0.0,0.0,-0.6274,-0.7787,0.0,0.7787,-0.6274],"s":[0.42,0.42,0.9]},{"name":"Back1","group":"Pickaxe","bone":"Forearm_L","col":"dry","cf":[-5.65,5.7437,7.7292,1.0,0.0,0.0,0.0,0.21998,-0.9755,0.0,0.9755,0.21998],"s":[1.05,1.05,1.4]},{"name":"Back2","group":"Pickaxe","bone":"Forearm_L","col":"dry","cf":[-5.65,6.6705,7.5202,1.0,0.0,0.0,0.0,0.49844,-0.86693,0.0,0.86693,0.49844],"s":[0.85,0.75,1.0]},{"name":"PickGlint","group":"Pickaxe","bone":"Forearm_L","col":"light","cf":[-5.65,2.8247,8.5075,1.0,0.0,0.0,0.0,0.02179,-0.99976,0.0,0.99976,0.02179],"s":[1.05,0.22,0.45]},{"name":"Thumbprint","group":"Pickaxe","bone":"Forearm_L","col":"main","cf":[-5.65,1.2273,8.5615,1.0,0.0,0.0,0.0,-0.19691,-0.98042,0.0,0.98042,-0.19691],"s":[0.7,0.2,0.5]},{"name":"SwordPommel","group":"Sword","bone":"Forearm_L","col":"wet","cf":[-5.65,3.1523,-2.3305,0.70739,0.0,0.70683,0.70159,0.1215,-0.70215,-0.08588,0.99259,0.08594],"s":[1.0,0.7,1.0]},{"name":"SwordPommelTop","group":"Sword","bone":"Forearm_L","col":"dry","cf":[-5.65,3.207,-1.8838,0.95534,0.0,0.29552,0.29333,0.1215,-0.94826,-0.0359,0.99259,0.11607],"s":[0.75,0.3,0.75]},{"name":"SwordGrip","group":"Sword","bone":"Forearm_L","col":"wet","cf":[-5.65,3.4075,-0.246,1.0,0.0,0.0,0.0,0.1215,-0.99259,0.0,0.99259,0.1215],"s":[0.7,3.6,0.7]},{"name":"SwordCoil1","group":"Sword","bone":"Forearm_L","col":"main","cf":[-5.65,3.3164,-0.9905,0.93768,-0.05996,0.34228,0.3472,0.12128,-0.92992,0.01425,0.99081,0.13454],"s":[0.88,0.32,0.88]},{"name":"SwordCoil2","group":"Sword","bone":"Forearm_L","col":"main","cf":[-5.65,3.5047,0.548,0.95362,0.05996,-0.29499,-0.30029,0.12128,-0.94611,-0.02096,0.99081,0.13366],"s":[0.88,0.32,0.88]},{"name":"SwordGuard","group":"Sword","bone":"Forearm_L","col":"wet","cf":[-5.65,3.6869,2.0369,1.0,0.0,0.0,0.0,0.06176,-0.99809,0.0,0.99809,0.06176],"s":[0.9,0.75,3.0]},{"name":"SwordGuardPebble","group":"Sword","bone":"Forearm_L","col":"pebble","cf":[-5.3,3.6869,2.0369,1.0,0.0,0.0,0.0,-0.61564,-0.78802,0.0,0.78802,-0.61564],"s":[0.45,0.55,0.55]},{"name":"SwordBlade","group":"Sword","bone":"Forearm_L","col":"main","cf":[-5.65,4.1304,5.6599,1.0,0.0,0.0,0.0,0.1215,-0.99259,0.0,0.99259,0.1215],"s":[0.4,6.6,1.45]},{"name":"SwordEdge","group":"Sword","bone":"Forearm_L","col":"dry","cf":[-5.65,4.1486,5.8088,1.0,0.0,0.0,0.0,0.1215,-0.99259,0.0,0.99259,0.1215],"s":[0.3,6.1,1.75]},{"name":"SwordFuller","group":"Sword","bone":"Forearm_L","col":"wet","cf":[-5.65,4.0818,5.2629,1.0,0.0,0.0,0.0,0.1215,-0.99259,0.0,0.99259,0.1215],"s":[0.6,4.2,0.4]},{"name":"SwordTip","group":"Sword","bone":"Forearm_L","col":"dry","cf":[-5.65,4.5738,9.2829,1.0,0.0,0.0,0.0,0.1215,-0.99259,0.0,0.99259,0.1215],"s":[0.35,0.9,0.8]}],"prefabs":{"ClayPickaxe":{"hand":"Fist_L","grip":[0,0,0],"tip":[0.0,6.486,5.198],"tipBlock":"Pick4","note":"локально: +Y держак, +Z робоче лезо; у кулак — Fist_L.CFrame * Rx(1.449)","blocks":[{"name":"Handle","col":"wet","cf":[0.0,3.2,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.65,9.2,0.65]},{"name":"Grip","col":"main","cf":[0.0,-0.2,0.0,0.98007,0.0,0.19867,0.0,1.0,0.0,-0.19867,0.0,0.98007],"s":[0.85,2.4,0.85]},{"name":"Pommel","col":"dry","cf":[0.0,-1.65,0.0,0.71091,0.0,0.70328,0.0,1.0,0.0,-0.70328,0.0,0.71091],"s":[1.05,0.65,1.05]},{"name":"Band","col":"dry","cf":[0.0,3.6,0.0,0.85252,0.0,0.52269,0.0,1.0,0.0,-0.52269,0.0,0.85252],"s":[0.8,0.4,0.8]},{"name":"Head","col":"main","cf":[0.0,7.9,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.7,1.9]},{"name":"HeadRound","col":"main","cf":[0.0,7.95,0.0,0.70739,0.0,0.70683,0.0,1.0,0.0,-0.70683,0.0,0.70739],"s":[1.15,2.1,1.15]},{"name":"HeadPebble","col":"pebble","cf":[0.62,8.0,0.25,0.9027,-0.31795,0.28989,0.38166,0.90279,-0.19828,-0.19867,0.28963,0.93629],"s":[0.45,0.55,0.55]},{"name":"Pick1","col":"dry","cf":[0.0,7.85,1.6,1.0,0.0,0.0,0.0,0.995,-0.09983,0.0,0.09983,0.995],"s":[1.05,1.1,1.9]},{"name":"Pick2","col":"dry","cf":[0.0,7.7002,3.0925,1.0,0.0,0.0,0.0,0.94924,-0.31457,0.0,0.31457,0.94924],"s":[0.85,0.85,1.6]},{"name":"Pick3","col":"dry","cf":[0.0,7.3228,4.2316,1.0,0.0,0.0,0.0,0.85252,-0.52269,0.0,0.52269,0.85252],"s":[0.62,0.62,1.3]},{"name":"Pick4","col":"dry","cf":[0.0,6.8785,4.9562,1.0,0.0,0.0,0.0,0.69671,-0.71736,0.0,0.71736,0.69671],"s":[0.42,0.42,0.9]},{"name":"Back1","col":"dry","cf":[0.0,7.85,-1.35,1.0,0.0,0.0,0.0,0.995,0.09983,0.0,-0.09983,0.995],"s":[1.05,1.05,1.4]},{"name":"Back2","col":"dry","cf":[0.0,7.7552,-2.2953,1.0,0.0,0.0,0.0,0.92106,0.38942,0.0,-0.38942,0.92106],"s":[0.85,0.75,1.0]},{"name":"PickGlint","col":"light","cf":[0.0,8.2679,1.6419,1.0,0.0,0.0,0.0,0.995,-0.09983,0.0,0.09983,0.995],"s":[1.05,0.22,0.45]},{"name":"Thumbprint","col":"main","cf":[0.0,8.1274,3.2341,1.0,0.0,0.0,0.0,0.94924,-0.31457,0.0,0.31457,0.94924],"s":[0.7,0.2,0.5]}]},"ClaySword":{"hand":"Fist_L","grip":[0,0,0],"note":"локально: +Y лезо","blocks":[{"name":"SwordPommel","col":"wet","cf":[0.0,-2.45,0.0,0.70739,0.0,0.70683,0.0,1.0,0.0,-0.70683,0.0,0.70739],"s":[1.0,0.7,1.0]},{"name":"SwordPommelTop","col":"dry","cf":[0.0,-2.0,0.0,0.95534,0.0,0.29552,0.0,1.0,0.0,-0.29552,0.0,0.95534],"s":[0.75,0.3,0.75]},{"name":"SwordGrip","col":"wet","cf":[0.0,-0.35,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.7,3.6,0.7]},{"name":"SwordCoil1","col":"main","cf":[0.0,-1.1,0.0,0.93768,-0.05996,0.34228,0.05633,0.9982,0.02056,-0.3429,0.0,0.93937],"s":[0.88,0.32,0.88]},{"name":"SwordCoil2","col":"main","cf":[0.0,0.45,0.0,0.95362,0.05996,-0.29499,-0.05729,0.9982,0.01772,0.29552,0.0,0.95534],"s":[0.88,0.32,0.88]},{"name":"SwordGuard","col":"wet","cf":[0.0,1.95,0.0,1.0,0.0,0.0,0.0,0.9982,-0.05996,0.0,0.05996,0.9982],"s":[0.9,0.75,3.0]},{"name":"SwordGuardPebble","col":"pebble","cf":[0.35,1.95,0.0,1.0,0.0,0.0,0.0,0.70739,-0.70683,0.0,0.70683,0.70739],"s":[0.45,0.55,0.55]},{"name":"SwordBlade","col":"main","cf":[0.0,5.6,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.4,6.6,1.45]},{"name":"SwordEdge","col":"dry","cf":[0.0,5.75,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.3,6.1,1.75]},{"name":"SwordFuller","col":"wet","cf":[0.0,5.2,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.6,4.2,0.4]},{"name":"SwordTip","col":"dry","cf":[0.0,9.25,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.35,0.9,0.8]}]},"ClayCarryBox":{"primary":"Bottom","note":"од. моделі (×0,5 = стади), низ на Y=0; InnerX 3.36, InnerZ 1.66, InnerY0 2.6, InnerY1 4.0","blocks":[{"name":"Bottom","col":"wet","cf":[0.0,0.34,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[8.44,0.68,4.64]},{"name":"Band","col":"wet","cf":[0.0,0.17,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[8.8,0.54,5.0]},{"name":"WallF","col":"main","cf":[0.0,2.0,1.96,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[8.0,3.6,0.52]},{"name":"WallB","col":"main","cf":[0.0,2.0,-1.96,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[8.0,3.6,0.52]},{"name":"WallL","col":"main","cf":[-3.7,2.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.6,3.6,3.4]},{"name":"WallR","col":"main","cf":[3.7,2.0,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.6,3.6,3.4]},{"name":"RimF","col":"dry","cf":[0.0,4.0,2.05,0.99989,-0.015,0.0,0.015,0.99989,0.0,0.0,0.0,1.0],"s":[8.6,0.5,0.9]},{"name":"RimB","col":"dry","cf":[0.0,4.0,-2.05,0.99989,0.015,0.0,-0.015,0.99989,0.0,0.0,0.0,1.0],"s":[8.6,0.5,0.9]},{"name":"RimL","col":"dry","cf":[-3.75,4.02,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.95,0.5,3.6]},{"name":"RimR","col":"dry","cf":[3.75,4.02,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[0.95,0.5,3.6]},{"name":"LugL","col":"wet","cf":[-4.35,2.6,0.0,0.99281,-0.11971,0.0,0.11971,0.99281,0.0,0.0,0.0,1.0],"s":[0.9,1.2,2.0]},{"name":"LugR","col":"wet","cf":[4.35,2.6,0.0,0.99281,0.11971,0.0,-0.11971,0.99281,0.0,0.0,0.0,1.0],"s":[0.9,1.2,2.0]},{"name":"Print1","col":"wet","cf":[-2.3,2.3,2.35,0.98007,-0.19867,0.0,0.19867,0.98007,0.0,0.0,0.0,1.0],"s":[0.6,0.75,0.2]},{"name":"Print2","col":"wet","cf":[-1.4,2.55,2.35,0.995,0.09983,0.0,-0.09983,0.995,0.0,0.0,0.0,1.0],"s":[0.6,0.75,0.2]},{"name":"Print3","col":"wet","cf":[-0.5,2.3,2.35,0.98877,-0.14944,0.0,0.14944,0.98877,0.0,0.0,0.0,1.0],"s":[0.6,0.75,0.2]},{"name":"BoxPebble","col":"pebble","cf":[2.5,2.1,2.4,0.83839,-0.41835,0.34942,0.45801,0.88824,-0.03549,-0.29552,0.1898,0.93629],"s":[0.8,0.6,0.5]},{"name":"Drip","col":"wet","cf":[1.4,3.1,2.4,0.9982,-0.05996,0.0,0.05996,0.9982,0.0,0.0,0.0,1.0],"s":[0.5,1.2,0.3]},{"name":"FloorRaised","col":"wet","cf":[0.0,1.55,0.0,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[6.8,2.1,3.4]}],"load":[{"name":"L1","col":"none","cf":[-2.68,3.35,-0.84,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.5,1.5]},{"name":"L2","col":"none","cf":[-2.68,3.35,0.84,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.5,1.5]},{"name":"L3","col":"none","cf":[-1.34,3.35,-0.84,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.5,1.5]},{"name":"L4","col":"none","cf":[-1.34,3.35,0.84,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.5,1.5]},{"name":"L5","col":"none","cf":[0.0,3.35,-0.84,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.5,1.5]},{"name":"L6","col":"none","cf":[0.0,3.35,0.84,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.5,1.5]},{"name":"L7","col":"none","cf":[1.34,3.35,-0.84,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.5,1.5]},{"name":"L8","col":"none","cf":[1.34,3.35,0.84,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.5,1.5]},{"name":"L9","col":"none","cf":[2.68,3.35,-0.84,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.5,1.5]},{"name":"L10","col":"none","cf":[2.68,3.35,0.84,1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0],"s":[1.5,1.5,1.5]}]}},"stats":{"bodyBlocks":67,"bodyTriangles":804,"bodyColors":6,"rule01_fixed":27,"rule01_remaining":0,"rotatedSameOrientConflicts":0,"rotatedBlocks":49,"sizeUnits":[15.08,13.81,6.74],"sizeStuds":[7.54,6.91,3.37],"sizeStudsInGame":[7.92,7.25,3.54],"pickaxeBlocks":15,"swordBlocks":11,"boxBlocks":18}};
+const STYLE = [
+  ["Матеріал / тема","мокра теракотова глина з гончарні; важкий, повільний, добродушний трудяга"],
+  ["Силует","кремезний і приземкуватий: пузо вперед, широкі обвислі плечі, короткі товсті ноги з пласкими стопами, маленька голова з «защипом» зверху"],
+  ["Палітра","теракота #c4714a, мокра глина #8c4a33, камінці #a39e94 (+ суха глина #e3ab80 у предметах) + спільні #f1f5f8, #1c2836, #f2a0b4"],
+  ["Фірмові деталі","відбиток долоні на пузі, сліди пальців на спині, патьоки мокрої глини з плечей і гомілок, втиснуті камінці, тріщини"],
+  ["Обличчя","великі очі, брови трохи вгору до центру, рожеві щічки, проста усмішка — спокійний і лагідний"],
+  ["Меч","лезо з випаленої теракоти зі світлими краями, дол «проведений пальцем», гарда — валик мокрої глини з камінцем, руків'я з глиняними кільцями"],
+  ["Кірка","голова з теракоти з камінцем, леза зі світлої випаленої глини з відбитком пальця, держак — скачаний валик мокрої глини"],
+  ["Ящик","глибоке глиняне корито: товсті стінки, світлий загорнутий обідок, вушка-ручки, відбитки пальців і камінець спереду; руду видно зверху"],
+  ["Не робити","без гончарного круга й округлих форм, без глазурі й блиску, без дрібних тріщин-текстур — лише блоки"],
+];
+const SW = [["main","теракота"],["wet","мокра глина"],["pebble","камінці"],["dry","суха глина (предмети)"],["light","світлий"],["dark","темний"],["pink","щічки"]];
+
+// ---------- спільне ----------
+const col = {}; for (const k in DATA.colors) col[k] = new THREE.Color(DATA.colors[k]).convertSRGBToLinear();
+const NO_STUDS = /^(EyeWhite|Pupil|EyeShine|Brow|Cheek|Mouth|MouthCorner|PickGlint)/;
+function studsTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#ececec'; g.fillRect(0,0,64,64);
+  g.fillStyle = '#c9c9c9'; g.beginPath(); g.arc(34,35,19,0,7); g.fill();
+  g.fillStyle = '#f7f7f7'; g.beginPath(); g.arc(31,31,19,0,7); g.fill();
+  g.fillStyle = '#ffffff'; g.beginPath(); g.arc(28,28,9,0,7); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.06)'; g.strokeRect(0.5,0.5,63,63);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+  return t;
+}
+const STUDS = studsTexture();
+const matCache = {};
+function mat(colKey, studs){
+  const key = colKey + (studs?'s':'');
+  if (!matCache[key]) matCache[key] = new THREE.MeshLambertMaterial({color: col[colKey], map: studs ? STUDS : null});
+  return matCache[key];
+}
+const studMeshes = [];
+const TILE = 0.5; // 0,5 од. моделі = 0,25 стада на один stud
+function boxGeo(s){
+  const g = new THREE.BoxGeometry(s[0], s[1], s[2]);
+  const uv = g.attributes.uv; const dims = [[s[2],s[1]],[s[2],s[1]],[s[0],s[2]],[s[0],s[2]],[s[0],s[1]],[s[0],s[1]]];
+  for (let f=0; f<6; f++) for (let i=0;i<4;i++){ const k=f*4+i; uv.setXY(k, uv.getX(k)*dims[f][0]/TILE, uv.getY(k)*dims[f][1]/TILE); }
+  return g;
+}
+function blockMesh(b, studsOn){
+  const studs = !NO_STUDS.test(b.name);
+  const m = new THREE.Mesh(boxGeo(b.s), mat(b.col, studs && studsOn));
+  m.castShadow = true; m.receiveShadow = true; m.userData.col = b.col; m.userData.studs = studs;
+  if (studs) studMeshes.push(m);
+  const cf = b.cf; const p = new THREE.Vector3(cf[0],cf[1],cf[2]);
+  const M = new THREE.Matrix4().set(cf[3],cf[4],cf[5],0, cf[6],cf[7],cf[8],0, cf[9],cf[10],cf[11],0, 0,0,0,1);
+  m.quaternion.setFromRotationMatrix(M); m.position.copy(p); m.name = b.name;
+  return m;
+}
+function setStuds(on){ for (const m of studMeshes) m.material = mat(m.userData.col, on && m.userData.studs); }
+function prefabGroup(pf){ const g = new THREE.Group(); for (const b of pf.blocks) g.add(blockMesh(b, true)); return g; }
+const ORE_KEYS = ['ore_copper','ore_stone','ore_coal','ore_iron'];
+function oreChunk(seed){
+  const rnd = mulberry(seed); const g = new THREE.Group();
+  const k = ORE_KEYS[Math.floor(rnd()*ORE_KEYS.length)];
+  const a = new THREE.Mesh(boxGeo([1.55,1.3,1.4]), mat(k, false));
+  const b = new THREE.Mesh(boxGeo([1.0,0.95,1.0]), mat(k==='ore_coal'?'ore_stone':k, false));
+  b.position.set(0.45,0.45,-0.2); b.rotation.set(0.5,0.7,0.2);
+  g.add(a,b); g.traverse(o=>{ if(o.isMesh){o.castShadow=true;} });
+  g.rotation.set((rnd()-.5)*0.8, rnd()*6.28, (rnd()-.5)*0.8);
+  return g;
+}
+function mulberry(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function boxWithOre(n){
+  const g = prefabGroup(DATA.prefabs.ClayCarryBox);
+  const slots = DATA.prefabs.ClayCarryBox.load.slice(); const rnd = mulberry(7);
+  for (let i=slots.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [slots[i],slots[j]]=[slots[j],slots[i]]; }
+  for (let i=0;i<n;i++){ const s=slots[i]; const o=oreChunk(100+i); o.position.set(s.cf[0]+(rnd()-.5)*0.25, 3.25+(rnd()*0.2), s.cf[2]+(rnd()-.5)*0.2); g.add(o); }
+  return g;
+}
+const R_H = new THREE.Matrix4().makeRotationX(1.449);
+
+// ---------- головна сцена ----------
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+renderer.outputEncoding = THREE.sRGBEncoding; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x232831);
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 500);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 6.6, 0); controls.enableDamping = true; controls.minDistance = 12; controls.maxDistance = 90;
+function lights(sc){
+  sc.add(new THREE.HemisphereLight(0xe6ecf7, 0x3b3530, 0.75));
+  const d = new THREE.DirectionalLight(0xfff4e8, 0.85); d.position.set(-14, 26, 20); d.castShadow = true;
+  d.shadow.mapSize.set(2048,2048); const sc2 = d.shadow.camera; sc2.left=-16; sc2.right=16; sc2.top=20; sc2.bottom=-6; sc2.far=80; d.shadow.bias=-0.0006; d.shadow.normalBias=0.02;
+  sc.add(d);
+  const f = new THREE.DirectionalLight(0xc8d6ff, 0.28); f.position.set(18, 10, -14); sc.add(f);
+}
+lights(scene);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(15, 48), new THREE.MeshLambertMaterial({color:new THREE.Color(0x2c323d).convertSRGBToLinear()}));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+
+// кістки
+const bones = {}; const bonePos = {};
+for (const b of DATA.bones) bonePos[b.name] = new THREE.Vector3(...b.pos);
+const golem = new THREE.Group(); scene.add(golem);
+for (const b of DATA.bones){
+  const g = new THREE.Group(); g.name = b.name; bones[b.name] = g;
+  const pp = b.parent ? bonePos[b.parent] : new THREE.Vector3();
+  g.position.copy(bonePos[b.name]).sub(pp);
+  (b.parent ? bones[b.parent] : golem).add(g);
+}
+for (const b of DATA.blocks){
+  if (b.group) continue;
+  const m = blockMesh(b, true); m.position.sub(bonePos[b.bone]); bones[b.bone].add(m);
+}
+golem.scale.setScalar(1.0);
+// предмети в кулаці Fist_L
+const fistBlk = DATA.blocks.find(b=>b.name==='Fist_L'); const fistC = new THREE.Vector3(fistBlk.cf[0],fistBlk.cf[1],fistBlk.cf[2]);
+function handItem(pf){
+  const holder = new THREE.Group(); holder.position.copy(fistC).sub(bonePos['Forearm_L']);
+  holder.quaternion.setFromRotationMatrix(R_H); holder.add(prefabGroup(pf)); bones['Forearm_L'].add(holder); return holder;
+}
+const pickaxe = handItem(DATA.prefabs.ClayPickaxe), sword = handItem(DATA.prefabs.ClaySword);
+const carryBox = boxWithOre(7); bones['Torso'].add(carryBox);
+
+// ---------- пози й анімації ----------
+const ANIM_SPEED = 0.9;  // Швидкість Clay майнера/воїна (носій 0.95)
+let cls = 'miner', anim = 'idle', turntable = true, t0 = performance.now(), frozenT = null;
+const HOLD = {UpperArm_R:[-0.95,0,0.32], UpperArm_L:[-0.95,0,-0.32], Forearm_R:[-0.55,0,0], Forearm_L:[-0.55,0,0]};
+function setRot(name, x, y, z){ bones[name].rotation.set(x||0, y||0, z||0, 'ZYX'); }
+const parentOf = {}; for (const b of DATA.bones) parentOf[b.name] = b.parent;
+const restPos = {}; for (const n in bones) restPos[n] = bones[n].position.clone();
+function placeCarryBox(){
+  for (const n in bones){ bones[n].rotation.set(0,0,0); bones[n].position.copy(restPos[n]); }
+  for (const n in HOLD) setRot(n, ...HOLD[n]);
+  golem.updateMatrixWorld(true);
+  const a = new THREE.Vector3(), b = new THREE.Vector3();
+  const fl = golem.getObjectByName('Fist_L'), fr = golem.getObjectByName('Fist_R');
+  fl.getWorldPosition(a); fr.getWorldPosition(b); const mid = a.add(b).multiplyScalar(0.5);
+  bones['Torso'].worldToLocal(mid);
+  carryBox.position.set(mid.x, mid.y - 3.7, mid.z + 0.2);
+}
+placeCarryBox();
+function setClass(c){
+  cls = c; pickaxe.visible = c==='miner'; sword.visible = c==='warrior'; carryBox.visible = c==='carrier';
+  document.querySelectorAll('[data-cls]').forEach(b=>b.classList.toggle('on', b.dataset.cls===c));
+  const btn = document.querySelector('[data-anim="action"]'); btn.textContent = c==='warrior' ? 'Attack' : c==='carrier' ? 'PickUp / Drop' : 'Mine';
+}
+function setAnim(a){ anim = a; t0 = performance.now(); document.querySelectorAll('[data-anim]').forEach(b=>b.classList.toggle('on', b.dataset.anim===a)); }
+const ease = x => x<0?0:x>1?1:x*x*(3-2*x);
+function pose(t){
+  for (const n in bones){ bones[n].rotation.set(0,0,0); bones[n].position.copy(restPos[n]); bones[n].scale.set(1,1,1); }
+  const sp = cls==='carrier' ? 0.95 : ANIM_SPEED;
+  const holdTool = cls==='miner' || cls==='warrior';
+  // базова поза класу
+  if (cls==='carrier') for (const n in HOLD) setRot(n, ...HOLD[n]);
+  if (holdTool){ setRot('UpperArm_L', 0.1, 0, -0.08); setRot('Forearm_L', -1.25, 0, 0.32); }  // лікоть 90°, держак майже вертикально
+  const T = t*sp;
+  if (anim==='idle'){
+    const br = Math.sin(T*2*Math.PI/2.8);
+    bones.Torso.position.y += br*0.12; bones.Torso.rotation.x += br*0.015;
+    bones.Head.rotation.z = Math.sin(T*2*Math.PI/5.6)*0.05; bones.Head.rotation.x = -br*0.03;
+    if (cls!=='carrier'){
+      bones.UpperArm_R.rotation.z += 0.04 + br*0.03;
+      bones.UpperArm_L.rotation.z += -0.04 - br*0.03;
+    } else {
+      // нетерпляче постукування ногою (Idle повний)
+      const tap = Math.max(0, Math.sin(T*2*Math.PI/0.9)); bones.Shin_R.rotation.x = -tap*0.12; bones.Thigh_R.rotation.x = -tap*0.06;
+    }
+  } else if (anim==='walk'){
+    const P = 1.35; const ph = T*2*Math.PI/P; const s = Math.sin(ph), c = Math.cos(ph);
+    bones.Thigh_R.rotation.x = -s*0.42; bones.Thigh_L.rotation.x = s*0.42;
+    bones.Shin_R.rotation.x = Math.max(0, c)*0.45; bones.Shin_L.rotation.x = Math.max(0, -c)*0.45;
+    bones.Hips.position.y += -0.42*Math.abs(s); bones.Hips.rotation.z = s*0.06;
+    bones.Torso.rotation.y = s*0.10; bones.Torso.rotation.z = -s*0.05; bones.Torso.rotation.x = 0.06;
+    bones.Head.rotation.z = s*0.04;
+    if (cls!=='carrier'){
+      bones.UpperArm_R.rotation.x += s*0.38;
+      if (!holdTool) bones.UpperArm_L.rotation.x += -s*0.38; else bones.UpperArm_L.rotation.x += -s*0.18;
+    }
+  } else if (anim==='action'){
+    if (cls==='carrier'){
+      // PickUp → Drop: нахил і підйом ящичка
+      const P = 2.4, u = (T%P)/P; const bend = Math.sin(u*Math.PI*2)>0 ? Math.sin(u*Math.PI*2) : 0;
+      bones.Torso.rotation.x = bend*0.35; bones.Hips.position.y -= bend*0.5;
+      bones.Thigh_R.rotation.x = -bend*0.5; bones.Thigh_L.rotation.x = -bend*0.5; bones.Shin_R.rotation.x = bend*0.7; bones.Shin_L.rotation.x = bend*0.7;
+    } else {
+      // Mine / Attack: стійка → замах над плечем (0,45 с) → удар (0,62 с) → віддача (0,74 с) → повернення; 1,4 с при x1
+      const P = 1.4, u = (T%P)/P;
+      const K = [[0,0.1,-1.25,0,0],[0.32,-2.7,-0.3,-0.12,-0.2],[0.44,-0.45,0.45,0.22,0.12],[0.53,-0.6,0.2,0.16,0.08],[1,0.1,-1.25,0,0]];
+      let i = 0; while (u > K[i+1][0]) i++;
+      const k0 = K[i], k1 = K[i+1], f = i===1 ? Math.pow((u-k0[0])/(k1[0]-k0[0]), 1.8) : ease((u-k0[0])/(k1[0]-k0[0]));
+      const L = j => k0[j] + (k1[j]-k0[j])*f;
+      bones.UpperArm_L.rotation.set(L(1), 0, -0.08); bones.Forearm_L.rotation.set(L(2), 0, 0);
+      bones.Torso.rotation.x = L(3); bones.Torso.rotation.y = L(4);
+      const up = Math.max(0, -L(3))/0.12, dn = Math.max(0, L(3))/0.22;
+      bones.UpperArm_R.rotation.x += 0.25*up - 0.2*dn;
+      bones.Head.rotation.x = -0.06*up + 0.08*dn;
+    }
+  }
+  // Face: кліпання
+  const bl = (t % 3.7); const blink = bl < 0.14 ? 1 - Math.sin(bl/0.14*Math.PI) * 0.9 : 1;
+  bones.Eye_R.scale.y = bones.Eye_L.scale.y = blink;
+}
+
+// ---------- види ----------
+const VIEWS = {front:[0,7.3,44], q:[28,12.5,34], qL:[-17,10.5,40], side:[44,7.3,0], back:[0,7.3,-44]};
+function setView(v){ const p = VIEWS[v]; camera.position.set(...p); controls.target.set(0,6.6,0); controls.update(); }
+setView('q');
+function setTurntable(on){ turntable = on; document.getElementById('turn').classList.toggle('on', on); }
+
+// ---------- ряд предметів ----------
+const itemsEl = document.getElementById('items');
+const ir = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+ir.outputEncoding = THREE.sRGBEncoding; ir.shadowMap.enabled = true; ir.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+itemsEl.insertBefore(ir.domElement, itemsEl.firstChild);
+const iscene = new THREE.Scene(); iscene.background = new THREE.Color(0x232831); lights(iscene);
+const icam = new THREE.PerspectiveCamera(30, 3, 0.1, 300); icam.position.set(0, 15, 36); icam.lookAt(0, 3.6, 0);
+const itemSpin = [];
+function addItem(obj, x, center){ const piv = new THREE.Group(); piv.position.set(x,0,0); obj.position.sub(center); piv.add(obj); iscene.add(piv); itemSpin.push(piv); }
+{ // кірка стоїть держаком вертикально
+  const p = prefabGroup(DATA.prefabs.ClayPickaxe); const g = new THREE.Group(); g.add(p); g.rotation.y = Math.PI/2; const w = new THREE.Group(); w.add(g);
+  addItem(w, -13, new THREE.Vector3(0,-2.2,0));
+  const s = prefabGroup(DATA.prefabs.ClaySword); const g2 = new THREE.Group(); g2.add(s); g2.rotation.y = Math.PI/2; const w2 = new THREE.Group(); w2.add(g2);
+  addItem(w2, 13, new THREE.Vector3(0,-2.6,0));
+  const b = boxWithOre(7); const w3 = new THREE.Group(); w3.add(b); addItem(w3, 0, new THREE.Vector3(0,-0.2,0));
+  iscene.fog = new THREE.Fog(0x232831, 55, 110);
+  const ig = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshLambertMaterial({color:new THREE.Color(0x2c323d).convertSRGBToLinear()})); ig.rotation.x = -Math.PI/2; ig.position.y = -0.2; ig.receiveShadow = true; iscene.add(ig);
+}
+
+// ---------- UI ----------
+document.querySelectorAll('[data-cls]').forEach(b=>b.onclick=()=>setClass(b.dataset.cls));
+document.querySelectorAll('[data-anim]').forEach(b=>b.onclick=()=>setAnim(b.dataset.anim));
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{ setTurntable(false); setView(b.dataset.view); });
+document.getElementById('turn').onclick=()=>setTurntable(!turntable);
+let studsOn = true; document.getElementById('studs').onclick=(e)=>{ studsOn=!studsOn; setStuds(studsOn); e.target.classList.toggle('on', studsOn); };
+document.getElementById('style').innerHTML = STYLE.map(([a,b])=>`<tr><td>${a}</td><td>${b}</td></tr>`).join('');
+document.getElementById('sw').innerHTML = SW.map(([k,n])=>`<div><i style="background:${DATA.colors[k]}"></i>${n} <code>${DATA.colors[k]}</code></div>`).join('');
+const st = DATA.stats;
+document.getElementById('stats').innerHTML = `<h2>Модель</h2><table>
+<tr><td>Тіло</td><td>${st.bodyBlocks} блоків (${st.rotatedBlocks} повернутих), ${st.bodyTriangles} трикутників, 6 кольорів</td></tr>
+<tr><td>Правило 0,1</td><td>виправлено ${st.rule01_fixed}, залишилось ${st.rule01_remaining}</td></tr>
+<tr><td>Розмір</td><td>${st.sizeStuds.join(' × ')} стада (у грі ×1,05: ${st.sizeStudsInGame.join(' × ')})</td></tr>
+<tr><td>Предмети</td><td>кірка ${st.pickaxeBlocks}, меч ${st.swordBlocks}, ящичок ${st.boxBlocks} блоків + 10 гнізд руди</td></tr>
+<tr><td>Скелет</td><td>${DATA.bones.length} кісток (як Stone + рот), предмет у кулаці Fist_L</td></tr>
+<tr><td>Швидкість</td><td>анімації ×0,9 (майнер, воїн), ×0,95 (носій)</td></tr></table>`;
+
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix();
+  const iw = itemsEl.clientWidth, ih = itemsEl.clientHeight; ir.setSize(iw, ih, false); icam.aspect = iw/ih;
+  icam.fov = iw/ih < 2.2 ? 30 * 2.2/(iw/ih) : 30; icam.updateProjectionMatrix();
+  const spread = Math.max(12, Math.min(19, iw/ih*4.6)); itemSpin[0].position.x = -spread; itemSpin[1].position.x = spread;
+}
+window.addEventListener('resize', resize); resize();
+let last = performance.now();
+function frame(now){
+  const dt = (now-last)/1000; last = now;
+  const t = frozenT!==null ? frozenT : (now - t0)/1000;
+  pose(t);
+  if (turntable && frozenT===null){ const a = dt*0.35; const p = camera.position.clone().sub(controls.target); p.applyAxisAngle(new THREE.Vector3(0,1,0), a); camera.position.copy(controls.target).add(p); }
+  controls.update(); renderer.render(scene, camera);
+  if (frozenT===null) for (const s of itemSpin) s.rotation.y += dt*0.5;
+  ir.render(iscene, icam);
+  requestAnimationFrame(frame);
+}
+setClass('miner');
+requestAnimationFrame(frame);
+// для скриншотів
+window.api = { setClass, setAnim, setView, setTurntable, setStuds,
+  freeze(t){ frozenT = t; }, itemsAngle(a){ for (const s of itemSpin) s.rotation.y = a; },
+  scene, golem, bones, carryBox,
+  shot(on){ document.body.classList.toggle('shot', on); resize(); }, camera, controls };
+</script>
+</body>
+</html>

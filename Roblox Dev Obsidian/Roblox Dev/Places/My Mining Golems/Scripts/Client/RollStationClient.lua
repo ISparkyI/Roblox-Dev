@@ -169,6 +169,7 @@ local function applyTheme(cd, th, locked)
 end
 
 local function shake(cd)
+	StyleA.deny() -- звук відмови (заблокована картка)
 	local p0 = cd.holder.Position
 	task.spawn(function()
 		for _, dx in { -14, 12, -9, 6, -3, 0 } do

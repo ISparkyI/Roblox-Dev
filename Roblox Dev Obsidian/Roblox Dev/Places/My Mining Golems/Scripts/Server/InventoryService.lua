@@ -5,9 +5,13 @@
 --
 -- Стан — атрибути гравця (їх читає клієнт):
 --   Ore_* / Bars_* (ставлять ForgeService, SellService), Pot_<зілля> — кількість;
---   InvGolems — JSON-список { { id, kind, cls, mut } } (големи не стакаються; kind — ID з Shared/GolemCatalog,
+--   InvGolems — JSON-список { { id, uid, kind, cls, mut, ix? } } (големи не стакаються; kind — ID з Shared/GolemCatalog,
+--     uid — глобальний UID (GolemRegistry: Mint при появі, Burn при Delete; старі записи без UID отримують його при вході),
+--     ix = 1 — голем у глобальному індексі (цінний / виданий адміном);
 --     cls = "miner" | "carrier", mut — мутація 0..7). Старі ID (wood, iron…) при завантаженні замінюються новими (Catalog.LEGACY);
---   PlotPlaced (ставить PlotService) — id големів на плотах: їх не можна видалити;
+--   PlotPlaced (ставить PlotService) — id големів на плотах: вони лишаються в InvGolems (ліміт MAX_GOLEMS їх НЕ рахує — Items.invGolemCount),
+--     але для інвентаря «не існують» (v24): зникають з хотбара й руки, їх не можна видалити / заблокувати; зняли з плоту — повертаються;
+--   голем на стенді печери (CaveStandService) з InvGolems прибирається (лежить у секції Cave); TAKE повертає його через Give;
 --   InvLocks — JSON-список заблокованих ключів (не видаляються, але їх можна брати в руку / пити / ставити в хотбар);
 --   InvHotbar — JSON-список з 9 ключів ("" = порожній слот);  InvHeld — ключ предмета в руці ("" = нічого).
 -- Збереження: секція "Inventory" у DataService (големи, зілля, замки, хотбар). Руда й злитки зберігаються як атрибути (DataService).
@@ -20,6 +24,7 @@
 --   "Hotbar", { ключі }       — новий список хотбара;
 --   "Pin",    { key, on }      — кнопка Hotbar / Unpin: закріплений слот лишається після Put Away (InvPinned);
 --   "Clear",  { ключі }       — кнопка «в інвентар»: ці предмети зникають з хотбара й руки;
+--   "Sort",   ключ (Shared/GolemSort.LIST) — сортування големів (атрибут InvSort, спільний для інвентаря й вікна плоту; зберігається в секції, поле sort);
 --   "Hold",   ключ або ""     — взяти в руку (створює слот) / прибрати з рук (слот зникає). Модель у руці й табличку над
 --                             големом показує HeldItemService (за атрибутом InvHeld).
 -- ТЕСТ: у Studio без збереженої секції — тестові големи й зілля (ItemConfig.TEST_*).
@@ -32,6 +37,8 @@ local HttpService = game:GetService("HttpService")
 local Items = require(RS:WaitForChild("Shared"):WaitForChild("ItemConfig"))
 local Catalog = require(RS.Shared:WaitForChild("GolemCatalog"))
 local DataService = require(script.Parent:WaitForChild("DataService"))
+local GolemSort = require(RS.Shared:WaitForChild("GolemSort"))
+local GolemRegistry = require(script.Parent:WaitForChild("GolemRegistry"))
 
 local InventoryService = {}
 local N = Items.HOTBAR
@@ -64,6 +71,8 @@ local function exists(p: Player, key: string): boolean
 	if Items.isStack(key) then return ((p:GetAttribute(key) :: number?) or 0) > 0 end
 	if string.sub(key, 1, 6) == "Golem_" then
 		local id = tonumber(string.sub(key, 7))
+		-- голем на плоті (PlotPlaced) — не в інвентарі (v24): його не можна взяти в руку / в хотбар / заблокувати / видалити
+		if table.find(decode(p, "PlotPlaced", {}), id) then return false end
 		for _, g in golems(p) do if g.id == id then return true end end
 	end
 	return false
@@ -101,7 +110,7 @@ local function cleanup(p: Player)
 	if type(held) == "string" and held ~= "" and not exists(p, held) then p:SetAttribute("InvHeld", "") end
 	local l = locks(p)
 	local keep = {}
-	for _, k in l do if exists(p, k) or Items.isStack(k) then table.insert(keep, k) end end -- замок стака лишається (руда повернеться)
+	for _, k in l do if exists(p, k) or Items.isStack(k) or isPlaced(p, k) then table.insert(keep, k) end end -- замок голема на плоті лишається -- замок стака лишається (руда повернеться)
 	if #keep ~= #l then encode(p, "InvLocks", keep) end
 	-- закріплені — лише ті, що ще в хотбарі
 	local hb = hotbar(p)
@@ -127,7 +136,9 @@ local function onAction(p: Player, action: any, arg: any)
 		end
 		if next(removeIds) then
 			local keep = {}
-			for _, g in gl do if not removeIds[g.id] then table.insert(keep, g) end end
+			for _, g in gl do
+				if removeIds[g.id] then GolemRegistry.Burn(p, g, "delete") else table.insert(keep, g) end -- видалення назавжди: UID зникає
+			end
 			encode(p, "InvGolems", keep)
 		end
 		cleanup(p)
@@ -170,6 +181,8 @@ local function onAction(p: Player, action: any, arg: any)
 			end
 		end
 		encode(p, "InvHotbar", h); encode(p, "InvPinned", pl)
+	elseif action == "Sort" then
+		if type(arg) == "string" and GolemSort.VALID[arg] then p:SetAttribute("InvSort", arg) end
 	elseif action == "Hold" then
 		if arg == "" or arg == nil then -- прибрав з рук → слот цього предмета зникає (якщо він не закріплений кнопкою Hotbar)
 			local held = p:GetAttribute("InvHeld")
@@ -185,7 +198,7 @@ local function sectionOf(p: Player, old: any): any
 	if p:GetAttribute("InvReady") ~= true then return old end
 	local pot = {}
 	for _, d in Items.POTIONS do pot[d.key] = (p:GetAttribute("Pot_" .. d.key) :: number?) or 0 end
-	return { golems = golems(p), locks = locks(p), hotbar = hotbar(p), pinned = pins(p), potions = pot }
+	return { golems = golems(p), locks = locks(p), hotbar = hotbar(p), pinned = pins(p), potions = pot, sort = GolemSort.current(p) }
 end
 
 local function onPlayer(p: Player)
@@ -198,13 +211,19 @@ local function onPlayer(p: Player)
 				if type(g) == "table" then
 					g.kind = Catalog.id(g.kind) or g.kind
 					g.mut = Catalog.mut(g.mut)
+					GolemRegistry.Ensure(p, g, "inv") -- старий запис без UID → UID «legacy»
 				end
 			end
-			encode(p, "InvGolems", sec.golems)
+			-- той самий UID двічі (дюп) → лишається перший; спільний список UID — для перевірки печери (CaveStandService)
+			local seen = {}
+			local list = GolemRegistry.Dedupe(p, sec.golems, seen, "inv")
+			encode(p, "InvGolems", list)
+			GolemRegistry.CheckOwnership(p, list)
 		end
 		if type(sec.locks) == "table" then encode(p, "InvLocks", sec.locks) end
 		if type(sec.hotbar) == "table" then encode(p, "InvHotbar", sec.hotbar) end
 		encode(p, "InvPinned", type(sec.pinned) == "table" and sec.pinned or {})
+		p:SetAttribute("InvSort", (type(sec.sort) == "string" and GolemSort.VALID[sec.sort]) and sec.sort or GolemSort.DEFAULT)
 		for _, d in Items.POTIONS do
 			local n = type(sec.potions) == "table" and tonumber(sec.potions[d.key]) or 0
 			p:SetAttribute("Pot_" .. d.key, math.max(0, math.floor(n or 0)))
@@ -214,13 +233,14 @@ local function onPlayer(p: Player)
 		if RunService:IsStudio() then -- ТЕСТ: зілля й големи для перевірки вкладок
 			for i, e in Items.TEST_GOLEMS do
 				local kind, cls, mut = string.match(e, "^(%w+):?(%a*)@?(%d*)$")
-				table.insert(gl, { id = i, kind = Catalog.id(kind) or "wooden", cls = (cls == "carrier") and "carrier" or "miner", mut = Catalog.mut(mut) })
+				table.insert(gl, GolemRegistry.Mint(p, { id = i, kind = Catalog.id(kind) or "wooden", cls = (cls == "carrier") and "carrier" or "miner", mut = Catalog.mut(mut) }, "test"))
 			end
 		end
 		encode(p, "InvGolems", gl)
 		encode(p, "InvLocks", {})
 		encode(p, "InvHotbar", {})
 		encode(p, "InvPinned", {})
+		p:SetAttribute("InvSort", GolemSort.DEFAULT)
 		for _, d in Items.POTIONS do
 			p:SetAttribute("Pot_" .. d.key, RunService:IsStudio() and (Items.TEST_POTIONS[d.key] or 0) or 0)
 		end
@@ -230,12 +250,70 @@ local function onPlayer(p: Player)
 	p:SetAttribute("InvReady", true)
 	-- руда / злитки / зілля закінчилися → їхній слот зникає з хотбара
 	p.AttributeChanged:Connect(function(name)
+		-- голем став на плот (PlotPlaced) → прибрати його з хотбара й руки (v24)
+		if name == "PlotPlaced" then task.defer(function() if p.Parent then cleanup(p) end end) end
 		if Items.isStack(name) then
 			task.defer(function()
 				if p.Parent and not exists(p, name) then cleanup(p) end
 			end)
 		end
 	end)
+end
+
+-- прибрати з руки / хотбара / замків те, чого вже немає (напр. голем щойно став на стенд печери)
+function InventoryService.Refresh(p: Player)
+	cleanup(p)
+end
+
+-- предмет щойно з'явився (голем зі стенда печери, TAKE): новий слот у кінці хотбара і в руку; хотбар повний — лише в інвентарі
+function InventoryService.Give(p: Player, key: string)
+	if addHotbar(p, key) then p:SetAttribute("InvHeld", key) end
+end
+
+-- новий голем у інвентар (купівля на підставці ролу, RollService): у кінець InvGolems. id дає викликач (більший за
+-- CaveStandService.MaxId). false — інвентар не готовий, повний (Items.MAX_GOLEMS) або id зайнятий. Хотбар і рука — окремо (Give).
+-- закріпити предмет у хотбарі, як кнопка Hotbar в інвентарі (дія "Pin", on = true): новий слот у кінці + InvPinned, без InvHeld.
+-- Хотбар повний — лише в інвентарі. Бере RollService після купівлі голема на підставці ролу.
+function InventoryService.Pin(p: Player, key: string)
+	onAction(p, "Pin", { key = key, on = true })
+end
+
+-- reason — джерело для журналу GolemRegistry ("buy" за замовчуванням, "code:<код>", "admin:<userId>"); force — без ліміту MAX_GOLEMS (адмін).
+-- Повертає (true, uid) або false. UID видається ЛИШЕ тут (Mint), тобто в момент появи голема в профілі.
+function InventoryService.AddGolem(p: Player, id: number, kind: string, cls: string, mut: number, reason: string?, force: boolean?): (boolean, string?)
+	if p:GetAttribute("InvReady") ~= true then return false end
+	local gl = golems(p)
+	if not force and Items.invGolemCount(gl, decode(p, "PlotPlaced", {})) >= Items.MAX_GOLEMS then return false end -- без големів на плотах
+	for _, g in gl do if type(g) == "table" and g.id == id then return false end end
+	local rec = GolemRegistry.Mint(p, { id = id, kind = Catalog.id(kind) or kind, cls = Catalog.cls(cls), mut = Catalog.mut(mut) }, reason or "buy")
+	table.insert(gl, rec)
+	encode(p, "InvGolems", gl)
+	return true, rec.uid
+end
+
+-- голем інвентаря (разом з тими, що на плотах) за UID → запис | nil
+function InventoryService.FindByUid(p: Player, uid: string): any
+	for _, g in golems(p) do if type(g) == "table" and g.uid == uid then return g end end
+	return nil
+end
+
+-- видалити голема за UID назавжди (адмін-панель): навіть заблокованого й з плоту (PlotService сам прибере його з плоту).
+-- Повертає запис або nil.
+function InventoryService.RemoveByUid(p: Player, uid: string, reason: string): any
+	if p:GetAttribute("InvReady") ~= true then return nil end
+	local gl = golems(p)
+	local keep, found = {}, nil
+	for _, g in gl do
+		if type(g) == "table" and g.uid == uid and not found then found = g else table.insert(keep, g) end
+	end
+	if not found then return nil end
+	GolemRegistry.Burn(p, found, reason)
+	encode(p, "InvGolems", keep)
+	local l = locks(p)
+	local i = table.find(l, "Golem_" .. tostring(found.id))
+	if i then table.remove(l, i); encode(p, "InvLocks", l) end
+	cleanup(p)
+	return found
 end
 
 function InventoryService.Start()

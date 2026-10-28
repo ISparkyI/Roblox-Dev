@@ -13,6 +13,8 @@ style: "GDD - Блоковий стиль моделей"
 
 ![[pickaxe_preview.png]]
 
+> **У грі (27.10.2026):** кірка Stone — окремий префаб `StonePickaxe` у `Workspace/PlotPrefabs`, Wooden — `WoodenPickaxe` ([Item Prefabs](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FInstruments%2FItem%20Prefabs%2FItem%20Prefabs)).
+
 Кірка в блоковому стилі. Генератор будує блоки ієрархічно, повороти взято з розділу GDD стилю «Повороти для округлення і живості». Робоче лезо зібране з 4 сходинок, кожна наступна нахилена сильніше, тому лезо вигинається дугою. Зворотне лезо коротке, з лопаткою. Голову округлено блоком, повернутим на 45°.
 
 | Параметр | Значення |

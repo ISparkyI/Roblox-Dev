@@ -8,6 +8,8 @@
 -- (Player:IsFriendsWith), перераховуємо при вході/виході будь-кого.
 --
 -- API: MultiService.Start(); MultiService.Get(player) -> TotalMulti; MultiService.Apply(player, amount) -> amount × TotalMulti (округлено).
+-- Глобальна подія Money з адмін-панелі (AdminService): атрибути workspace EventMoney (множник) і EventMoneyUntil (os.time кінця) —
+--   TotalMulti × EventMoney, поки подія триває (окремої плашки немає, подію показує банер AdminBroadcastClient).
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -41,7 +43,12 @@ local function compute(p: Player)
 		p:SetAttribute("Multi_" .. s.key, v)
 		total *= v
 	end
+	local ev = tonumber(workspace:GetAttribute("EventMoney")) or 1
+	if ev > 1 and os.time() < (tonumber(workspace:GetAttribute("EventMoneyUntil")) or 0) then total *= ev end
 	p:SetAttribute("TotalMulti", total)
+end
+local function computeAll()
+	for _, p in Players:GetPlayers() do compute(p) end
 end
 
 function MultiService.Get(p: Player): number
@@ -79,6 +86,17 @@ end
 function MultiService.Start()
 	Players.PlayerAdded:Connect(function(p) task.spawn(setup, p) end)
 	for _, p in Players:GetPlayers() do task.spawn(setup, p) end
+	-- подія Money: почалась / змінилась — перерахунок одразу; закінчилась — перевірка раз на 5 с
+	workspace:GetAttributeChangedSignal("EventMoney"):Connect(computeAll)
+	workspace:GetAttributeChangedSignal("EventMoneyUntil"):Connect(computeAll)
+	task.spawn(function()
+		local was = false
+		while true do
+			task.wait(5)
+			local on = (tonumber(workspace:GetAttribute("EventMoney")) or 1) > 1 and os.time() < (tonumber(workspace:GetAttribute("EventMoneyUntil")) or 0)
+			if on ~= was then was = on; computeAll() end
+		end
+	end)
 	Players.PlayerRemoving:Connect(function(p)
 		ready[p] = nil
 		friendsOf[p] = nil

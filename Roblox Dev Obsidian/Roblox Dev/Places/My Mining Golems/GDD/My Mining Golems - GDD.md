@@ -2,7 +2,7 @@
 tags: [gdd, place]
 status: draft
 version: 42
-updated: 2026-10-25
+updated: 2026-10-28
 ---
 
 # GDD
@@ -51,7 +51,7 @@ updated: 2026-10-25
 | **Ящик плоту** з кнопкою COLLECT | внутрішній передній кут кожного плоту | [Plots](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FPlots%2FPlots) |
 | **Станція ролу** (вибір типу голема, важіль E · ROLL), 1–5 підставок ролу, табло покращень ролу | біля спавну гравця (спавн дивиться на станцію) | [[GDD - Roll]], [Roll Station](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FRoll%20Station%2FRoll%20Station), [Roll Upgrades Screen](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FRoll%20Upgrades%20Screen%2FRoll%20Upgrades%20Screen) |
 | **Вхід у печеру големів** (CAVE, затиск 0,9 с → печера-сховище ніші) | у ніші | [Cave Entrance](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FCave%20Entrance%2FCave%20Entrance) |
-| **Печера-сховище големів** (своя на кожну нішу, 14 стендів; автор — друг користувача, стенди ще без логіки) | окремо під картою | [Golem Cave](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FGolem%20Cave%2FGolem%20Cave) |
+| **Печера-сховище големів** (своя під кожною нішею, 14 стендів: купівля по черзі за Money, голем на стенді, збереження — не скидається на новій мапі; автор печери — друг користувача) | окремо під картою | [Golem Cave](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FGolem%20Cave%2FGolem%20Cave) |
 | **Табло прокачки плоту** (8 карток) | ліворуч від лавки SELL | [[GDD - Plots]] |
 | **Forge** — голем-коваль, переплавка руди в злитки | правий передній кут біля входу | [[GDD - Ores and Bars]], [Forge](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FForge%2FForge) |
 | **Sell** — лавка скупщика Наґґета | лівий передній кут біля входу | [[GDD - Ores and Bars]], [Sell Shop](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FSell%20Shop%2FSell%20Shop) |
@@ -59,7 +59,7 @@ updated: 2026-10-25
 | Магазин предметів за Money | *(уточнити)* | — |
 
 ### 2.3 Інші місця
-- **Печера збереження** (вхід — Cave Entrance у ніші): слоти (купуються за Money, ліміт наприклад 15) для големів, які переживуть перехід на наступну мапу.
+- **Печера збереження** (вхід — Cave Entrance у ніші): слоти (купуються за Money, ліміт наприклад 15) для големів, які переживуть перехід на наступну мапу. *У грі: 14 стендів, купуються по черзі 1 → 14, голем ставиться з руки (PLACE) і забирається в інвентар (TAKE) — [Golem Cave](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FGolem%20Cave%2FGolem%20Cave).*
 - **Утилізація:** місце, де можна позбутися непотрібних големів ([[GDD - Golems]]).
 - **Арена боса** і **маркетплейс** — окремі сервери ([[GDD - Boss Events]], [[GDD - Marketplace]]).
 
@@ -96,6 +96,8 @@ updated: 2026-10-25
 | [[GDD - Leaderboards]] | лідерборди в печері, особистий борд |
 | [[GDD - Interface]] | HUD, правила вікон, підказки E, інвентар і хотбар |
 | [[GDD - Data Saving]] | DataStore, сесійний замок, що зберігається |
+| [[GDD - Golem UID]] | унікальний ID голема, анти-дюп, глобальний індекс і журнал |
+| [[GDD - Admin Panel]] | адмін-панель F2, ролі, івенти Roll Luck / Mutation Luck / Money з чергою, оголошення |
 | [[GDD - Studio Scene]] | що де в Explorer, ніші й автоклейм, технічні правила |
 
 ## 5. Де що описано
@@ -104,7 +106,7 @@ updated: 2026-10-25
 | Розділ | Нотатки |
 | --- | --- |
 | Interactive Objects | [Roll Station](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FRoll%20Station%2FRoll%20Station), [Roll Upgrades Screen](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FRoll%20Upgrades%20Screen%2FRoll%20Upgrades%20Screen), [Cave Entrance](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FCave%20Entrance%2FCave%20Entrance), [Forge](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FForge%2FForge), [Sell Shop](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FSell%20Shop%2FSell%20Shop), [Plots](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FPlots%2FPlots) |
-| 3D Models | [Golems](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FGolems%2FGolems) (Stone, Forest, Wooden), [Ores](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FOres%2FOres) (Coal Ore, Copper Ore, Iron Ore), [Bars](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FBars%2FBars) (Copper Bar, Iron Bar), [Instruments](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FInstruments%2FInstruments) (Pickaxe, Carrier Crate) |
+| 3D Models | [Golems](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FGolems%2FGolems) (Stone, Wooden), [Ores](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FOres%2FOres) (Coal Ore, Copper Ore, Iron Ore), [Bars](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FBars%2FBars) (Copper Bar, Iron Bar), [Instruments](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FInstruments%2FInstruments) (Pickaxe, Carrier Crate) |
 | 2D | [Main HUD](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F2D%2FMain%20HUD%2FMain%20HUD), [Money HUD](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F2D%2FMoney%20HUD%2FMoney%20HUD), [Inventory](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F2D%2FInventory%2FInventory) |
 | Locations | [Main Cave](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FMain%20Cave%2FMain%20Cave), [Niche Stage 1](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FNiche%20Stage%201%2FNiche%20Stage%201) |
 | Scripts | [Scripts](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FScripts%2FMy%20Mining%20Golems%20-%20Scripts) (Client, Server, Modules) |
@@ -138,10 +140,13 @@ updated: 2026-10-25
 - [ ] Референс-картки Wooden і Stone Golem (шаблон готовий)
 - [ ] Wooden Golem, предмети 3 підкласів (меч, кірка, ящик), анімації носія і воїна
 - [ ] Каталог големів і формули мутацій у коді
-- [ ] Ролл-система «1 до N», анімація ролу, підписи (вибір класу на станції ролу — готово; Roll Luck — табло готове)
+- [x] Ролл-система v1 (27.10.2026): шанси «1 до N» з Roll Luck, мутації, 2 фейки + результат на кожній підставці, таблички, BUY, збереження некупленого (пул — големи з 3D-моделлю: Wooden, Stone)
 - [x] Прокачка плоту: сервер і табло (8 карток; `PlotAction` Upgrade)
 - [x] Збереження даних (DataStore, сесійне блокування, автозбереження, Forge) — [[GDD - Data Saving]]; решту систем (големи, квести, Index тощо) додаємо в збереження разом з ними
 - [x] Глобальні множники Money і плашка над TOTAL MULTI ([[GDD - Monetization]]); 21 Developer Product x2 Money створено в Creator Hub; геймпаси ще ні
+- [x] UID големів і анти-дюп етап 1 (28.10.2026) — [[GDD - Golem UID]]
+- [x] Адмін-панель, ролі, івенти з чергою, нова формула удачі (28.10.2026) — [[GDD - Admin Panel]]
+- [ ] Група Roblox **OSIRIUS**: аватарка (4 варіанти в Claude Workspace / OSIRIUS_icons_v2), опис; бонус за членство в групі *(уточнити)*
 - [x] Табло Forge: третя картка Ore per Hit, прокрутка, іконки в стилі HUD; Speed до 0,25 с; анімація голема йде в темп швидкості; x2 Money — коми, анімація покупки, відліт на MAX
 - [ ] Мапи й печера збереження (вхід у ніші вже стоїть)
 - [ ] Ребітхи

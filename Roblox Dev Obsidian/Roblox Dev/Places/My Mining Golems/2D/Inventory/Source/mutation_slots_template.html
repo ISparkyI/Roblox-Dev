@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="uk">
+<meta charset="utf-8">
+<title>Mutation Slots</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:"MontserratMock";font-weight:800;src:url(data:font/woff2;base64,__F800__) format("woff2")}
+@font-face{font-family:"MontserratMock";font-weight:900;src:url(data:font/woff2;base64,__F900__) format("woff2")}
+:root{--bg:#15171b;--fg:#e9edf1;--mut:#9aa3ad;--card:#1e2126;--line:#343a42;--acc:#c3f04a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:14px 16px;min-height:100vh}
+.top{max-width:1280px;margin:0 auto 10px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between}
+.top h1{font-size:15px;margin:0;font-weight:700}
+.top p{margin:2px 0 0;color:var(--mut);font-size:12.5px;max-width:80ch}
+.ctl{display:flex;gap:8px;flex-wrap:wrap}
+.ctl button{background:var(--card);color:var(--fg);border:1px solid var(--line);padding:7px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+.ctl button.on{border-color:var(--acc);color:var(--acc)}
+#fit{margin:0 auto;position:relative;overflow:hidden;max-width:1280px}
+#stage{position:absolute;left:0;top:0;width:1280px;height:700px;transform-origin:0 0;font-family:"MontserratMock","Montserrat",system-ui,sans-serif;font-weight:900;user-select:none;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 30%,#4a4036,#221d19 70%)}
+#stage *{position:absolute}
+.t{white-space:nowrap;color:#fff;paint-order:stroke fill;-webkit-text-stroke:var(--sw,4px) #14161a;stroke-linejoin:round;pointer-events:none;line-height:1}
+/* панель як у вікні інвентаря */
+.panel{background-color:#c3c8ce;border-radius:0;box-shadow:0 0 0 4px #14161a,inset 0 0 0 3px rgba(255,255,255,.35);
+  background-image:radial-gradient(circle at 50% 45%,rgba(255,255,255,.35) 0 5.5px,rgba(0,0,0,.06) 6px 7.5px,transparent 8px);background-size:30px 30px}
+/* ===== слот ===== */
+.slot{width:100px;height:100px;cursor:pointer}
+.slot .sh{left:0;top:4px;width:100px;height:100px;background:rgba(0,0,0,.3)}
+.slot .card{left:0;top:0;width:100px;height:100px;transition:transform .1s ease-out}
+.slot .base{inset:0;background:linear-gradient(#22262c,#15181c);box-shadow:0 0 0 4px #14161a}
+.slot .tone{left:3px;top:3px;right:3px;bottom:3px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.06)}
+.slot .fx{left:0;top:0;width:100px;height:100px;overflow:hidden;opacity:0;transition:opacity .15s ease-out}
+.slot .icon{left:16px;top:14px;width:68px;height:68px;object-fit:contain;filter:drop-shadow(0 3px 0 rgba(0,0,0,.35))}
+.slot .ring{left:-1px;top:-1px;width:102px;height:102px;box-shadow:0 0 0 4px #c8ff6a;display:none}
+.slot:hover .fx,.slot.hv .fx,.slot.sel .fx{opacity:1}
+.slot:hover .card,.slot.hv .card{transform:scale(1.05) rotate(-1.5deg)}
+.slot.sel .ring{display:block}
+.slot.sel .card{transform:scale(1.04)}
+/* шари ефекту — у Roblox: Frame + UIGradient (Offset / Rotation анімуються), ImageLabel (іскри), дрібні Frame (частинки) */
+.fx .g{inset:0;background-size:300% 300%;animation:flow 6s linear infinite}
+@keyframes flow{from{background-position:0% 50%}to{background-position:150% 50%}}
+.fx .vig{inset:0;background:radial-gradient(circle at 50% 50%,transparent 38%,rgba(10,10,14,.42) 100%)}
+.fx .top{left:0;top:0;width:100px;height:100px;background:linear-gradient(rgba(255,255,255,.16),transparent 45%)}
+.fx .shine{left:-60px;top:-20px;width:40px;height:140px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:rotate(20deg);animation:sweep 3.2s ease-in-out infinite}
+@keyframes sweep{0%{left:-70px}45%{left:130px}100%{left:130px}}
+.fx .spark{width:14px;height:14px;background:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 0 C11 7 13 9 20 10 C13 11 11 13 10 20 C9 13 7 11 0 10 C7 9 9 7 10 0Z' fill='white'/%3E%3C/svg%3E") center/contain no-repeat;
+  animation:twinkle 1.8s ease-in-out infinite;opacity:0}
+@keyframes twinkle{0%,100%{opacity:0;transform:scale(.3) rotate(0)}45%{opacity:1;transform:scale(1) rotate(45deg)}70%{opacity:0;transform:scale(.4) rotate(90deg)}}
+.fx .dot{width:5px;height:5px;border-radius:50%;animation:rise 2.6s linear infinite;opacity:0}
+@keyframes rise{0%{opacity:0;transform:translateY(0)}20%{opacity:.9}100%{opacity:0;transform:translateY(-70px)}}
+.fx .swirl{left:-50px;top:-50px;width:200px;height:200px;animation:spin 7s linear infinite}
+.fx .swirl.b{animation-duration:11s;animation-direction:reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Normal — легке світле підсвічування без кольору */
+.m0 .g{background-image:linear-gradient(#3d444d,#262b31);animation:none;background-size:100% 100%}
+.m0 .shine{opacity:.5}
+.m1 .g{background-image:linear-gradient(120deg,#8f4a1f,#e0874a,#ffc08a,#b5612c,#e0874a,#8f4a1f,#e0874a,#ffc08a)}
+.m2 .g{background-image:linear-gradient(120deg,#8b96a3,#d6dde4,#ffffff,#9aa6b2,#e8edf2,#8b96a3,#d6dde4,#ffffff)}
+.m3 .g{background-image:linear-gradient(120deg,#b8860b,#ffd23a,#fff3a8,#e0a51c,#ffe066,#b8860b,#ffd23a,#fff3a8)}
+.m4 .g{background-image:linear-gradient(120deg,#2f8fe8,#6fe8ff,#e6fdff,#3fa9ff,#b5f4ff,#2f8fe8,#6fe8ff,#e6fdff)}
+.m5 .g{background-image:radial-gradient(circle at 50% 55%,#5a1fb0,#2a0c52 55%,#12061f);animation:none;background-size:100% 100%}
+.m5 .swirl{background:conic-gradient(from 0deg,transparent 0 12%,rgba(194,123,255,.55) 20%,transparent 32% 50%,rgba(162,75,255,.5) 62%,transparent 74%)}
+.m5 .swirl.b{background:conic-gradient(from 90deg,transparent 0 20%,rgba(61,20,120,.85) 30%,transparent 42% 60%,rgba(226,184,255,.25) 70%,transparent 80%)}
+.m5 .dot{background:#e2b8ff;box-shadow:0 0 6px #c27bff}
+.m6 .g{background-image:linear-gradient(110deg,#ff5a5a,#ffa53a,#ffe14a,#6ee05a,#4fd2ff,#7a8cff,#e06bff,#ff5a5a,#ffa53a,#ffe14a,#6ee05a);animation-duration:4s}
+.m6 .vig{background:radial-gradient(circle at 50% 50%,rgba(20,22,26,.18) 30%,rgba(10,10,14,.45) 100%)}
+.m7 .g{background-image:radial-gradient(circle at 50% 42%,#231c36 0,#0f0c17 55%,#030305 100%);animation:none;background-size:100% 100%}
+.m7 .holo{inset:0;background-image:linear-gradient(115deg,transparent 0%,transparent 14%,rgba(127,233,255,.55) 21%,rgba(255,143,214,.5) 27%,rgba(255,255,255,.6) 32%,rgba(190,170,255,.4) 36%,transparent 43%,transparent 62%,rgba(127,233,255,.35) 69%,rgba(255,143,214,.35) 74%,transparent 81%);background-size:260% 260%;animation:flow 4.5s linear infinite}
+.m7 .edge{inset:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.95),inset 0 0 9px 2px rgba(127,233,255,.9),inset 0 0 20px 3px rgba(255,143,214,.55);animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+.slot .aura{left:0;top:0;width:100px;height:100px;opacity:0;transition:opacity .15s ease-out;box-shadow:0 0 10px 3px rgba(127,233,255,.95),0 0 22px 8px rgba(255,143,214,.6),0 0 34px 12px rgba(190,170,255,.35);animation:pulse 1.6s ease-in-out infinite}
+.slot:hover .aura,.slot.hv .aura,.slot.sel .aura{opacity:1}
+.m7 .shine{width:30px;background:linear-gradient(90deg,transparent,rgba(255,255,255,1) 45%,rgba(191,246,255,.9) 55%,transparent);animation-duration:2.2s;filter:drop-shadow(0 0 4px #fff)}
+.m7 .spark{filter:drop-shadow(0 0 3px #bff6ff) drop-shadow(0 0 6px #fff)}
+.m7 .vig{background:radial-gradient(circle at 50% 50%,transparent 45%,rgba(0,0,0,.35) 100%)}
+.m1 .vig,.m2 .vig,.m3 .vig,.m4 .vig{background:radial-gradient(circle at 50% 50%,rgba(20,22,26,.10) 25%,rgba(10,10,14,.45) 100%)}
+.colname{font-size:17px;-webkit-text-stroke:3.5px #14161a;background-clip:text;-webkit-background-clip:text}
+.lbl{font-size:20px}
+.note{max-width:1280px;margin:12px auto 0;color:var(--mut);font-size:12.5px;display:grid;gap:4px}
+.note b{color:var(--fg)}
+</style>
+<div class="top">
+  <div><h1>Фон слота за мутацією — макет (наведення · вибір)</h1>
+  <p>У спокої всі слоти однакові темні (кольорового сяйва рідкості більше немає, рідкість — текстом). При наведенні й коли слот вибраний фон стає стилем мутації голема, анімований; поява / зникнення — 0,15 с. Наводь мишку на будь-який слот. Зелений damage — по центру над слотом.</p></div>
+  <div class="ctl"><button data-s="all">Три стани</button><button data-s="idle">Спокій</button><button data-s="hover">Hover</button><button data-s="selected">Selected</button></div>
+</div>
+<div id="fit"><div id="stage"></div></div>
+<div class="note">
+  <div><b>Normal</b> — світліший сірий фон і м'який білий верх, тонкий блиск. <b>Bronze / Silver / Gold / Diamond</b> — металевий перелив палітри мутації (як градієнт назви) + блиск, що пробігає; Gold — кілька іскор, Diamond — більше іскор (крижаний). <b>Void</b> — темно-фіолетове клубіння (два шари, що повільно обертаються в різні боки) і фіолетові частинки вгору. <b>Rainbow</b> — веселка, що рухається, трохи притемнена під големом. <b>Secret</b> (найвища) — чорний обсидіановий фон з голографічним хромовим переливом (білий + блідо-ціан + блідо-рожевий), яскравий діагональний блиск раз на ~2,2 с, білі зірочки-іскри, тонка світна рамка, що пульсує, і легка аура навколо слота (ImageLabel-сяйво за слотом). <b>Silver</b> — простий сріблястий метал без іскор.</div>
+  <div><b>Як у Roblox (без CanvasGroup):</b> у слоті шар <code>MutFx</code> (Frame, ClipsDescendants) під іконкою: Frame з UIGradient (палітра з GolemCatalog.MUTATIONS[].gradient, анімується Offset; Void — Rotation двох шарів), смуга блиску — Frame з UIGradient Transparency, що їде по X, іскри — ImageLabel (4-кутна зірка), частинки Void — маленькі Frame з UICorner. Плавність 0,15 с — Tween прозорості кожного елемента (множник «fade» у тому ж спільному Heartbeat, що й MutationText). Анімація йде лише в слотах, що зараз у hover / selected.</div>
+</div>
+<script>
+const ICON=__ICON__;
+const W=1280,H=700;
+const MUT=[["Normal",["#ffffff","#ffffff"]],["Bronze",["#e0874a","#ffc08a","#b5612c","#e0874a","#8f4a1f"]],["Silver",["#d6dde4","#ffffff","#9aa6b2","#e8edf2","#8b96a3"]],["Gold",["#ffd23a","#fff3a8","#e0a51c","#ffe066","#b8860b"]],["Diamond",["#6fe8ff","#e6fdff","#3fa9ff","#b5f4ff","#2f8fe8"]],["Void",["#a24bff","#e2b8ff","#5a1fb0","#c27bff","#3d1478"]],["Rainbow",["#ff5a5a","#ffa53a","#ffe14a","#6ee05a","#4fd2ff","#7a8cff","#e06bff"]],["Secret",["#ffffff","#bff6ff","#ffd1f0","#e8e4ff","#9fe7ff","#ffffff","#ffc4e6"]]];
+const DMG=[16,21,29,39,53,72,97,131]; // Stone Golem miner з мутацією (2·1,35^k округлено як у грі — тут умовно)
+const stage=document.getElementById("stage");
+function el(p,cls,st,html){const e=document.createElement("div");if(cls)e.className=cls;if(st)Object.assign(e.style,st);if(html!=null)e.innerHTML=html;p.appendChild(e);return e}
+const px=v=>v+"px";
+function T(p,o){const e=el(p,"t "+(o.cls||""),{left:px(o.x),top:px(o.cy-o.size*.5),width:o.w?px(o.w):"auto",fontSize:px(o.size),textAlign:o.align||"left",color:o.color||"#fff",fontWeight:o.weight||900,zIndex:o.z||5},o.text);e.style.setProperty("--sw",(o.sw||4)+"px");return e}
+let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+function fx(p,k){const f=el(p,"fx m"+k,{zIndex:2});
+  el(f,"g");
+  if(k===5){el(f,"swirl");el(f,"swirl b");for(let i=0;i<7;i++)el(f,"dot",{left:px(10+rnd()*80),top:px(60+rnd()*35),animationDelay:(-rnd()*2.6)+"s"})}
+  if(k===7)el(f,"holo");
+  el(f,"vig");if(k!==7)el(f,"top");
+  if(k!==5)el(f,"shine",{animationDelay:(-k*0.37)+"s"});
+  const sp={3:3,4:6,6:3,7:8}[k]||0;
+  for(let i=0;i<sp;i++)el(f,"spark",{left:px(6+rnd()*78),top:px(6+rnd()*78),width:px(9+rnd()*8),height:px(9+rnd()*8),animationDelay:(-rnd()*1.8)+"s",animationDuration:(1.4+rnd()*1.2)+"s"});
+  if(k===7)el(f,"edge");
+  return f}
+function slot(p,x,y,k,state){
+  const s=el(p,"slot "+(state==="hover"?"hv":state==="selected"?"sel":""),{left:px(x),top:px(y),zIndex:3});
+  el(s,"sh");const c=el(s,"card");if(k===7)el(c,"aura");el(c,"base");fx(c,k);el(c,"tone",{zIndex:3});
+  const im=document.createElement("img");im.className="icon";im.src=ICON;im.style.zIndex=4;c.appendChild(im);
+  T(c,{x:7,cy:11,size:13.5,text:"Stone Golem",sw:4.4,z:6,weight:800});
+  T(c,{x:0,cy:86,w:92,size:13,align:"right",text:"Common",color:"#9aa3ad",sw:4,z:6,weight:800});
+  // damage — по центру НАД слотом (поза рамкою)
+  T(s,{x:0,cy:-13,w:100,size:12.5,align:"center",text:DMG[k]+" dmg",color:"#7dff5a",sw:4,z:6,weight:800});
+  el(c,"ring",{zIndex:7});
+  s.addEventListener("click",()=>{if(state!=="idle-static")s.classList.toggle("sel")});
+  return s}
+function colName(p,x,y,k,size){size=size||17;const g=MUT[k][1];
+  const back=T(p,{x:x,cy:y,w:100,size:size,align:"center",text:MUT[k][0],sw:size*.36,z:5,color:"#14161a"});
+  if(k===0){back.style.color="#fff";return back}
+  const t=T(p,{x:x,cy:y,w:100,size:size,align:"center",text:MUT[k][0],sw:0,z:6});
+  t.style.webkitTextStroke="0";t.style.backgroundImage=`linear-gradient(90deg,${g.concat(g).join(",")})`;t.style.backgroundSize="200% 100%";t.style.color="transparent";t.style.webkitBackgroundClip="text";t.style.backgroundClip="text";
+  t.animate([{backgroundPosition:"0% 0"},{backgroundPosition:"-200% 0"}],{duration:k===7?5000:3000,iterations:Infinity});return t}
+function show(mode){stage.innerHTML="";seed=7;
+  document.querySelectorAll(".ctl button").forEach(b=>b.classList.toggle("on",b.dataset.s===mode));
+  if(mode==="all"){
+    el(stage,"panel",{left:"150px",top:"40px",width:"1100px",height:"630px",zIndex:1});
+    const X0=190,G=32;
+    for(let k=0;k<8;k++)colName(stage,X0+k*(100+G),72,k);
+    [["Спокій","idle",130],["Hover","hover",310],["Selected","selected",490]].forEach(([lab,st,y],r)=>{
+      T(stage,{x:20,cy:y+50,w:120,size:20,align:"left",text:lab,sw:4.5,z:5});
+      for(let k=0;k<8;k++)slot(stage,X0+k*(100+G),y+25,k,st);
+    });
+  }else{
+    const st=mode,G=32,gw=8*100+7*G,sc=1.1;
+    const pw=gw+2*40,ph=100+40+2*40+50;
+    const wrap=el(stage,"",{left:px((W-pw*sc)/2),top:px((H-ph*sc)/2),width:px(pw),height:px(ph),transform:`scale(${sc})`,transformOrigin:"0 0",zIndex:1});
+    el(wrap,"panel",{left:0,top:0,width:px(pw),height:px(ph),zIndex:1});
+    T(wrap,{x:24,cy:32,size:26,text:"Golems",sw:6,z:5});
+    T(wrap,{x:pw-284,cy:32,w:260,size:16,align:"right",text:{idle:"спокій",hover:"наведення (усі)",selected:"вибрано (усі)"}[st],sw:4,z:5,color:"#c8ff6a"});
+    for(let k=0;k<8;k++){const x=40+k*(100+G),y=40+50+30;colName(wrap,x,y-46,k,15);slot(wrap,x,y,k,st)}
+  }
+}
+function fit(){const w=Math.min(document.getElementById("fit").parentElement.clientWidth-0,1280);const s=w/W;stage.style.transform=`scale(${s})`;const f=document.getElementById("fit");f.style.width=px(W*s);f.style.height=px(H*s)}
+document.querySelectorAll(".ctl button").forEach(b=>b.onclick=()=>show(b.dataset.s));
+window.addEventListener("resize",fit);
+const q=new URLSearchParams(location.search).get("s")||"all";show(q);fit();window.__ready=true;
+</script>

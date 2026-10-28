@@ -29,7 +29,10 @@ Players.PlayerRemoving:Connect(function(p) last[p] = nil end)
 -- CustomPrompts). Ставимо на сервері всім наявним і новим (ніші з префаба) — як CaveEntrance ставить 0,9 печері.
 local ROLL_HOLD = 0.25
 local function holdRoll(d: Instance)
-	if d:IsA("ProximityPrompt") and d.Name == "RollPrompt" then d.HoldDuration = ROLL_HOLD end
+	if d:IsA("ProximityPrompt") and d.Name == "RollPrompt" then
+		d.HoldDuration = ROLL_HOLD
+		d.Exclusivity = Enum.ProximityPromptExclusivity.OneGlobally -- разом із BUY на підставках на E видно лише одну (27.10.2026)
+	end
 end
 for _, d in workspace:GetDescendants() do holdRoll(d) end
 workspace.DescendantAdded:Connect(holdRoll)
