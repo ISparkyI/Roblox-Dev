@@ -54,7 +54,8 @@ local CHUNK_TPL: { [string]: BasePart } = {}
 do
 	local pf = RS:FindFirstChild("Prefabs")
 	local fp = pf and pf:WaitForChild("ForgeProps", 5)
-	for key, n in { Coal = "ChunkCoal", Copper = "ChunkCopper", Iron = "ChunkIron" } do
+	for _, key in { "Coal", "Copper", "Iron", "Tin", "Silver", "Gold" } do -- руда мап 1–2 (29.10.2026)
+		local n = "Chunk" .. key
 		local u = fp and fp:FindFirstChild(n)
 		if u and u:IsA("BasePart") then CHUNK_TPL[key] = u end
 	end

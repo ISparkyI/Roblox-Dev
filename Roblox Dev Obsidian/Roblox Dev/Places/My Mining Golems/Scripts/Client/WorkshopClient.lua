@@ -102,7 +102,8 @@ local CARD_K, SIDE, CARD_TOP = 0.85, 150, 130
 local VP_Y, VP_H = 0, 850                                -- вікно карток (над повзунком)
 local TRACK_W, TRACK_H, TRACK_Y = 860, 40, 866          -- повзунок унизу (по центру)
 local ARROW = 56
-local CARD_ORDER = { { "Cap", "Capacity", 72 }, { "Spd", "Speed", 72 }, { "Oph", "Ore per Hit", 60 } }
+-- Auto (29.10.2026): Auto Workshop — з мапи 3 за Money (ForgeConfig.AUTO_*) або геймпас; куплено — кнопка ON / OFF
+local CARD_ORDER = { { "Cap", "Capacity", 72 }, { "Spd", "Speed", 72 }, { "Oph", "Ore per Hit", 60 }, { "Auto", "Auto Workshop", 54 } }
 local UIS = game:GetService("UserInputService")
 local CAS = game:GetService("ContextActionService")
 
@@ -164,11 +165,13 @@ local ICONS = {
 	Cap = "rbxassetid://91341404610533",  -- forge_capacity (ящик, з якого виглядає руда)
 	Spd = "rbxassetid://109722376919744", -- forge_speed (молот і штрихи руху)
 	Oph = "rbxassetid://98215380451624",  -- forge_ore_per_hit (ковадло, три шматки руди, спалах удару)
+	Auto = "rbxassetid://102635405420682", -- Auto Workshop (ковадло з зірочками, тимчасово — іконка заголовка WORKSHOP)
 }
 local THEMES = {
 	Cap = { grad = { { 0, "ffb15c" }, { 0.55, "f07a1e" }, { 1, "b8500c" } }, rim = "ffd2a3", stud = "ffc890", studShade = "b3520f" },
 	Spd = { grad = { { 0, "6fc6ff" }, { 0.55, "2f8ee6" }, { 1, "1a5cb0" } }, rim = "bfe6ff", stud = "8fd2ff", studShade = "1b62b8" },
 	Oph = { grad = { { 0, "d59bff" }, { 0.55, "9a4cf0" }, { 1, "5f22b4" } }, rim = "ecd4ff", stud = "dcb4ff", studShade = "5c1fa8" },
+	Auto = { grad = { { 0, "6ff0d8" }, { 0.55, "1fb89c" }, { 1, "0d7a66" } }, rim = "c8fff2", stud = "8ff5e0", studShade = "0f8a72" },
 }
 -- квадратна картка: квадратні тінь, обідок, косі світлі смуги Bands, темна суцільна смуга BottomStrip знизу, прямокутний
 -- блиск зверху; кнопка купівлі — «стиль A» (StyleA)
@@ -606,7 +609,13 @@ end)
 
 -- ===== політ руди в піч (тільки візуал) =====
 local flyers = {}
-local CHUNK = { "ChunkCoal", "ChunkCopper", "ChunkIron" } -- Union-моделі руди (ті самі, що на піддоні)
+-- руда кузні — руда мапи її ніші (29.10.2026): тип t (1..3) → ключ руди
+local curForge: Instance? = nil
+local function oreAt(t: number): any
+	local n = curForge and curForge.Parent
+	return Cfg.oresFor(n and n:GetAttribute("Stage") or 1)[t] or ORE[t]
+end
+local CHUNK = setmetatable({}, { __index = function(_, t) local o = oreAt(t) return o and ("Chunk" .. o.key) or nil end })
 local function fly(from: Vector3, to: Vector3, color: Color3, size: Vector3, dur: number, t: number?)
 	local tpl = PROPS and t and PROPS:FindFirstChild(CHUNK[t] or "")
 	local p
@@ -634,7 +643,7 @@ local function jobUpdate(r, dt, clock)
 		if r.ingotLight then r.ingotLight.Brightness = 0 end
 		return
 	end
-	local bar = ORE[job.t].bar
+	local bar = oreAt(job.t).bar
 	ing.Transparency = 0
 	local k = r.k or 1
 	if job.phase == "toClaw" and not r.clawCF then job.phase = "toAnvil" end
@@ -915,6 +924,7 @@ RunService.RenderStepped:Connect(function(dt)
 	local clock = os.clock()
 	for f, r in recs do
 		if not f.Parent then recs[f] = nil continue end
+		curForge = f
 		-- нова переплавка на сервері → руда летить у піч і стає в чергу
 		local seq = f:GetAttribute("SmeltSeq") or 0
 		r.k = tempoOf(f)
@@ -923,7 +933,7 @@ RunService.RenderStepped:Connect(function(dt)
 			r.seq = seq
 			local t = f:GetAttribute("SmeltType") or 1
 			if r.flyFrom and r.mouth and n > 0 then
-				fly(r.flyFrom.Position, r.mouth.Position, ORE[t].color, V(0.62, 0.62, 0.62) * S, 0.5 / r.k, t)
+				fly(r.flyFrom.Position, r.mouth.Position, oreAt(t).color, V(0.62, 0.62, 0.62) * S, 0.5 / r.k, t)
 				if #r.queue < QUEUE_MAX then table.insert(r.queue, { t = t, ready = clock + 0.9 / r.k }) end
 			end
 		end
@@ -1161,10 +1171,17 @@ local function refreshPanels()
 			local cp, sp = Cfg.capPrice(cl), Cfg.spdPrice(sl)
 			local smax = Cfg.spdMax(sl)
 			local cap, spd = pn.cards.Cap, pn.cards.Spd
-			cap.value.Text = string.format('<font color="#FFFFFF">%s</font>  <font color="#D4FF3E">›  %s</font>', NF.money(Cfg.capOf(cl)), NF.money(Cfg.capOf(cl + 1)))
-			cap.sa:setText(NF.money(cp))
-			cap.sa:setColor(money >= cp and "green" or "gray")
-			pn.can.Cap = working and money >= cp
+			if Cfg.capMax(cl) then -- економіка v2: місткість має максимум
+				cap.value.Text = string.format('<font color="#D4FF3E">MAX (%s)</font>', NF.money(Cfg.capOf(cl)))
+				cap.sa:setText("MAX")
+				cap.sa:setColor("gray")
+				pn.can.Cap = false
+			else
+				cap.value.Text = string.format('<font color="#FFFFFF">%s</font>  <font color="#D4FF3E">›  %s</font>', NF.money(Cfg.capOf(cl)), NF.money(Cfg.capOf(cl + 1)))
+				cap.sa:setText(NF.money(cp))
+				cap.sa:setColor(money >= cp and "green" or "gray")
+				pn.can.Cap = working and money >= cp
+			end
 			if smax then
 				spd.value.Text = string.format('<font color="#D4FF3E">MAX (%.2fs)</font>', Cfg.spdOf(sl))
 				spd.sa:setText("MAX")
@@ -1190,6 +1207,28 @@ local function refreshPanels()
 				oph.sa:setText(NF.money(op))
 				oph.sa:setColor(money >= op and "green" or "gray")
 				pn.can.Oph = working and money >= op
+			end
+			-- Auto Workshop: куплено / геймпас — ON / OFF (Set_AutoWorkshop); до мапи AUTO_MIN_STAGE — замок; інакше ціна
+			local au = pn.cards.Auto
+			if au then
+				local stage = tonumber(f.Parent and f.Parent:GetAttribute("Stage")) or 1
+				if owner and Cfg.autoOwned(owner, f) then
+					local on = owner:GetAttribute("Set_AutoWorkshop") ~= false
+					au.value.Text = on and '<font color="#D4FF3E">Auto: ON</font>' or '<font color="#FFFFFF">Auto: OFF</font>'
+					au.sa:setText(on and "ON" or "OFF")
+					au.sa:setColor(on and "green" or "red")
+					pn.can.Auto = working
+				elseif stage < Cfg.AUTO_MIN_STAGE then
+					au.value.Text = "Map " .. Cfg.AUTO_MIN_STAGE
+					au.sa:setText("MAP " .. Cfg.AUTO_MIN_STAGE)
+					au.sa:setColor("gray")
+					pn.can.Auto = false
+				else
+					au.value.Text = '<font color="#FFFFFF">Off</font>  <font color="#D4FF3E">›  On</font>'
+					au.sa:setText(NF.money(Cfg.AUTO_PRICE))
+					au.sa:setColor(money >= Cfg.AUTO_PRICE and "green" or "gray")
+					pn.can.Auto = working and money >= Cfg.AUTO_PRICE
+				end
 			end
 			pn.lock.Visible = not working
 		end

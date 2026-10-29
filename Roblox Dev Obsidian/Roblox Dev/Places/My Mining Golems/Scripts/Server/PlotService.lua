@@ -149,8 +149,18 @@ local function freeSpot(pl: Plot, r: number): Vector3?
 	return nil
 end
 
+-- мапа ніші, в якій стоїть плот (руда спавниться руда цієї мапи; 29.10.2026)
+local function stageOf(m: Instance): number
+	local x: Instance? = m
+	while x do
+		local s = x:GetAttribute("Stage")
+		if type(s) == "number" and x:GetAttribute("NicheIndex") ~= nil then return s end
+		x = x.Parent
+	end
+	return 1
+end
 local function spawnOre(pl: Plot, grow: number): boolean
-	local def = Cfg.rollOre(rng)
+	local def = Cfg.rollOre(rng, stageOf(pl.model))
 	local size = Cfg.rollSize(rng)
 	local t = ASSETS.Ores:FindFirstChild(def.key .. "_" .. size.key) :: Model
 	local radius = (t:GetAttribute("Radius") :: number?) or 3.5
@@ -291,8 +301,11 @@ local function breakOre(st: State, pl: Plot, o: Ore)
 	do
 		local okI, Inc = pcall(require, script.Parent:FindFirstChild("IncomeService"))
 		local price = 0
-		for _, fo in Forge.ORES do if fo.key == o.key then price = fo.price end end
+		local fo = Forge.oreDef(o.key); if fo then price = fo.price end
 		if okI and Inc and Inc.Record then Inc.Record(st.player, n * price) end
+		-- статистика Ores Mined (особисте табло): добуті шматки
+		local okS, Stats = pcall(require, script.Parent:FindFirstChild("StatsService"))
+		if okS and Stats and Stats.Add then Stats.Add(st.player, "OresMined", n) end
 	end
 	local piles = math.min(n, if o.size.key == "L" then 3 elseif o.size.key == "M" then 2 else 1)
 	for k = 1, piles do
@@ -439,7 +452,7 @@ local function standPoint(pl: Plot, g: Golem, o: Ore): Vector3
 end
 
 local function tickMiner(st: State, pl: Plot, g: Golem, t: number)
-	local s = Cfg.stats(g.kind, g.mut)
+	local s = Cfg.stats(g.kind, g.mut, st.player)
 	-- зілля власника: Speed — удари вдвічі частіше, Strength — шкода ×1,5
 	if Items.boostOn(st.player, "Speed") then s.int /= 2 end
 	if Items.boostOn(st.player, "Strength") then s.dmg *= 1.5 end
@@ -526,7 +539,7 @@ local function crateCap(st: State): number return Cfg.crateOf(st.lv.Crate or 1) 
 local function showCrate(st: State, pl: Plot)
 	local m = pl.model
 	local mix = {}
-	for _, o in Cfg.ORES do
+	for _, o in Cfg.oresFor(stageOf(m)) do
 		local n = pl.bin[o.key] or 0
 		if n > 0 then table.insert(mix, o.key .. ":" .. n) end
 	end
@@ -580,7 +593,7 @@ collect = function(st: State, pl: Plot)
 end
 
 local function tickCarrier(st: State, pl: Plot, g: Golem, t: number)
-	local s = Cfg.stats(g.kind, g.mut)
+	local s = Cfg.stats(g.kind, g.mut, st.player)
 	local speed = s.spd * Cfg.carryOf(st.lv.Carry or 1)
 	-- руда, що не влізла в ящик (попередній носій / збереження) — тепер у ящичку цього носія
 	local pc = pl.carry
@@ -757,7 +770,7 @@ local function equipBest(st: State)
 		if r ~= "warrior" then table.insert(r == "carrier" and carriers or miners, { id = id, kind = g.kind, mut = g.mut }) end
 	end
 	table.sort(miners, function(a, b)
-		local pa, pb = Cfg.minerPower(a.kind, a.mut), Cfg.minerPower(b.kind, b.mut)
+		local pa, pb = Cfg.minerPower(a.kind, a.mut, st.player), Cfg.minerPower(b.kind, b.mut, st.player)
 		if pa ~= pb then return pa > pb end
 		return a.id < b.id
 	end)
@@ -801,7 +814,7 @@ local function equipAuto(st: State)
 		end
 	end
 	table.sort(miners, function(a, b)
-		local pa, pb = Cfg.minerPower(a.kind, a.mut), Cfg.minerPower(b.kind, b.mut)
+		local pa, pb = Cfg.minerPower(a.kind, a.mut, st.player), Cfg.minerPower(b.kind, b.mut, st.player)
 		if pa ~= pb then return pa > pb end
 		return a.id < b.id
 	end)
@@ -842,7 +855,8 @@ local function upgrade(st: State, key: string)
 	if l >= card.max then return end
 	local p = st.player
 	if not Cfg.cardOpen(key, tonumber(p:GetAttribute("Stage"))) then return end -- закрита до наступної карти (Auto Sell)
-	local price = card.price(l)
+	if card.pass and p:GetAttribute("Pass_" .. card.pass) == true then return end -- є геймпас (Auto Sell) — картку не купують
+	local price = Cfg.cardPrice(key, l, tonumber(p:GetAttribute("Stage")))
 	local money = (p:GetAttribute("Money") :: number?) or 0
 	if money < price then return end
 	p:SetAttribute("Money", money - price)
@@ -878,7 +892,7 @@ local function setup(p: Player, niche: Model)
 		for k, bin in sec.crates do
 			local pl = st.plots[tonumber(k) or 0]
 			if pl and type(bin) == "table" then
-				for _, o in Cfg.ORES do
+				for _, o in Cfg.oresFor(stage) do
 					local n = math.max(0, math.floor(tonumber(bin[o.key]) or 0))
 					if n > 0 then pl.bin[o.key] = n; pl.binN += n end
 				end
@@ -890,12 +904,12 @@ local function setup(p: Player, niche: Model)
 			local c: { string } = {}
 			local ld = type(sec.loads) == "table" and sec.loads[tostring(i)] or nil
 			if type(ld) == "table" then
-				for _, o in Cfg.ORES do
+				for _, o in Cfg.oresFor(stage) do
 					for _ = 1, math.clamp(math.floor(tonumber(ld[o.key]) or 0), 0, 100000) do table.insert(c, o.key) end
 				end
 			end
 			if pl.binN > cap then
-				for _, o in Cfg.ORES do
+				for _, o in Cfg.oresFor(stage) do
 					while pl.binN > cap and (pl.bin[o.key] or 0) > 0 do
 						pl.bin[o.key] -= 1; pl.binN -= 1
 						table.insert(c, o.key)

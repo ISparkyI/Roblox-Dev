@@ -143,3 +143,5 @@ ModuleScript — дані й модулі.
 | `CurrencyFly.lua` | `ReplicatedStorage/Shared/CurrencyFly` | іконки тікетів / діамантів летять до лічильника в HUD (покупки, нагороди квестів) |
 | `WorkshopRig.lua` | `ReplicatedStorage/Shared/WorkshopRig` | скелет 6-рукого голема-майстра Workshop (на основі ForgeRig) — чернетка |
 | `WorkshopGolem.lua` | `ReplicatedStorage/Shared/WorkshopGolem` | модель голема-майстра «Брасс» (латунь, мідь, топка в грудях, 6 рук) — чернетка |
+| `MushroomGolemData.lua` | `Workspace/PlotPrefabs/MushroomGolem/GolemData` → `ReplicatedStorage/PlotAssets` | модель Mushroom Golem (кольори, кістки, 105 блоків) для групового голема. [[GDD - Monetization]] |
+| `GolemCatalog.lua` | `ReplicatedStorage/Shared/GolemCatalog` | (оновлено 29.10.2026) `mushroom` (Exclusive, `dynamic = "bestMiner"`), `bestMinerDmg`, `ownerOf`, параметр `p` у `stats` / `power` / `statText` |

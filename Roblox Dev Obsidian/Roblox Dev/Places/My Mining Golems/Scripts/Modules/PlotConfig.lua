@@ -8,20 +8,34 @@ Config.MAX_PLOTS = 6     -- плоти купуються по черзі 1→6 
 Config.MAX_POINTS = 6    -- (28.10.2026, було 10) максимум руди на плоті одночасно (картка Ore Limit, старт 1); місце руди — випадкове
 
 -- руда мапи 1: HP і шанс спавну «1 до N» (шанси працюють як ваги: кожен спавн дає одну з трьох руд)
-Config.ORES = {
-	{ key = "Coal", hp = 5, odds = 3 },
-	{ key = "Copper", hp = 15, odds = 9 },
-	{ key = "Iron", hp = 30, odds = 20 },
+-- руда кожної мапи (HP — GDD - Ores and Bars: HP = базове × 14^(мапа−1); шанси ті самі 1 до 3 / 9 / 20)
+Config.STAGE_ORES = {
+	[1] = {
+		{ key = "Coal", hp = 5, odds = 3 },
+		{ key = "Copper", hp = 15, odds = 9 },
+		{ key = "Iron", hp = 30, odds = 20 },
+	},
+	[2] = {
+		{ key = "Tin", hp = 70, odds = 3 },
+		{ key = "Silver", hp = 210, odds = 9 },
+		{ key = "Gold", hp = 420, odds = 20 },
+	},
 }
-function Config.rollOre(r: Random): any
+Config.ORES = Config.STAGE_ORES[1] -- руда мапи 1 (Index поки показує лише її)
+function Config.oresFor(stage: number?): { any }
+	local n = #Config.STAGE_ORES
+	return Config.STAGE_ORES[math.clamp(math.floor(tonumber(stage) or 1), 1, n)]
+end
+function Config.rollOre(r: Random, stage: number?): any
+	local list = Config.oresFor(stage)
 	local total = 0
-	for _, o in Config.ORES do total += 1 / o.odds end
+	for _, o in list do total += 1 / o.odds end
 	local x = r:NextNumber() * total
-	for _, o in Config.ORES do
+	for _, o in list do
 		x -= 1 / o.odds
 		if x <= 0 then return o end
 	end
-	return Config.ORES[1]
+	return list[1]
 end
 -- розмір жили: S — мала (стандарт), M — середня, L — велика. drop — множник кількості руди, hp — множник HP
 -- (кількість — округлення вниз, HP — вгору). Модель — PlotAssets/Ores/<Руда>_<S|M|L>.
@@ -48,7 +62,11 @@ function Config.rollDrop(r: Random, size: any, dropLvl: number): number
 		if x <= 0 then base = d.n; break end
 	end
 	local n = math.floor(base * size.drop)
-	return math.max(1, math.floor(n * Config.dropOf(dropLvl)))
+	-- (29.10.2026, економіка v2) дробова частина — шансом: 1 шматок × 1,25 = 1 або 2 (25 %); кожен рівень Ore Drop дає рівно +25 % у середньому
+	local x = n * Config.dropOf(dropLvl)
+	local k = math.floor(x)
+	if r:NextNumber() < x - k then k += 1 end
+	return math.max(1, k)
 end
 function Config.oreChance(key: string): number -- частка у відсотках (для UI / GDD)
 	local total, mine = 0, 0
@@ -57,33 +75,64 @@ function Config.oreChance(key: string): number -- частка у відсотк
 end
 
 -- ===== картки прокачки (діють на ВСІ плоти; рівень 1 = старт) =====
-Config.SPAWN_START, Config.SPAWN_STEP, Config.SPAWN_MIN = 5, 0.25, 0.75 -- мінімум 0,75 с (28.10.2026, було 0,25)
-function Config.spawnOf(l: number): number return math.max(Config.SPAWN_MIN, Config.SPAWN_START - (l - 1) * Config.SPAWN_STEP) end
+-- ===== економіка v2 (29.10.2026, GDD - Economy): ціни мапи 1, рівні скорочено, кожна покупка відчутна =====
+-- Ore Spawn: 10 рівнів, кожен ≈ на 23 % швидше (5 с → 0,75 с)
+Config.SPAWN_LEVELS = { 5, 4.05, 3.3, 2.65, 2.15, 1.75, 1.4, 1.15, 0.95, 0.75 }
+function Config.spawnOf(l: number): number return Config.SPAWN_LEVELS[math.clamp(math.floor(l), 1, #Config.SPAWN_LEVELS)] end
 function Config.slotsOf(l: number): number return math.clamp(l, 1, 5) end
 function Config.carryOf(l: number): number return math.min(3, 1 + (l - 1) * 0.25) end
 function Config.plotsOf(l: number): number return math.clamp(l, 1, Config.MAX_PLOTS) end
 function Config.pointsOf(l: number): number return math.clamp(l, 1, Config.MAX_POINTS) end
 function Config.dropOf(l: number): number return math.min(3, 1 + (l - 1) * 0.25) end -- ×1 → ×3 (28.10.2026, було ×10)
-function Config.crateOf(l: number): number return math.clamp(l, 1, 100) * 10 end -- місткість ящика плоту: 10 → 1000
+-- Crate Capacity: 10 рівнів (було 100 рівнів по +10)
+Config.CRATE_LEVELS = { 20, 40, 70, 110, 160, 230, 320, 450, 650, 1000 }
+function Config.crateOf(l: number): number return Config.CRATE_LEVELS[math.clamp(math.floor(l), 1, #Config.CRATE_LEVELS)] end
 Config.CRATE_VISUAL = 16 -- руда в ящику — один щільний шар 4 × 4 шматки; він піднімається від дна до краю з заповненням
 
+-- ціни переходу з рівня l на l + 1 (мапа 1); разом 48 покупок = $114,655, мапа 1 ≈ 25–35 хв (симуляція, GDD - Economy)
+local function list(t: { number }): (number) -> number
+	return function(l: number) return t[math.clamp(math.floor(l), 1, #t)] end
+end
 Config.CARDS = {
-	Plots = { name = "Plots", max = 6, price = function(l: number) return math.floor(150 * 5 ^ (l - 1)) end },        -- 150 … 93,750
-	Points = { name = "Ore Limit", max = 6, price = function(l: number) return math.floor(300 * 2.2 ^ (l - 1)) end },   -- 1 → 6 руди на плоті: 300 … 15,460
-	Spawn = { name = "Ore Spawn", max = 18, price = function(l: number) return math.floor(150 * 1.5 ^ (l - 1)) end },   -- 5 с → 0,75 с: 150 … 147,789
-	Slots = { name = "Golem Slots", max = 5, price = function(l: number) return math.floor(400 * 5 ^ (l - 1)) end },    -- 1 → 5 майнерів: 400 … 50,000
-	Carry = { name = "Carrier Speed", max = 9, price = function(l: number) return math.floor(250 * 2 ^ (l - 1)) end },  -- ×1 → ×3: 250 … 32,000
-	Crate = { name = "Crate Capacity", max = 100, price = function(l: number) return math.floor(100 * 1.06 ^ (l - 1)) end },      -- 10 → 1000 руди в ящику, +10: 100 … 30,197
-	Drop = { name = "Ore Drop", max = 9, price = function(l: number) return math.floor(300 * 1.6 ^ (l - 1)) end },      -- ×1 → ×3 шматків з руди, +0,25: 300 … 12,884
-	-- Auto Sell: руда з ящика продається сама (рівень 1 = Off, 2 = On). Відкривається на другій карті (Stage >= minStage).
-	-- Механіка й ціна — разом із другою картою; ЦІНА — ЗАГЛУШКА, її задасть користувач.
-	AutoSell = { name = "Auto Sell", max = 2, minStage = 2, price = function(l: number) return 100000 end },
+	Plots = { name = "Plots", max = 6, price = list({ 25, 125, 600, 3000, 15000 }) },
+	Points = { name = "Ore Limit", max = 6, price = list({ 30, 100, 375, 1400, 5000 }) },
+	Spawn = { name = "Ore Spawn", max = 10, price = list({ 30, 65, 125, 275, 600, 1300, 2700, 5700, 12000 }) },
+	Slots = { name = "Golem Slots", max = 5, price = list({ 50, 300, 1700, 10000 }) },
+	Carry = { name = "Carrier Speed", max = 9, price = list({ 40, 85, 200, 400, 875, 1900, 4200, 9000 }) },
+	Crate = { name = "Crate Capacity", max = 10, price = list({ 20, 40, 85, 175, 350, 700, 1400, 2900, 6000 }) },
+	Drop = { name = "Ore Drop", max = 9, price = list({ 60, 125, 275, 625, 1400, 2900, 6400, 14000 }) },
+	-- Auto Sell (29.10.2026): усе, що потрапляє в інвентар (руда, злитки всіх мап), одразу продається (ServerScriptService/
+	--   AutoSellService); що саме — налаштування на цій картці (кнопка SETTINGS після покупки). Рівень 1 = не куплено, 2 = куплено.
+	--   Відкривається на мапі 2, скидається разом з усіма картками на наступній мапі. Геймпас Auto Sell (Pass_AutoSell) — те саме з мапи 1
+	--   і назавжди (картку тоді не купують). Ціна — $250K фіксована (flat: без множника мапи; рішення користувача).
+	--   optional: не рахується в прогрес NEXT MAP (MapService).
+	AutoSell = { name = "Auto Sell", max = 2, minStage = 2, flat = true, optional = true, pass = "AutoSell", price = function(l: number) return 250000 end },
 }
+-- ціни карток на мапі N (29.10.2026, рішення користувача): приріст множника мапи (MultiConfig.STAGE_MULTS) подвоюється —
+-- ціна × (1 + 2 × (множник мапи − 1)). Мапа 1 ×1 → ×1; мапа 2 ×1,5 → ×2; мапа 3 ×2 → ×3 … Ціни ростуть удвічі швидше за заробіток
+-- (баланс — через големів).
+local MultiCfg = require(script.Parent:WaitForChild("MultiConfig"))
+function Config.priceMult(stage: number?): number
+	return 1 + 2 * (MultiCfg.stageMult(tonumber(stage) or 1) - 1)
+end
+function Config.cardPrice(key: string, l: number, stage: number?): number
+	local c = Config.CARDS[key]
+	if c and c.flat then return math.floor(c.price(l)) end -- фіксована ціна (Auto Sell)
+	return c and math.floor(c.price(l) * Config.priceMult(stage)) or math.huge
+end
 Config.CARD_ORDER = { "Plots", "Points", "Spawn", "Slots", "Carry", "Crate", "Drop", "AutoSell" }
 -- чи відкрита картка для гравця на етапі stage
 function Config.cardOpen(key: string, stage: number?): boolean
 	local c = Config.CARDS[key]
 	return c ~= nil and (c.minStage == nil or (stage or 1) >= c.minStage)
+end
+-- чи є в гравця Auto Sell: геймпас або куплена картка (рівень 2 у PlotLv)
+function Config.autoSellOwned(p: Instance): boolean
+	if p:GetAttribute("Pass_AutoSell") == true then return true end
+	local raw = p:GetAttribute("PlotLv")
+	if type(raw) ~= "string" then return false end
+	local ok, t = pcall(game:GetService("HttpService").JSONDecode, game:GetService("HttpService"), raw)
+	return ok and type(t) == "table" and (tonumber(t.AutoSell) or 1) >= 2
 end
 function Config.defaultLevels(): { [string]: number }
 	local t = {}
@@ -94,13 +143,14 @@ end
 -- ===== големи на плоті — характеристики з каталогу (Shared/GolemCatalog, GDD Golem Stats) з урахуванням мутації =====
 -- майнер: dmg — шкода за удар, int — інтервал удару (с), mspd — рух (стад/с), anim — AnimSpeed (= Швидкість);
 -- носій: cap — руди за ходку, spd — рух (стад/с, ще × картка Carrier Speed)
-function Config.stats(kind: string, mut: number?): any
-	local m = Catalog.stats(kind, "miner", mut)
-	local c = Catalog.stats(kind, "carrier", mut)
+-- p — власник (для ексклюзів з динамічною шкодою, Mushroom Golem)
+function Config.stats(kind: string, mut: number?, p: any?): any
+	local m = Catalog.stats(kind, "miner", mut, p)
+	local c = Catalog.stats(kind, "carrier", mut, p)
 	return { dmg = m.dmg, int = m.interval, mspd = m.move, anim = m.speed, cap = c.cap, spd = c.move }
 end
-function Config.minerPower(kind: string, mut: number?): number return Catalog.power(kind, "miner", mut) end
-function Config.carrierPower(kind: string, mut: number?): number return Catalog.power(kind, "carrier", mut) end
+function Config.minerPower(kind: string, mut: number?, p: any?): number return Catalog.power(kind, "miner", mut, p) end
+function Config.carrierPower(kind: string, mut: number?, p: any?): number return Catalog.power(kind, "carrier", mut, p) end
 
 Config.MINER_SPEED = 8     -- стадів/с при Швидкості x1 (справжня — stats(kind).mspd)
 Config.REACH = 4.4         -- відстань від центру руди до голема для руди радіусом REACH_R (лезо кірки влучає в руду)

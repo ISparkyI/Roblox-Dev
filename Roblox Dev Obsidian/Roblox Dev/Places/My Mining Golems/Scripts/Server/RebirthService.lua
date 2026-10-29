@@ -31,6 +31,25 @@ local function onInvoke(p: Player, action: any): any
 	return { ok = true, rebirths = n + 1 }
 end
 
+-- Skip Rebirth (Developer Product, MonetizationService): наступний ребітх без вимоги й без скидання Money.
+-- Якщо ліміт мапи вже досягнуто — покупка не губиться: RebirthSkips + 1, застосовується, щойно ліміт зросте (нова мапа).
+local function applySkips(p: Player)
+	local credits = tonumber(p:GetAttribute("RebirthSkips")) or 0
+	if credits <= 0 then return end
+	local n = tonumber(p:GetAttribute("Rebirths")) or 0
+	local stage = tonumber(p:GetAttribute("Stage")) or 1
+	local free = Cfg.rebirthLimit(stage) - n
+	if free <= 0 then return end
+	local use = math.min(free, credits)
+	p:SetAttribute("Rebirths", n + use)
+	p:SetAttribute("RebirthSkips", credits - use)
+end
+function RebirthService.SkipRebirth(p: Player): boolean
+	p:SetAttribute("RebirthSkips", (tonumber(p:GetAttribute("RebirthSkips")) or 0) + 1)
+	applySkips(p)
+	return true
+end
+
 function RebirthService.Start()
 	local remotes = RS:FindFirstChild("Remotes") or Instance.new("Folder")
 	remotes.Name = "Remotes"; remotes.Parent = RS
@@ -38,6 +57,15 @@ function RebirthService.Start()
 	rf.Name = "RebirthAction"; rf.Parent = remotes
 	;(rf :: RemoteFunction).OnServerInvoke = onInvoke
 	Players.PlayerRemoving:Connect(function(p) last[p] = nil end)
+	local function onPlayer(p: Player)
+		p:GetAttributeChangedSignal("Stage"):Connect(function() applySkips(p) end)
+		task.spawn(function()
+			for _ = 1, 60 do if DataService.IsLoaded(p) then break end task.wait(1) end
+			applySkips(p)
+		end)
+	end
+	Players.PlayerAdded:Connect(onPlayer)
+	for _, p in Players:GetPlayers() do task.spawn(onPlayer, p) end
 end
 
 return RebirthService

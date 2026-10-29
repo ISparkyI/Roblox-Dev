@@ -30,6 +30,12 @@ Config.Passes = {
 		desc = "Your best golems go to your plots automatically. Toggle it in Settings." },
 	FastForge = { id = 2057903547, robux = 149, order = 4, name = "Fast Workshop", icon = "rbxassetid://102635405420682", tone = "ff8a3a",
 		desc = "The Workshop smelts ore into bars 2x faster." },
+	-- Auto Sell / Auto Workshop (29.10.2026): та сама механіка, що й картки за Money (плот: Auto Sell з мапи 2; Workshop: Auto з мапи 3), але діє
+	--   з мапи 1 і НЕ скидається. Геймпаси створено 29.10.2026 (Creator Hub). Ціни — рішення користувача.
+	AutoSell = { id = 2060909193, robux = 79, order = 4.6, name = "Auto Sell", icon = "rbxassetid://110396437023647", tone = "ff6fd0",
+		desc = "Mined ore and bars sell by themselves. Pick what to sell on the Auto Sell card. Works on every map!" },
+	AutoWorkshop = { id = 2062258340, robux = 149, order = 4.7, name = "Auto Workshop", icon = "rbxassetid://102635405420682", tone = "ffb15c",
+		desc = "The Workshop takes ore from your inventory, smelts it and puts the bars back. Works on every map!" },
 	AutoCollect = { id = 2058077602, robux = 249, order = 5, name = "Auto Collect", icon = "rbxassetid://91341404610533", tone = "c08cff",
 		desc = "Ore from plot crates goes straight to your inventory. No more COLLECT!" },
 	-- +1 підставка ролу у 2 етапи (Point6, Point7): спершу RollStand1, потім RollStand2 (requires); у магазині — одна картка «1/2 → 2/2»
@@ -120,6 +126,10 @@ Config.MUT_SPEED_TIERS = {
 	{ mult = 64, robux = 299, id = 3723430676 }, { mult = 128, robux = 449, id = 3723430685 }, { mult = 256, robux = 649, id = 3723430694 },
 	{ mult = 512, robux = 899, id = 3723430702 }, { mult = 1024, robux = 1199, id = 3723430707 },
 }
+-- Skip Rebirth — Developer Product (багаторазовий), 39 R$: робить наступний ребітх БЕЗ вимоги й скидання Money (29.10.2026).
+-- Кнопка SKIP у вікні REBIRTH; видає RebirthService.SkipRebirth (MonetizationService.baseGrant).
+Config.RebirthSkip = { robux = 39, id = 3723604112 } -- створено в Creator Hub 29.10.2026 (іконка Rebirth, Managed pricing вимкнено)
+
 function Config.mutSpeedMult(tier: number): number
 	local t = Config.MUT_SPEED_TIERS[math.floor(tier)]
 	return t and t.mult or 1
@@ -177,6 +187,7 @@ Config.GiftProducts = {
 	-- створені в Creator Hub 29.10.2026 («Gift: <назва>», ціна геймпаса, іконка геймпаса з подарунком, Managed pricing вимкнено)
 	VIP = 3723400043, Lucky = 3723400189, MutLucky = 3723400427, AutoEquip = 3723400471, FastForge = 3723400486, AutoCollect = 3723400499,
 	FastRoll = 3723400547, AutoRoll = 3723400574, AutoBuy = 3723400591, RollStand1 = 3723400516, RollStand2 = 3723400528,
+	AutoSell = 3723656718, AutoWorkshop = 3723656919, -- 29.10.2026
 }
 Config.GIFT_TTL = 600
 function Config.giftPassOf(productId: number): string?

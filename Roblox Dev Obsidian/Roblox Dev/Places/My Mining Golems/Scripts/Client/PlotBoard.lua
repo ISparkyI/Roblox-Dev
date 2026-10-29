@@ -229,7 +229,7 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		label(a.root, 0, -7, ARROW, 50, 54, dir < 0 and "‹" or "›", WHITE, 5, { ZIndex = 9 })
 		arrows[i] = { sa = a, dir = dir }
 	end
-	local pn = { gui = g, screen = screen, ownerId = ownerId, cards = cards, can = {}, x = 0, tx = 0, maxX = math.max(0, rowW - PW), anim = false }
+	local pn = { gui = g, screen = screen, ownerId = ownerId, cards = cards, can = {}, owned = {}, x = 0, tx = 0, maxX = math.max(0, rowW - PW), anim = false }
 	local function clampT() pn.tx = math.clamp(pn.tx, 0, pn.maxX) end
 	local function layout()
 		pn.x = vp.CanvasPosition.X
@@ -306,7 +306,15 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		for key, cd in cards do
 			-- tap = false: у покупки свій звук BuySound (без нашарування з tap)
 			StyleA.bind(cd.sa, { hoverAlways = true, tap = false, canClick = function() return pn.can[key] == true end,
-				onClick = function() UISfx.play("BuySound"); Action:FireServer("Upgrade", key) end })
+				onClick = function()
+					if pn.owned[key] then -- Auto Sell уже є (картка або геймпас): кнопка SETTINGS відкриває вікно AutoSellWindow
+						local ui = RS:FindFirstChild("UIEvents")
+						local e = ui and ui:FindFirstChild("AutoSellOpen")
+						if e then e:Fire() end
+						return
+					end
+					UISfx.play("BuySound"); Action:FireServer("Upgrade", key)
+				end })
 		end
 	else
 		for _, cd in cards do
@@ -353,9 +361,18 @@ local function refresh()
 			for key, cd in pn.cards do
 				local def = Cfg.CARDS[key]
 				local l = math.clamp(math.floor(tonumber(lv[key]) or 1), 1, def.max)
-				local open = Cfg.cardOpen(key, stage)
+				-- Auto Sell (29.10.2026): куплена картка або геймпас Auto Sell (тоді відкрита з мапи 1) — кнопка SETTINGS
+				local owned = def.pass ~= nil and owner ~= nil and Cfg.autoSellOwned(owner)
+				pn.owned[key] = owned
+				local open = owned or Cfg.cardOpen(key, stage)
 				setLocked(cd, not open)
-				if not open then
+				if owned then
+					local on = owner:GetAttribute("Set_AutoSell") ~= false
+					cd.value.Text = on and '<font color="#D4FF3E">ON</font>' or '<font color="#FF8A96">OFF</font>'
+					cd.sa:setText("SETTINGS")
+					cd.sa:setColor("blue")
+					pn.can[key] = owner == player
+				elseif not open then
 					cd.value.Text = "Map " .. tostring(def.minStage)
 					cd.sa:setText("MAP " .. tostring(def.minStage))
 					cd.sa:setColor("gray")
@@ -366,7 +383,7 @@ local function refresh()
 					cd.sa:setColor("gray")
 					pn.can[key] = false
 				else
-					local price = def.price(l)
+					local price = Cfg.cardPrice(key, l, stage)
 					cd.value.Text = string.format('<font color="#FFFFFF">%s</font>  <font color="#D4FF3E">›  %s</font>', valueOf(key, l), valueOf(key, l + 1))
 					cd.sa:setText(NF.money(price))
 					cd.sa:setColor(money >= price and "green" or "gray")

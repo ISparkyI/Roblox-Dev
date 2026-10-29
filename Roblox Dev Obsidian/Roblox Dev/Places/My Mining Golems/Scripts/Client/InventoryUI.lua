@@ -466,11 +466,17 @@ local golemTotal = 0 -- усі големи гравця разом із тим�
 local function rebuild()
 	items, byKey = {}, {}
 	local function add(it) table.insert(items, it); byKey[it.key] = it end
-	for _, o in Forge.ORES do
+	-- руда поточної мапи (Forge.ORES оновлюється при зміні Stage) + руда інших мап, якщо вона ще є (29.10.2026)
+	local cur = {}
+	for _, o in Forge.ORES do cur[o.key] = true end
+	local function shown(o, prefix) return cur[o.key] or num(prefix .. o.key) > 0 end
+	for _, o in Forge.ALL_ORES do
+		if not shown(o, "Ore_") then continue end
 		add({ key = "Ore_" .. o.key, tab = "ores", name = o.key, sub = "Ore · " .. NF.money(o.price) .. " each", n = num("Ore_" .. o.key),
 			icon = ICON_ORE[o.key] or "", tone = Items.ORE_TONE[o.key] or WHITE })
 	end
-	for _, o in Forge.ORES do
+	for _, o in Forge.ALL_ORES do
+		if not shown(o, "Bars_") then continue end
 		if not Forge.canSmelt(o) and num("Bars_" .. o.key) <= 0 then continue end -- злитків вугілля не буває
 		add({ key = "Bars_" .. o.key, tab = "ores", name = o.key .. " Bar", sub = "Bar · " .. NF.money(o.price * Forge.BAR_MULT) .. " each",
 			n = num("Bars_" .. o.key), icon = ICON_BAR[o.key] or "", tone = Items.ORE_TONE[o.key] or WHITE })
@@ -900,7 +906,7 @@ local function unitsPerPx() local a = gvp.AbsoluteSize.Y return a > 0 and gh / a
 local function beginDrag(inp, thumb) if isPress(inp) then drag = { y = inp.Position.Y, s = gscroll, moved = false, thumb = thumb } end end
 local function wheel(inp) if inp.UserInputType == Enum.UserInputType.MouseWheel and gmax() > 0 then setG(gscroll - inp.Position.Z * 70) end end
 slotIsDragging = function() return (drag ~= nil and drag.moved) or os.clock() - dragEndAt < 0.15 or paint ~= nil or os.clock() - paintEndAt < 0.3 end
-gvp.InputBegan:Connect(function(inp) beginDrag(inp, false) end)
+gvp.InputBegan:Connect(function(inp) if not (drag and drag.slot) then beginDrag(inp, false) end end) -- не затирати натиск на слот (перенесення в хотбар)
 gvp.InputChanged:Connect(wheel)
 vth.InputBegan:Connect(function(inp) beginDrag(inp, true) end)
 UIS.InputChanged:Connect(function(inp)
@@ -946,7 +952,7 @@ local function gridSlot(i: number)
 		s = makeSlot(gstrip, 0, 0, GS, false)
 		s.lazyVP = gridVP
 		-- у режимах — вибір перетягуванням (сітка не гортається), інакше — гортання сітки перетягуванням
-		s.onPress = function(inp) if mode then beginPaint(s, inp) else beginDrag(inp, false) end end
+		s.onPress = function(inp) if mode then beginPaint(s, inp) else beginDrag(inp, false); if drag then drag.slot = s end end end
 		hitMap[s.hit] = s
 		s.hit.InputChanged:Connect(wheel)
 		s.onClick = function() if s.item then slotClick(s) end end
@@ -1175,7 +1181,7 @@ local function renderGrid()
 	-- верхній відступ першого ряду GP + 14 (було GP + 4): над слотом — зелений damage
 	gH = rows * (GS + GG) - GG + 2 * GP + 18
 	gstrip.Size = UDim2.fromOffset(GW, gH)
-	emptyTxt.Visible = #list == 0 and tab == "golems"
+	emptyTxt.Visible = false -- порожню сітку показуємо без написів (і без фільтра, і в фільтрах Miners / Carriers / Warriors)
 	if emptyTxt.Visible then emptyTxt.Text = FILT_EMPTY[filt] or "No golems yet" end
 	for i = 1, count do
 		local s = gridSlot(i)
@@ -1714,6 +1720,67 @@ task.spawn(function() -- окрема функція: у головній уже
 		local it = live(k)
 		if it and it.tab and it.tab ~= tab and not mode then setTab(it.tab) end
 		if it then selKey = k end
+		refreshHotbar(); renderGrid(); renderInfo()
+	end)
+end)
+
+-- ===== перетягування предмета з сітки INVENTORY у зону хотбара (v27, 29.10.2026) =====
+-- Затиснув предмет у сітці й витягнув за межі вікна — гортання скасовується, під пальцем / мишкою їде копія слота.
+-- Відпустив нижче вікна (зона хотбара) — предмет закріплюється в хотбарі, як кнопка Hotbar (InventoryAction "Pin").
+-- Відпустив деінде — нічого. Зілля не закріплюються (як і кнопкою). Повний хотбар — трясеться хотбар.
+task.spawn(function() -- окрема функція: у головній уже ~200 локальних
+	local gGui = new("ScreenGui", { Name = "GridDrag", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 30 }, playerGui)
+	local gd = nil
+	local function inside(o: GuiObject, p: Vector2): boolean
+		local a, z = o.AbsolutePosition, o.AbsoluteSize
+		return p.X >= a.X and p.X <= a.X + z.X and p.Y >= a.Y and p.Y <= a.Y + z.Y
+	end
+	local function inZone(p: Vector2): boolean
+		return p.Y > content.AbsolutePosition.Y + content.AbsoluteSize.Y
+	end
+	UIS.InputChanged:Connect(function(inp)
+		if inp.UserInputType ~= Enum.UserInputType.MouseMovement and inp.UserInputType ~= Enum.UserInputType.Touch then return end
+		local p = Vector2.new(inp.Position.X, inp.Position.Y)
+		if not gd then
+			local d = drag
+			if not (d and not d.thumb and d.slot and isOpen and not mode) then return end
+			local it = d.slot.item
+			if not (it and it.key and it.tab ~= "potions") or inside(content, p) then return end
+			-- вийшли за вікно: це вже не гортання, а перенесення предмета
+			setG(d.s); drag = nil; dragEndAt = os.clock()
+			local h = d.slot.holder
+			local k = h.Size.X.Offset > 0 and h.AbsoluteSize.X / h.Size.X.Offset or 1
+			local g = new("CanvasGroup", { Name = "Ghost", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), GroupTransparency = 0.15,
+				Size = UDim2.fromOffset(h.AbsoluteSize.X * 1.1, h.AbsoluteSize.Y * 1.1), ZIndex = 50 }, gGui)
+			local c = h:Clone()
+			for _, v in c:GetDescendants() do if v:IsA("LuaSourceContainer") then v:Destroy() end end
+			c.AnchorPoint = Vector2.new(0.5, 0.5); c.Position = UDim2.fromScale(0.5, 0.5); c.Rotation = 0; c.Visible = true
+			local us = c:FindFirstChildOfClass("UIScale") or new("UIScale", {}, c)
+			us.Scale = k * 1.1
+			c.Parent = g
+			gd = { key = it.key, ghost = g }
+			UISounds.play("tap", 0.05)
+		end
+		gd.ghost.Position = UDim2.fromOffset(p.X, p.Y)
+		gd.ghost.Rotation = inZone(p) and 0 or -6
+	end)
+	UIS.InputEnded:Connect(function(inp)
+		if not gd or not isPress(inp) then return end
+		local d = gd; gd = nil
+		d.ghost:Destroy()
+		local p = Vector2.new(inp.Position.X, inp.Position.Y)
+		if not (isOpen and inZone(p)) then return end
+		local key = d.key
+		if not live(key) then return end
+		if not tableFind(hotbar, key) then
+			if #hotbar >= Items.HOTBAR then StyleA.shake({ root = hbRoot }); return end
+			table.insert(hotbar, key)
+		end
+		if not pinSet[key] then
+			pinSet[key] = true
+			Action:FireServer("Pin", { key = key, on = true })
+		end
+		UISounds.play("claim", 0.1)
 		refreshHotbar(); renderGrid(); renderInfo()
 	end)
 end)

@@ -527,7 +527,7 @@ task.spawn(function()
 				if board then
 					for i = 1, 3 do
 						local row = board:FindFirstChild("Row" .. i)
-						local o = Cfg.ORES[i]
+						local o = Cfg.oresFor(n:GetAttribute("Stage"))[i] -- руда мапи цієї ніші
 						if row then
 							row.Visible = o ~= nil
 							if o then

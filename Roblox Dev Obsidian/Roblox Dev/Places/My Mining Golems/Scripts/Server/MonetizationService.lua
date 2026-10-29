@@ -112,6 +112,16 @@ baseGrant = function(p: Player, productId: number): boolean
 	for key, d in MonCfg.Products do
 		if d.id ~= 0 and d.id == productId then return MonetizationService.GrantProduct(p, key) end
 	end
+	-- скіп дня щоденних нагород (DailyConfig.SKIP 19 R$ / SKIP7 69 R$) — наступна нагорода одразу (29.10.2026)
+	do
+		local okD, DC = pcall(require, RS:WaitForChild("Shared"):WaitForChild("DailyConfig"))
+		if okD and DC and (productId == DC.SKIP.id or productId == DC.SKIP7.id) then
+			return require(script.Parent:WaitForChild("DailyService")).Skip(p)
+		end
+	end
+	if MonCfg.RebirthSkip and MonCfg.RebirthSkip.id ~= 0 and MonCfg.RebirthSkip.id == productId then
+		return require(script.Parent:WaitForChild("RebirthService")).SkipRebirth(p)
+	end
 	for tier, t in MonCfg.MUT_SPEED_TIERS do
 		if t.id ~= 0 and t.id == productId then
 			p:SetAttribute("MutSpeedTier", math.max(tonumber(p:GetAttribute("MutSpeedTier")) or 0, tier))
@@ -123,6 +133,9 @@ end
 MonetizationService.GrantById = function(p: Player, productId: number): boolean return baseGrant(p, productId) end
 
 local function checkPasses(p: Player)
+	-- Studio (29.10.2026): атрибут скрипта StudioIgnoreOwned = true — не давати геймпаси за власністю Roblox (власник гри /
+	-- покупець тестує як звичайний гравець; в Studio без доступу до API дані з PassOff не зберігаються). У грі не діє.
+	if game:GetService("RunService"):IsStudio() and script:GetAttribute("StudioIgnoreOwned") == true then return end
 	for name, def in MonCfg.Passes do
 		if def.id ~= 0 then
 			local ok, owns = pcall(function() return MarketplaceService:UserOwnsGamePassAsync(p.UserId, def.id) end)

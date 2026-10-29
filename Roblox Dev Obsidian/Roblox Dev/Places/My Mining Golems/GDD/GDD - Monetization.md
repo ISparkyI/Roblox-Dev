@@ -180,6 +180,20 @@ updated: 2026-10-29
 - Видається **один раз** на гравця і **не оновлюється**.
 - Його **не можна продати**: не виставляється на маркетплейсі й не передається.
 
+**Зроблено 29.10.2026 (Skip Rebirth):**
+- **Skip Rebirth** — Developer Product (багаторазовий, бо геймпас купується лише раз), **39 R$**, ID `3723604112` (`MonetizationConfig.RebirthSkip`, іконка Rebirth, Managed pricing вимкнено).
+- Одна покупка = наступний ребітх **без вимоги грошей і без скидання Money** (усе зберігається). Кнопка **SKIP [R$] 39** (помаранчева) поруч із REBIRTH у вікні REBIRTH; на ліміті мапи — сіра.
+- Видає `RebirthService.SkipRebirth` (через `MonetizationService.baseGrant`). Якщо ліміт мапи вже досягнуто, покупка не губиться: атрибут `RebirthSkips` (DataService) і застосовується, щойно ліміт зросте (нова мапа).
+
+**Зроблено 29.10.2026 (Mushroom Golem):**
+- Голем — **Mushroom Golem** (`GolemCatalog.GOLEMS.mushroom`, рідкість Exclusive, `exclusive = "group"`): глиняний скелет, велика червона шапка мухомора з білими цятками, маленькі мухомори на плечах, грудях, спині й коліні. Модель — `PlotPrefabs/MushroomGolem` (105 блоків), предмети — MushroomPickaxe / Sword / CarryBox.
+- **Шкода динамічна** (`dynamic = "bestMiner"`, `share = 0.5`): `max(miner.dmg, 0.5 × BestMinerDmg) × мутація`. `BestMinerDmg` — найсильніший майнер гравця без динамічних големів (інвентар, стенди печери, машини мутацій); перераховує GroupGolemService. Стати рахуються від власника скрізь: плоти, Equip Best, вікна, табличка над големом у руці (оновлюється одразу).
+- **Відрізняється від початкового задуму:** не «+50% на момент отримання», а постійно +50% від найкращого майнера — голем росте разом з гравцем.
+- **Стенди:** 2 (`Workspace/Cave/Hub/GroupStands/GroupStand1..2`), між Mutation Machine і Marketplace, дзеркально. Мухоморна підставка, голем ширяє на 1 стад і крутиться, зелений напис **+50% BEST** над ним.
+- **Вікно GROUP REWARD** (маленьке, без затемнення) відкривається саме в радіусі 8 стадів від стенда; X / Esc — до наступного входу. У вікні: 3D-голем, EXCLUSIVE, «+50% of your BEST MINER», кроки 1 Join the group / 2 Like the game / 3 Claim, кнопка JOIN GROUP (вікно Roblox) → CLAIM → OWNED.
+- Видається **один раз на акаунт** (атрибут `GroupGolem`, глобальний), голем іде в інвентар. Exclusive-големів **не можна ставити на стенди печери** (CaveStandService, напис EXCLUSIVE).
+- Скрипти: `GroupGolemService` (сервер), `GroupStandClient` (клієнт). Бекап стендів — `NicheBackup/GroupStands_v1`.
+
 **Оновлено 28.10.2026 (Shop v4):**
 - **Starter Pack** — 19 R$, один раз: +$50K, 3 Luck Potions, Diamond Stone Golem (іконка голема з анімацією мутації Diamond).
 - **Extra Storage** — 49 R$ кожного разу, багаторазовий: +50 слотів големів (атрибут `ExtraSlots`, ліміт `ItemConfig.maxGolems`).

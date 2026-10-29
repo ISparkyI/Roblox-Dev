@@ -987,12 +987,23 @@ do
 			{ "COPY ID", "gray", true, nil },
 			{ "BAN HISTORY", "gray", true, nil },
 		}
+		-- RESET ALL (29.10.2026, лише owner): стерти все збереження гравця; друга кнопка — ще й зняти всі геймпаси (не повернуться при вході)
+		if myLevel() >= 3 then
+			table.insert(acts, { "RESET ALL DATA", "red", true, nil })
+			table.insert(acts, { "RESET + PASSES", "red", true, nil })
+		end
 		local histHolder
 		for i, a in acts do
 			local col, row = (i - 1) % 4, (i - 1) // 4
 			local b = button(detail, col * (bw + 8), y + row * 56, bw, 48, a[1], a[3] and a[2] or "gray", a[4], { textSize = 16 })
 			if not a[3] then b.enabled = false end
-			if a[1] == "KICK" then
+			if a[1] == "RESET ALL DATA" or a[1] == "RESET + PASSES" then
+				local passes = a[1] == "RESET + PASSES"
+				b.onClick = function()
+					confirm("RESET ALL progress of @" .. tostring(info.name) .. (passes and " AND remove all gamepasses" or "") .. "?\nMoney, golems, cave, map, rebirths, diamonds — everything. Can't be undone.",
+						function() result(invoke("Wipe", { u = info.u, passes = passes })) end, "RESET", "red")
+				end
+			elseif a[1] == "KICK" then
 				b.onClick = function()
 					confirm("KICK @" .. tostring(info.name) .. "?", function() result(invoke("Kick", { u = info.u, reason = "" })) end, "KICK", "orange")
 				end
@@ -1021,7 +1032,7 @@ do
 				end
 			end
 		end
-		y += 2 * 56 + 4
+		y += math.ceil(#acts / 4) * 56 + 4
 		histHolder = frame(detail, 0, y, CW, 0, nil, { BackgroundTransparency = 1, ZIndex = 4 })
 		-- усе нижче — у afterHist, який посувається під історію банів (BAN HISTORY)
 		local afterHist = frame(detail, 0, 0, CW, 10, nil, { BackgroundTransparency = 1, ZIndex = 4 })

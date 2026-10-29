@@ -599,6 +599,13 @@ local function onMessage(raw: any)
 	elseif c == "kick" then
 		local p = Players:GetPlayerByUserId(tonumber(msg.u) or 0)
 		if p then p:Kick(msg.reason ~= "" and msg.reason or "Kicked by an admin.") end
+	elseif c == "wipe" then
+		-- повне скидання гравця, який грає на ЦЬОМУ сервері (запит з іншого сервера)
+		local p = Players:GetPlayerByUserId(tonumber(msg.u) or 0)
+		if p then
+			local okW, why = DataService.Wipe(p.UserId, type(msg.keep) == "table" and msg.keep or nil)
+			reply(msg.req, { ok = okW, why = why, job = JOB_SHORT })
+		end
 	elseif c == "ann" then
 		if broadcast then broadcast:FireAllClients("ann", { text = msg.text, color = msg.color, sec = msg.sec }) end
 	elseif c == "ggrant" then
@@ -778,6 +785,35 @@ function A.Kick(p, arg)
 	audit(p.UserId, "kick", { u = u, reason = reason })
 	send({ c = "kick", u = u, reason = reason })
 	return { ok = true, text = "Kick sent" }
+end
+
+-- RESET ALL (29.10.2026, лише owner): профіль гравця стає як у нового (DataService.Wipe) — гроші, големи, печера, мапа, ребітхи,
+-- діаманти, тікети, квести, Index, статистика, налаштування; пошта адміна (недоставлені видачі) теж стирається.
+-- arg.passes = true — ще й зняти ВСІ геймпаси (PassOff_<ключ> у новому профілі: куплені за Robux не повернуться при вході;
+-- повернути — Give → Pass +1). Гравець онлайн — його кікає з поясненням (перезайде — гра з початку).
+function A.Wipe(p, arg)
+	local u = resolveUser(arg)
+	if not u then return { ok = false, error = "User not found" } end
+	local keep = {}
+	if arg.passes == true then for key in MonCfg.Passes do keep["PassOff_" .. key] = true end end
+	audit(p.UserId, "wipe", { u = u, passes = arg.passes == true })
+	pcall(function() mail():RemoveAsync("M_" .. u) end)
+	local okW, why
+	if Players:GetPlayerByUserId(u) then
+		okW, why = DataService.Wipe(u, keep)
+	elseif whereIs(u) then
+		local req = newId()
+		send({ c = "wipe", u = u, keep = keep, req = req })
+		local res = collect(req, REPLY_WAIT, function(l) return #l > 0 end)
+		if not res[1] then return { ok = false, error = "No answer from player's server — kick them and try again" } end
+		okW, why = res[1].ok, res[1].why
+	else
+		okW, why = DataService.Wipe(u, keep)
+	end
+	if not okW then
+		return { ok = false, error = why == "locked" and "Data is locked by another server — wait ~1 min and retry" or ("Failed: " .. tostring(why)) }
+	end
+	return { ok = true, text = "Progress reset" .. (arg.passes == true and " + gamepasses removed" or "") }
 end
 
 -- бани цього сервера (29.10.2026): BanAsync не працює в Studio / Team Test і доходить до серверів із затримкою —

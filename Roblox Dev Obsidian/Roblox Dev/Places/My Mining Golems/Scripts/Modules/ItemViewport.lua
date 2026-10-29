@@ -17,6 +17,9 @@ local M = {}
 local MODELS: { [string]: string } = {
 	Ore_Coal = "ChunkCoal", Ore_Copper = "ChunkCopper", Ore_Iron = "ChunkIron",
 	Bars_Copper = "BarCopper", Bars_Iron = "BarIron",
+	-- мапа 2 (29.10.2026)
+	Ore_Tin = "ChunkTin", Ore_Silver = "ChunkSilver", Ore_Gold = "ChunkGold",
+	Bars_Tin = "BarTin", Bars_Silver = "BarSilver", Bars_Gold = "BarGold",
 	-- зілля (v2, 28.10.2026) — 3D-моделі з Prefabs/IconModels (колба з рідиною, різниться лише колір)
 	Pot_Luck = "Icon:PotionLuck", Pot_Speed = "Icon:PotionSpeed", Pot_Money = "Icon:PotionMoney", Pot_Strength = "Icon:PotionStrength",
 }
@@ -33,6 +36,9 @@ end
 local VIEW: { [string]: { number } } = {
 	ChunkCoal = { 30, 30, 0.8, 0 }, ChunkCopper = { 30, 24, 0.842, 0.07 }, ChunkIron = { 30, 30, 0.842, 0.07 }, -- −5 % від 0.8
 	BarCopper = { 32, 34, 1.08, 0.02 }, BarIron = { 32, 34, 1.08, 0.02 },
+	-- 5-й елемент — поворот моделі (градуси X, Y, Z): Silver у паку стоїть «на ребрі», кладемо пластинами вниз
+	ChunkTin = { 30, 30, 0.82, 0.08, nil, 0.05 }, ChunkSilver = { 30, 30, 0.82, -0.03, { 90, 0, 0 } }, ChunkGold = { 30, 30, 0.82, 0.03 },
+	BarTin = { 32, 34, 1.08, 0.02 }, BarSilver = { 32, 34, 1.08, 0.02 }, BarGold = { 32, 34, 1.08, 0.02 },
 }
 local FOV = 26
 local SCALE = 1.45 -- розмір моделі відносно ImageLabel (у плитках PNG мала поля)
@@ -209,7 +215,8 @@ local function viewport(parent: Instance, tpl: BasePart, name: string, z: number
 	end
 	local part = tpl:Clone() :: BasePart
 	part.Anchored = true
-	part.CFrame = CFrame.new(0, 0, 0)
+	local rv = (VIEW[name] or {})[5]
+	part.CFrame = rv and CFrame.Angles(math.rad(rv[1]), math.rad(rv[2]), math.rad(rv[3])) or CFrame.new(0, 0, 0)
 	if silhouette then
 		local u = part :: any
 		if u:IsA("UnionOperation") then u.UsePartColor = true end
@@ -237,7 +244,7 @@ local function build(label: GuiObject, name: string): Frame?
 	box.Name = "ItemVP"
 	box.BackgroundTransparency = 1
 	box.AnchorPoint = Vector2.new(0.5, 0.5)
-	box.Position = UDim2.fromScale(0.5, 0.5 - ((VIEW[name] or {})[4] or 0)) -- мідь і залізо трохи вище: не налазять на низ плитки
+	box.Position = UDim2.fromScale(0.5 - ((VIEW[name] or {})[6] or 0), 0.5 - ((VIEW[name] or {})[4] or 0)) -- мідь і залізо трохи вище: не налазять на низ плитки
 	box.Size = UDim2.fromScale(SCALE, SCALE)
 	box.ZIndex = label.ZIndex
 	box:SetAttribute("Model", name)

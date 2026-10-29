@@ -155,12 +155,36 @@ M.GOLEMS = {
 		warrior = { price = 270000000000, dmg = 12000, hp = 120000, speed = 2.05 } },
 }
 
+-- ексклюзиви (не роляться, не в ORDER): Mushroom Golem — нагорода за групу (GroupGolemService, 29.10.2026).
+--   dynamic = "bestMiner": шкода майнера = share × шкода найкращого звичайного майнера власника (атрибут BestMinerDmg) × мутація,
+--   але не менше за miner.dmg. Власник — аргумент p у stats / power / statText (на клієнті без p — LocalPlayer).
+M.GOLEMS.mushroom = { name = "Mushroom Golem", rarity = "Exclusive", map = 1, odds = 0, size = 1.05, model = "MushroomGolem", box = "MushroomCarryBox",
+	pickaxe = "MushroomPickaxe", sword = "MushroomSword", icon = nil, exclusive = "group", dynamic = "bestMiner", share = 0.5,
+	-- носій (29.10.2026, нагорода Daily кожен 7-й день): місткість = carrierShare × місткість найкращого звичайного носія (атрибут BestCarrierCap)
+	carrierShare = 0.75,
+	-- як отримати (Index, замість шансу ролу): за класом; nil — ще не можна отримати
+	how = { miner = "Join the group", carrier = "Daily reward", warrior = nil },
+	howShort = { miner = "Group", carrier = "Daily", warrior = nil }, -- на картці Index (замість «1 in N»)
+	miner = { price = 0, dmg = 1, speed = 1.1 },
+	carrier = { price = 0, cap = 2, speed = 1.1 },
+	warrior = { price = 0, dmg = 1, hp = 10, speed = 1.1 } }
+
 M.LEGACY = { wood = "wooden", iron = "ironclad", gold = "aurelian", crystal = "quartzling" }
 
 for i, id in M.ORDER do
 	local g = (M.GOLEMS :: any)[id]
 	g.id = id
 	g.index = i
+end
+M.GOLEMS.mushroom.id = "mushroom"
+M.GOLEMS.mushroom.index = #M.ORDER + 1
+-- ексклюзиви по порядку (Index: група Exclusive після Celestial, лише сторінка Normal; 30.10.2026)
+M.EXCLUSIVES = { "mushroom" }
+-- як отримати ексклюзив цього класу (текст) або "Coming soon"; short — короткий (картка Index) або "Soon"
+function M.howToGet(kind: any, cls: any, short: boolean?): string
+	local g = (M.GOLEMS :: any)[kind]
+	local t = g and (short and g.howShort or g.how)
+	return (t and t[cls]) or (short and "Soon" or "Coming soon")
 end
 
 -- нормалізований ID (з урахуванням старих) або nil
@@ -309,11 +333,60 @@ end
 -- Швидкість — як у Normal; шкода, HP, місткість і ціна — × M. Округлення: шкода < 10 — до 0,1 (2 × 1,2 = 2,4),
 -- інакше ціле; HP — ціле; місткість — ціле, але при M > 1 не менше за базову + 1; ціна — ціле.
 -- Повертає { price, speed, move (стад/с), interval (с), dmg?, cap?, hp?, size, mult }
-function M.stats(kind: any, cls: any, mut: any): any
+-- динамічна шкода ексклюзиву (dynamic = "bestMiner"): власник p або (на клієнті) LocalPlayer
+local RunService = game:GetService("RunService")
+local function ownerOf(p: any): any
+	if p then return p end
+	if RunService:IsClient() then return game:GetService("Players").LocalPlayer end
+	return nil
+end
+-- найкраща шкода звичайного майнера зі списку записів { kind, cls, mut } (ексклюзи з dynamic не рахуються)
+function M.bestMinerDmg(list: { any }): number
+	local best = 0
+	for _, g in list do
+		if type(g) == "table" and M.cls(g.cls) == "miner" then
+			local d = M.get(g.kind)
+			if d and not d.dynamic then
+				local s = M.stats(d.id, "miner", g.mut)
+				if (s.dmg or 0) > best then best = s.dmg end
+			end
+		end
+	end
+	return best
+end
+
+-- найкраща місткість звичайного носія (ексклюзи з dynamic не рахуються) — для Mushroom Golem-носія (carrierShare)
+function M.bestCarrierCap(list: { any }): number
+	local best = 0
+	for _, g in list do
+		if type(g) == "table" and M.cls(g.cls) == "carrier" then
+			local d = M.get(g.kind)
+			if d and not d.dynamic then
+				local s = M.stats(d.id, "carrier", g.mut)
+				if (s.cap or 0) > best then best = s.cap end
+			end
+		end
+	end
+	return best
+end
+
+function M.stats(kind: any, cls: any, mut: any, p: any?): any
 	local g = M.get(kind) or M.GOLEMS.wooden
 	local c = M.cls(cls)
 	local base = (g :: any)[c]
 	local m = M.mult(mut)
+	if g.dynamic == "bestMiner" and c == "miner" then
+		local o = ownerOf(p)
+		local best = o and tonumber(o:GetAttribute("BestMinerDmg")) or 0
+		base = table.clone(base)
+		base.dmg = math.max(base.dmg, (g.share or 0.5) * best)
+	end
+	if g.carrierShare and c == "carrier" then
+		local o = ownerOf(p)
+		local best = o and tonumber(o:GetAttribute("BestCarrierCap")) or 0
+		base = table.clone(base)
+		base.cap = math.max(base.cap, math.floor(g.carrierShare * best + 0.5))
+	end
 	local speed = base.speed
 	local function round(x) return math.floor(x + 0.5) end
 	local s: any = {
@@ -337,18 +410,18 @@ function M.stats(kind: any, cls: any, mut: any): any
 end
 
 -- сила для сортування (Equip Best): майнер — шкода за секунду, носій — руди за секунду руху, воїн — шкода за секунду × HP
-function M.power(kind: any, cls: any, mut: any): number
+function M.power(kind: any, cls: any, mut: any, p: any?): number
 	local c = M.cls(cls)
-	local s = M.stats(kind, c, mut)
+	local s = M.stats(kind, c, mut, p)
 	if c == "carrier" then return s.cap * s.move end
 	if c == "warrior" then return s.dmg / s.interval * s.hp end
 	return s.dmg / s.interval
 end
 
 -- короткий підпис статів для UI: "2 dmg · Speed x1.05", "2 ore · Speed x1.13", "2 dmg · 20 HP"
-function M.statText(kind: any, cls: any, mut: any): string
+function M.statText(kind: any, cls: any, mut: any, p: any?): string
 	local c = M.cls(cls)
-	local s = M.stats(kind, c, mut)
+	local s = M.stats(kind, c, mut, p)
 	local sp = string.format("x%.2f", math.floor(s.speed * 100 + 0.5) / 100):gsub("0+$", ""):gsub("%.$", "") -- 1.125 → x1.13
 	if c == "carrier" then return M.num(s.cap) .. " ore · Speed " .. sp end
 	if c == "warrior" then return M.num(s.dmg) .. " dmg · " .. M.num(s.hp) .. " HP" end

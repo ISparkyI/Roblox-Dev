@@ -63,6 +63,7 @@ local function stateOf(prompt: ProximityPrompt): (boolean, string, string, boole
 		if not def then return true, "HOLD A GOLEM", "gray", true end
 		if table.find(decode("PlotPlaced", {}), id) then return true, "ON PLOT", "gray", true end
 		if not def.model then return true, "NO MODEL YET", "gray", true end
+		if def.exclusive then return true, "EXCLUSIVE", "gray", true end -- ексклюзиви в печеру не ставляться (їх і так не втратити)
 		return true, "PLACE", "green", false
 	end
 	return true, "HOLD A GOLEM", "gray", true

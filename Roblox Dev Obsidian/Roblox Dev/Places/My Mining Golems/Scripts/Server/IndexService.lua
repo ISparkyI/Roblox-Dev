@@ -5,7 +5,9 @@
 --
 -- Ключі записів:
 --   голем — "<id>:<клас>:<мутація>" (id з GolemCatalog.ORDER, клас miner | carrier | warrior, мутація 0..7), напр. "flint:miner:0";
---     сторінка Index = клас × мутація (24 големи), усього 24 × 3 × 8 = 576 записів. Exclusive-големи в Index не потрапляють.
+--     сторінка Index = клас × мутація (24 големи), усього 24 × 3 × 8 = 576 записів.
+--     Exclusive-големи (GolemCatalog.EXCLUSIVES, 30.10.2026) — лише на сторінці Normal: "<id>:<клас>:0" за будь-якої мутації
+--     (Mushroom miner / carrier / warrior), нагорода як за Normal.
 --   руда — "ore:<Key>" (Key з PlotConfig.ORES — Coal, Copper, Iron).
 -- Відкриття: голем — коли атрибут гравця InvGolems (JSON { { id, kind, cls, mut } }, ставить InventoryService) отримує голема з новим
 --   ключем; руда — коли атрибут Ore_<Key> уперше > 0. Відкриття НЕ дає діамантів саме по собі (v4).
@@ -45,7 +47,8 @@ for n, o in PlotCfg.ORES do ORE_KEYS[o.key] = IndexService.oreReward(n) end
 -- ключ запису голема або nil (невідомий голем / Exclusive)
 local function keyOf(kind: any, cls: any, mut: any): string?
 	local g = Catalog.get(kind)
-	if not g or g.rarity == "Exclusive" then return nil end
+	if not g then return nil end
+	if g.rarity == "Exclusive" then return g.id .. ":" .. Catalog.cls(cls) .. ":0" end
 	return g.id .. ":" .. Catalog.cls(cls) .. ":" .. tostring(Catalog.mut(mut))
 end
 IndexService.keyOf = keyOf

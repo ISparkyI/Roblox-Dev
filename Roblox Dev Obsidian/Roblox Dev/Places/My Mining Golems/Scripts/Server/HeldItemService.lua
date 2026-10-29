@@ -32,6 +32,9 @@ local HOLDER_NAME = "HeldItem"
 local PROPS: { [string]: string } = {
 	Ore_Coal = "ChunkCoal", Ore_Copper = "ChunkCopper", Ore_Iron = "ChunkIron",
 	Bars_Copper = "BarCopper", Bars_Iron = "BarIron",
+	-- мапа 2 (29.10.2026)
+	Ore_Tin = "ChunkTin", Ore_Silver = "ChunkSilver", Ore_Gold = "ChunkGold",
+	Bars_Tin = "BarTin", Bars_Silver = "BarSilver", Bars_Gold = "BarGold",
 }
 -- долоня в позі HoldPose: грань −X кисті (RightHand) дивиться вгору, пальці (−Y кисті) — вперед.
 -- PALM_ROT — «прямо» предмета у системі кисті: його Y (вгору) = −X кисті, його −Z (обличчя) = −Y кисті (вперед).
@@ -41,6 +44,10 @@ local PALM_FWD = 0.1                              -- предмет трохи �
 local PROP_TUNE: { [string]: { rot: CFrame, scale: number } } = {
 	BarCopper = { rot = CFrame.Angles(0, math.rad(90), 0), scale = 0.75 },
 	BarIron = { rot = CFrame.Angles(0, math.rad(90), 0), scale = 0.75 },
+	BarTin = { rot = CFrame.Angles(0, math.rad(90), 0), scale = 0.75 },
+	BarSilver = { rot = CFrame.Angles(0, math.rad(90), 0), scale = 0.75 },
+	BarGold = { rot = CFrame.Angles(0, math.rad(90), 0), scale = 0.75 },
+	ChunkSilver = { rot = CFrame.Angles(math.rad(90), 0, 0), scale = 1 }, -- у паку стоїть «на ребрі»
 }
 local FIG_HEIGHT = 1.6                            -- висота фігурки голема, стад (маленька фігурка на долоні)
 local FIG_YAW = math.rad(0)                       -- поворот фігурки (0 — дивиться туди ж, куди гравець)
@@ -145,7 +152,7 @@ local function text(parent: Instance, order: number, h: number, str: string, col
 end
 
 -- табличка над фігуркою (як на рефі: мутація, рідкість, назва, стат, ціна)
-local function infoBoard(adornee: BasePart, top: number, g: any, cls: string, mut: number)
+local function infoBoard(adornee: BasePart, top: number, g: any, cls: string, mut: number, p: Player?)
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "GolemInfo"
 	bb.Adornee = adornee
@@ -170,7 +177,10 @@ local function infoBoard(adornee: BasePart, top: number, g: any, cls: string, mu
 	end
 	text(bb, 2, 0.17, g.rarity, Catalog.rarityColor(g.rarity), XBOLD)
 	text(bb, 3, 0.22, g.name, Color3.new(1, 1, 1), HEAVY)
-	text(bb, 4, 0.22, Catalog.statText(g.id, cls, mut), GREEN, HEAVY)
+	-- p — власник: динамічні стати (Mushroom Golem = частка BestMinerDmg) рахуються від нього; оновлює onPlayer
+	local st = text(bb, 4, 0.22, Catalog.statText(g.id, cls, mut, p), GREEN, HEAVY)
+	st.Name = "Stat"
+	bb:SetAttribute("Kind", g.id); bb:SetAttribute("Cls", cls); bb:SetAttribute("Mut", mut)
 	text(bb, 5, 0.2, "Cost: " .. NF.money(Catalog.stats(g.id, cls, mut).price), YELLOW, HEAVY)
 	bb.Parent = adornee
 end
@@ -306,7 +316,7 @@ local function build(p: Player)
 	visual.Parent = holder
 	weldTo(hand :: BasePart, visual)
 	if info and info.root and info.root:IsA("BasePart") then
-		infoBoard(info.root, info.top, info.def, info.cls, info.mut)
+		infoBoard(info.root, info.top, info.def, info.cls, info.mut, p)
 	elseif visual:IsA("BasePart") then
 		itemLabel(holder, visual, visual.Size.Y / 2 + 0.6, labelText(p, key))
 	end
@@ -322,6 +332,13 @@ local function onPlayer(p: Player)
 	end)
 	-- кількість предмета в руці змінилась — оновити підпис
 	p.AttributeChanged:Connect(function(name)
+		if name == "BestMinerDmg" then -- динамічний голем у руці: оновити стат на табличці
+			local holder = p.Character and p.Character:FindFirstChild(HOLDER_NAME)
+			local bb = holder and holder:FindFirstChild("GolemInfo", true)
+			local t = bb and bb:FindFirstChild("Stat")
+			if t and t:IsA("TextLabel") then t.Text = Catalog.statText(bb:GetAttribute("Kind"), bb:GetAttribute("Cls"), bb:GetAttribute("Mut"), p) end
+			return
+		end
 		if name ~= p:GetAttribute("InvHeld") then return end
 		local holder = p.Character and p.Character:FindFirstChild(HOLDER_NAME)
 		local bb = holder and holder:FindFirstChild("ItemLabel", true)

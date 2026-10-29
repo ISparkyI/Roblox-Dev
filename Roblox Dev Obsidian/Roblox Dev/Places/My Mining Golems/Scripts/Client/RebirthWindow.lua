@@ -6,6 +6,7 @@
 -- Ліворуч — картка: множник зараз → після (x1 → x2), ціна наступного ребітху зі смугою «гроші / ціна», «REBIRTHS: n / ліміт мапи»;
 --   під нею — що скидається (усі Money) і що лишається; кнопка REBIRTH: зелена — можна, сіра — мало грошей / MAXED (ліміт мапи).
 --   Підтвердження — у самій кнопці: перший клік — червона «ARE YOU SURE?» на 3 с, другий — ребітх.
+--   Поруч — помаранчева SKIP (R$ 39, Developer Product MonetizationConfig.RebirthSkip): ребітх без вимоги й без скидання Money.
 -- Праворуч — «NEXT REBIRTHS»: 8 наступних (номер, ціна, множник; за лімітом мапи — сірі «MAP N»).
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -368,9 +369,31 @@ local limitLbl = textAt(content, AX, AY + 236, AW, 22, "", WHITE, 2.6, { ZIndex 
 local limitSub = textAt(content, AX, AY + 264, AW, 15, "", SUB_TXT, 1.8, { ZIndex = 5, FontFace = XBOLD })
 
 -- під карткою — що скидається, кнопка
-textAt(content, AX, AY + 322, AW, 18, "Resets ALL your Money.", C("ff8a8a"), 2.2, { ZIndex = 5 })
+textAt(content, AX, AY + 322, AW, 18, "Resets ALL your Money. SKIP keeps your Money!", C("ff8a8a"), 2.2, { ZIndex = 5 })
 textAt(content, AX, AY + 346, AW, 16, "Golems, ores, upgrades, diamonds and luck stay.", SUB_TXT, 1.8, { ZIndex = 5, FontFace = XBOLD })
-local btn = makeGroupButton(content, AX, 430, AW, 64, { name = "RebirthBtn", shadowDy = 7, color = "green", text = "REBIRTH", textSize = 30, z = 5 })
+local SKIP_W = 186
+local btn = makeGroupButton(content, AX, 430, AW - SKIP_W - 14, 64, { name = "RebirthBtn", shadowDy = 7, color = "green", text = "REBIRTH", textSize = 30, z = 5 })
+-- SKIP: Developer Product «Skip Rebirth» (MonetizationConfig.RebirthSkip, 39 R$) — наступний ребітх без вимоги й без скидання Money
+local MonCfg = require(Shared:WaitForChild("MonetizationConfig"))
+local MarketplaceService = game:GetService("MarketplaceService")
+local skipBtn = makeGroupButton(content, AX + AW - SKIP_W, 430, SKIP_W, 64, { name = "SkipBtn", shadowDy = 7, color = "orange", z = 5 })
+do
+	local row = new("Frame", { Name = "SkipRow", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(SKIP_W / 2, 64 / 2 - 3),
+		Size = UDim2.fromOffset(0, 64), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 8 }, skipBtn.group)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder }, row)
+	local function t(order, txt, size)
+		local l = new("TextLabel", { BackgroundTransparency = 1, FontFace = HEAVY, TextSize = size, TextColor3 = WHITE, Text = txt,
+			Size = UDim2.fromOffset(0, 64), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = order, ZIndex = 9 }, row)
+		stroke(l, INK, 3, 0, true)
+		return l
+	end
+	t(1, "SKIP", 28)
+	new("ImageLabel", { BackgroundTransparency = 1, Image = "rbxassetid://139687766069559", ScaleType = Enum.ScaleType.Fit,
+		Size = UDim2.fromOffset(30, 30), LayoutOrder = 2, ZIndex = 9 }, row)
+	t(3, tostring(MonCfg.RebirthSkip.robux), 28)
+end
+
 
 -- праворуч — наступні ребітхи (ціна і множник)
 local RX, RY, RW = 544, 66, 400
@@ -433,6 +456,8 @@ local function refresh()
 		btn:setText(maxed and "MAXED" or "REBIRTH")
 	end
 	btn.enabled = can
+	skipBtn.enabled = not maxed
+	skipBtn:setColor(maxed and "gray" or "orange")
 	for i = 1, SHOW do
 		local idx = n + i
 		local r = rowFor(i)
@@ -445,6 +470,12 @@ local function refresh()
 		r.num.TextColor3 = locked and MUTED or WHITE
 		r.hl.Visible = i == 1 and not locked
 	end
+end
+
+skipBtn.onClick = function()
+	local n, _, limit = state()
+	if n >= limit or MonCfg.RebirthSkip.id == 0 then denySound(); return end
+	pcall(function() MarketplaceService:PromptProductPurchase(player, MonCfg.RebirthSkip.id) end)
 end
 
 btn.onClick = function()

@@ -32,6 +32,7 @@ local ICON = { -- усі ID перевірені через MarketplaceService:G
 	invite = "rbxassetid://109796913398904", settings = "rbxassetid://111541402429276", inventory = "rbxassetid://107241982376806",
 	feedback = "rbxassetid://84284099600077", codes = "rbxassetid://116306459544574", updates = "rbxassetid://133326399418460",
 	diamond = "rbxassetid://126442692946356", ticket = "rbxassetid://85299808396483", rebirth_c = "rbxassetid://134045976199050",
+	daily = "rbxassetid://80819332588445", -- Calendar 1st Outline 256px (щоденні нагороди, 29.10.2026)
 }
 -- ширина / висота обрізаних іконок (малі кнопки й лічильники)
 local ASP = { invite = 1.0711, settings = 1.024, inventory = 0.8516, feedback = 1.0894, codes = 1.3545, updates = 1.1327,
@@ -416,6 +417,26 @@ do
 
 	-- Rebirth: іконка 112, підпис 25
 	button(root, { x = 105, y = 272, w = 98, h = 98 + math.round(22 * 0.2), ih = 98, icon = "rebirth", label = "Rebirth", fs = 22, key = "Rebirth", right = true, tile = "pink" })
+	-- Daily (29.10.2026): під Rebirth, 3/5 його розміру (59), по центру під ним; вікно — StarterPlayerScripts/DailyWindow (HUDButton "Daily").
+	-- Червона крапка «!» — сьогоднішню нагороду ще не забрано (DailyLast < ReplicatedStorage.DailyDay).
+	local dailyHolder = button(root, { x = 86, y = 384, w = 59, h = 59 + math.round(13 * 0.2), ih = 59, icon = "daily", label = "Daily", fs = 13, key = "Daily", right = true, tile = "orange" })
+	do
+		local dot = frame(dailyHolder, { Name = "Ready", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.fromOffset(20, 20),
+			BackgroundTransparency = 0, BackgroundColor3 = C("ff3b4e"), ZIndex = 8, Visible = false })
+		new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, dot)
+		new("UIStroke", { Color = INK, Thickness = 2 }, dot)
+		text(dot, { Size = UDim2.fromScale(1, 1), Text = "!", ZIndex = 9 }, 15)
+		local RSv = game:GetService("ReplicatedStorage")
+		local function upd()
+			local day = tonumber(RSv:GetAttribute("DailyDay"))
+			local last = tonumber(player:GetAttribute("DailyLast")) or -1
+			dot.Visible = day ~= nil and player:GetAttribute("DailyIdx") ~= nil and last < day
+		end
+		RSv:GetAttributeChangedSignal("DailyDay"):Connect(upd)
+		player:GetAttributeChangedSignal("DailyLast"):Connect(upd)
+		player:GetAttributeChangedSignal("DailyIdx"):Connect(upd)
+		upd()
+	end
 
 	-- Boss: іконка 72, центр по вертикалі 669 (як центр плашки Money); таймер — плашка 250 × 54, права межа = центр іконки
 	local bs, cy = 72, 669
@@ -431,8 +452,14 @@ do
 		while gui.Parent do
 			local at = workspace:GetAttribute("BossAt")
 			if type(at) == "number" then
-				local left = math.max(0, math.ceil(at - workspace:GetServerTimeNow()))
-				clock.Text = string.format("%02d:%02d", left // 60, left % 60)
+				local now = workspace:GetServerTimeNow()
+				local openUntil = workspace:GetAttribute("BossOpenUntil") -- портал відкритий (BossPortalService)
+				if type(openUntil) == "number" and now < openUntil then
+					clock.Text = "OPEN!"
+				else
+					local left = math.max(0, math.ceil(at - now))
+					clock.Text = string.format("%02d:%02d", left // 60, left % 60)
+				end
 			else
 				clock.Text = "--:--"
 			end

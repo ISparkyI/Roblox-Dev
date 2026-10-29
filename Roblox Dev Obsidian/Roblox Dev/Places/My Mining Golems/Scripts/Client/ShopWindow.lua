@@ -372,6 +372,8 @@ local DESC = {
 	AutoEquip = { "Auto-equips " .. fc(GOLD, "best golems"), "Toggle it in Settings" },
 	FastForge = { "Workshop smelts " .. fc(LIME, "2x faster") },
 	AutoCollect = { "Crates go to " .. fc(LIME, "inventory"), "No more COLLECT" },
+	AutoSell = { "Ore & bars " .. fc(LIME, "sell by themselves"), "Works on " .. fc(GOLD, "every map") },
+	AutoWorkshop = { "Smelts ore " .. fc(LIME, "from your inventory"), "Works on " .. fc(GOLD, "every map") },
 	RollStand1 = { fc(GREEN, "+1 roll stand") .. " per stage", "2 stages, up to " .. fc(GREEN, "7 stands") },
 	MoneyTier = { "More " .. fc(GOLD, "Money") .. " from every sale", fc(GOLD, "Permanent") .. ", stacks with VIP" },
 	StarterPack = { fc(GOLD, "+$50K") .. " Money", { text = fc(GOLD, "3") .. " Luck Potions", icon = "Pot_Luck" }, "Stone Golem" },
@@ -533,7 +535,7 @@ end
 -- ===== товари =====
 -- item: key, name, desc, icon, tone (hex), tile (колір візерунка StyleA), robux, kind = "pass" | "tier" | "soon",
 --   noTickets (лише Robux), extra (функція — додатковий вміст картки)
-local PASS_TILE = { VIP = "yellow", Lucky = "green", MutLucky = "blue", AutoEquip = "blue", FastForge = "orange", AutoCollect = "purple", RollStand1 = "gray", FastRoll = "blue", AutoRoll = "red", AutoBuy = "green" }
+local PASS_TILE = { VIP = "yellow", Lucky = "green", MutLucky = "blue", AutoEquip = "blue", FastForge = "orange", AutoCollect = "purple", RollStand1 = "gray", FastRoll = "blue", AutoRoll = "red", AutoBuy = "green", AutoSell = "red", AutoWorkshop = "orange" }
 local passItems = {}
 for key, def in MonCfg.Passes do
 	if not def.hidden then -- етапи (RollStand2) показує картка першого етапу
@@ -542,6 +544,24 @@ for key, def in MonCfg.Passes do
 	end
 end
 table.sort(passItems, function(a, b) return a.order < b.order end)
+-- Fast Workshop (29.10.2026): лише в магазині — блискавка зліва від ковадла (окрема PNG mg_shop_bolt 202 × 254, вирізана з іконки Fast Roll;
+-- Decal 102755695546681 → зображення 80770853557701)
+for _, it in passItems do
+	if it.key == "FastForge" then
+		it.extra = function(card, w, h)
+			local ic = card:FindFirstChild("Icon")
+			if not ic then return end
+			local isz = ic.Size.X.Offset
+			local cx, cy = ic.Position.X.Offset - isz * 0.55, ic.Position.Y.Offset + isz * 0.1
+			local bh = math.floor(isz * 0.6)
+			local bw = math.floor(bh * 202 / 254)
+			for _, m in { { "BoltShadow", 5, INK, 0.35, 4 }, { "Bolt", 0, WHITE, 0, 5 } } do
+				new("ImageLabel", { Name = m[1], BackgroundTransparency = 1, Image = "rbxassetid://80770853557701", ImageColor3 = m[3], ImageTransparency = m[4], ScaleType = Enum.ScaleType.Fit,
+					AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, cy + m[2]), Size = UDim2.fromOffset(bw, bh), Rotation = -8, ZIndex = m[5] }, card)
+			end
+		end
+	end
+end
 
 -- заготовки (SOON): ціни — пропозиція, з'являться разом із системами
 local BUNDLES = {
@@ -1010,9 +1030,13 @@ local function header(text: string)
 end
 local function grid(items, cols: number, h: number, layout: string)
 	local w = (CW - (cols - 1) * GX) / cols
+	local lastStart = #items - (#items - 1) % cols -- перший елемент останнього ряду
+	local lastN = #items - lastStart + 1
 	for i, item in items do
 		local col = (i - 1) % cols
-		makeCard(item, PADX + col * (w + GX), y, w, h, layout)
+		-- неповний останній ряд — по центру (29.10.2026)
+		local shift = (i >= lastStart and lastN < cols) and (cols - lastN) * (w + GX) / 2 or 0
+		makeCard(item, PADX + col * (w + GX) + shift, y, w, h, layout)
 		if col == cols - 1 or i == #items then y += h + GY + 8 end
 	end
 end

@@ -17,9 +17,11 @@ local Config = {}
 Config.FRIEND_BONUS = 0.25 -- +25% за кожного друга на сервері
 Config.VIP_MULT = 1.5
 Config.REBIRTH_ENABLED = true -- множник ребітхів 2^Rebirths (вікно REBIRTH, RebirthService)
--- ребітхи: ціна n-го = REBIRTH_BASE × REBIRTH_GROWTH^(n−1) (100K, 500K, 2.5M …; пропозиція GDD); ліміт: мапа 1 — 5, кожна наступна +3
-Config.REBIRTH_BASE = 100000
-Config.REBIRTH_GROWTH = 5
+-- ребітхи: ціна n-го = REBIRTH_BASE × REBIRTH_GROWTH^(n−1); ліміт: мапа 1 — 5, кожна наступна +3
+-- економіка v2 (29.10.2026, рішення користувача: перший 20K): 20K, 60K, 180K, 540K, 1.62M | 4.86M … (×3). Крок ×3 > множника ×2,
+-- тож кожен наступний ребітх довший (без сніжної кулі). Симуляція: на мапі 1 — 1–2 ребітхи (~15 і ~23 хв). Було 100K × 5^(n−1).
+Config.REBIRTH_BASE = 20000
+Config.REBIRTH_GROWTH = 3
 Config.REBIRTH_LIMIT = 5
 Config.REBIRTH_PER_STAGE = 3
 

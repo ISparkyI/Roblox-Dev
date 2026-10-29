@@ -9,6 +9,7 @@
 -- Дії (E на кнопці, сервер сам вирішує за станом):
 --   * слот порожній, у руці голем (InvHeld = Golem_<id>) — PLACE: голем зникає з інвентаря (запис із тим самим UID
 --     лежить у машині). Умови: не на плоті, не Secret, такий самий, як уже покладені в цю машину.
+--   * під час мутації големи в камері (TAKE не можна); CANCEL на панелі (MutationAction "Cancel") зупиняє мутацію, големи знову на слотах.
 --   * 3 однакових покладено — кнопка START на панелі машини (Remotes/MutationAction "Start", номер машини) запускає мутацію (job).
 --   * слот з големом — TAKE: голем повертається в інвентар (той самий UID), мутація скасовується (таймер скидається).
 --   * мутація готова — CLAIM (на ядрі або будь-якому слоті): 3 записи спалюються (GolemRegistry.Burn "mutate"),
@@ -167,6 +168,8 @@ local function claim(p: Player, st: any, key: string): boolean
 	if ok then
 		InventoryService.Give(p, "Golem_" .. id)
 		p:SetAttribute("MutClaimT", now()) -- клієнт: звук і спалах
+		local okS, Stats = pcall(require, script.Parent:FindFirstChild("StatsService"))
+		if okS and Stats and Stats.Add then Stats.Add(p, "Mutations", 1) end -- Stat_Mutations (особисте табло)
 	end
 	task.spawn(function() pcall(DataService.SaveNow, p) end)
 	return ok
@@ -175,7 +178,7 @@ end
 -- START з панелі (гравець поруч із машиною)
 local START_REACH = 45
 local function onAction(p: Player, action: any, idx: any)
-	if action ~= "Start" or type(idx) ~= "number" or idx < 1 or idx > MutCfg.MACHINES or idx ~= math.floor(idx) then return end
+	if (action ~= "Start" and action ~= "Cancel") or type(idx) ~= "number" or idx < 1 or idx > MutCfg.MACHINES or idx ~= math.floor(idx) then return end
 	if p:GetAttribute("MutReady") ~= true then return end
 	local f = workspace:FindFirstChild("Cave") and workspace.Cave:FindFirstChild("Hub") and workspace.Cave.Hub:FindFirstChild("MutationMachines")
 	local machine = f and f:FindFirstChild("Machine" .. idx)
@@ -189,6 +192,14 @@ local function onAction(p: Player, action: any, idx: any)
 	last[p] = t
 	local st = stateOf(p)
 	local m = st[tostring(idx)]
+	if action == "Cancel" then
+		-- CANCEL: мутація зупиняється (прогрес скидається), големи лишаються в слотах (клієнт: виїжджають з камери)
+		if not m.job or isDone(m) then return end
+		m.job = nil
+		publish(p, st)
+		task.spawn(function() pcall(DataService.SaveNow, p) end)
+		return
+	end
 	if m.job or slotCount(m) ~= MutCfg.SLOTS then return end
 	startIfFull(p, m)
 	publish(p, st)
@@ -233,7 +244,8 @@ local function onTrigger(prompt: ProximityPrompt, p: Player)
 	local sk = tostring(si)
 	local cur = m.slots[sk]
 	if type(cur) == "table" then
-		-- TAKE: голем назад у інвентар, мутація скасовується
+		-- TAKE: голем назад у інвентар (лише коли мутація не йде: тоді големи в камері, спершу CANCEL)
+		if m.job then return end
 		if invFull(p, 1) then return end
 		m.slots[sk] = nil
 		m.job = nil

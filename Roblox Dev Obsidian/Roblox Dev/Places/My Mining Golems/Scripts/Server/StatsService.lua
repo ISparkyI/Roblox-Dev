@@ -12,6 +12,9 @@
 --   Stat_BestRoll   — найрідкісніший рол: «1 до N» = шанс голема × шанс мутації (RollService → StatsService.Max)
 --   Stat_RobuxGifted — Robux, витрачені на подарунки іншим (GiftService)
 --   Stat_BossKills  — перемоги над босами (буде з босами: StatsService.Add(p, "BossKills", 1))
+--   Stat_OresMined  — шматки руди, добуті за весь час (PlotService.breakOre, 30.10.2026)
+--   Stat_Mutations  — успішні мутації (MutationService.claim)
+--   Stat_BestStreak — рекорд дейлі-стріку (DailyService)
 --   StatsService.Add(p, key, n) — додати до Stat_<key>; StatsService.Max(p, key, v) — записати, якщо більше
 -- Бонуси за місце (HubConfig.PERK_TIERS): після кожного оновлення табел — атрибути гравця LB_Money / LB_Luck / LB_Boss (%)
 --   і LB_Ranks (JSON {key = місце}). Money — MultiService (джерело Leader), Luck — RollService.
@@ -31,7 +34,8 @@ local MonCfg = require(Shared:WaitForChild("MonetizationConfig"))
 local DataService = require(script.Parent:WaitForChild("DataService"))
 
 local StatsService = {}
-local STATS = { "Stat_TotalMoney", "Stat_Rolls", "Stat_Playtime", "Stat_RobuxSpent", "Stat_BestIncome", "Stat_BestRoll", "Stat_RobuxGifted", "Stat_BossKills" }
+local STATS = { "Stat_TotalMoney", "Stat_Rolls", "Stat_Playtime", "Stat_RobuxSpent", "Stat_BestIncome", "Stat_BestRoll", "Stat_RobuxGifted", "Stat_BossKills",
+	"Stat_OresMined", "Stat_Mutations", "Stat_BestStreak" }
 
 local function num(p: Player, a: string): number return tonumber(p:GetAttribute(a)) or 0 end
 function StatsService.Add(p: Player, key: string, n: number)

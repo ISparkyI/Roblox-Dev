@@ -336,6 +336,7 @@ local function onTrigger(prompt: ProximityPrompt, p: Player)
 		if not g then return end
 		local def = Catalog.get(g.kind)
 		if not (def and def.model) then return end
+		if def.exclusive then return end -- ексклюзиви (Mushroom Golem) не згоряють при переході — у печеру не ставляться
 		if table.find(decode(p, "PlotPlaced", {}), id) then return end
 		local rec = takeFromInventory(p, id :: number)
 		if not rec then return end

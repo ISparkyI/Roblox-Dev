@@ -49,7 +49,8 @@ Config.POTIONS = {
 	{ key = "Strength", name = "Strength Potion", icon = "rbxassetid://82686194310657", tone = Color3.fromHex("ff5c6e"), dur = 300, desc = "+50% damage to ore · 5 min" },
 }
 
-Config.ORE_TONE = { Coal = Color3.fromHex("6d737c"), Copper = Color3.fromHex("e0743c"), Iron = Color3.fromHex("d9b08a") }
+Config.ORE_TONE = { Coal = Color3.fromHex("6d737c"), Copper = Color3.fromHex("e0743c"), Iron = Color3.fromHex("d9b08a"),
+	Tin = Color3.fromHex("a9bccb"), Silver = Color3.fromHex("dfe6ee"), Gold = Color3.fromHex("ffc928") }
 Config.HOTBAR = 9
 Config.MAX_GOLEMS = 300
 -- ліміт гравця: MAX_GOLEMS + атрибут ExtraSlots (продукт Extra Storage, +50 за покупку, багаторазовий)
@@ -57,8 +58,8 @@ function Config.maxGolems(p: Instance?): number
 	return Config.MAX_GOLEMS + math.max(0, (p and tonumber(p:GetAttribute("ExtraSlots"))) or 0)
 end
 
--- ТЕСТ (лише Studio, лише коли в збереженні ще немає секції Inventory): зілля й големи для перевірки вкладок
-Config.TEST_POTIONS = { Luck = 5, Speed = 5, Money = 5, Strength = 5 }
+-- (прибрано) тестові зілля й големи для нових гравців більше не видаються (InventoryService); списки лишено порожніми
+Config.TEST_POTIONS = {}
 
 -- ===== дія зіль (v1, 28.10.2026) =====
 -- Випив (InventoryService, дія "Use") → атрибут гравця Boost_<зілля> = час сервера (GetServerTimeNow), коли дія скінчиться.
@@ -78,15 +79,13 @@ function Config.boostOn(p: Instance, key: string): boolean
 end
 -- запис "ID", "ID:carrier", "ID@мутація" (0..7) — клас (майнер за замовчуванням) і мутація (Normal за замовчуванням)
 -- (26.10.2026) Stone Golem-майнер на кожну мутацію 0..7 (у Stone є 3D-модель) + носії з мутаціями + різні големи каталогу (25 з 40)
-Config.TEST_GOLEMS = { "stone@0", "stone@1", "stone@2", "stone@3", "stone@4", "stone@5", "stone@6", "stone@7",
-	"stone:carrier", "stone:carrier@3", "stone:carrier@7", "wooden", "wooden:carrier", "clay", "gravel:carrier", "flint",
-	"rustbolt:carrier", "lantern", "ironclad@2", "quartzling", "silverjaw:carrier", "geode@4", "obsidian@5", "aurelian@6", "astral@7" }
+Config.TEST_GOLEMS = {}
 
 -- усі стакові ключі (порядок = порядок у вкладках)
 function Config.stackKeys(): { string }
 	local t = {}
-	for _, o in Forge.ORES do table.insert(t, "Ore_" .. o.key) end
-	for _, o in Forge.ORES do if Forge.canSmelt(o) then table.insert(t, "Bars_" .. o.key) end end
+	for _, o in Forge.ALL_ORES do table.insert(t, "Ore_" .. o.key) end -- руда всіх мап (29.10.2026)
+	for _, o in Forge.ALL_ORES do if Forge.canSmelt(o) then table.insert(t, "Bars_" .. o.key) end end
 	for _, p in Config.POTIONS do table.insert(t, "Pot_" .. p.key) end
 	return t
 end

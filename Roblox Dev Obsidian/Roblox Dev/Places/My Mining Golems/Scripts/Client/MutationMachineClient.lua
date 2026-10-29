@@ -170,6 +170,12 @@ local function buildPanel(board: BasePart, face: Enum.NormalId, index: number)
 		clickable = true, zIndex = 5 })
 	StyleA.follow(startBtn, startSh)
 	startBtn.root.Visible = false
+	-- CANCEL (мутація йде) — на місці START, смуга прогресу тоді праворуч від неї
+	local cancelSh = frame(ct, 30, 236, 220, 76, BLACK, { BackgroundTransparency = 0.7, ZIndex = 4, Visible = false })
+	local cancelBtn = StyleA.new(ct, { size = Vector2.new(220, 76), position = Vector2.new(30, 228), color = "red", text = "CANCEL", textSize = 34,
+		clickable = true, zIndex = 5 })
+	StyleA.follow(cancelBtn, cancelSh)
+	cancelBtn.root.Visible = false
 	local fromL = label(ct, 690, 112, 160, 50, 34, "", WHITE, 4, { ZIndex = 4, TextXAlignment = Enum.TextXAlignment.Right })
 	local arrow = label(ct, 852, 112, 50, 50, 34, "→", WHITE, 4, { ZIndex = 4, TextXAlignment = Enum.TextXAlignment.Center })
 	local toL = label(ct, 904, 112, 160, 50, 34, "", WHITE, 4, { ZIndex = 4 })
@@ -180,7 +186,7 @@ local function buildPanel(board: BasePart, face: Enum.NormalId, index: number)
 	StyleA.follow(btn, btnSh)
 	local P = {
 		sg = sg, title = title, tg = tg, status = status, added = added, timer = timer, timerGrad = timerGrad, barBack = barBack, bar = bar,
-		barGrad = barGrad, pct = pct, fromL = fromL, toL = toL, arrow = arrow, speedCur = speedCur, btn = btn, startBtn = startBtn, startSh = startSh,
+		barGrad = barGrad, pct = pct, fromL = fromL, toL = toL, arrow = arrow, speedCur = speedCur, btn = btn, startBtn = startBtn, startSh = startSh, cancelBtn = cancelBtn, cancelSh = cancelSh,
 	}
 	StyleA.bind(btn, { debounce = 0.5, canClick = function() return P.canBuy == true end, onClick = function()
 		local tier = (tonumber(player:GetAttribute("MutSpeedTier")) or 0) + 1
@@ -188,6 +194,9 @@ local function buildPanel(board: BasePart, face: Enum.NormalId, index: number)
 		if not t then return end
 		if t.id == 0 then toast("Fast Mutations are coming soon!", "gray"); return end
 		MarketplaceService:PromptProductPurchase(player, t.id)
+	end })
+	StyleA.bind(cancelBtn, { debounce = 0.6, canClick = function() return P.canCancel == true end, onClick = function()
+		remote:FireServer("Cancel", index)
 	end })
 	StyleA.bind(startBtn, { debounce = 0.6, canClick = function() return P.canStart == true end, onClick = function()
 		remote:FireServer("Start", index)
@@ -262,6 +271,7 @@ local function applyPrompts(M, m)
 		local rec = m.slots[tostring(s)]
 		if not ready then setPrompt(e.prompt, false, "", "gray", true)
 		elseif done then setPrompt(e.prompt, true, full and "INVENTORY FULL" or "CLAIM", full and "gray" or "green", full)
+		elseif m.job then setPrompt(e.prompt, false, "", "gray", true) -- големи в камері (CANCEL — на панелі)
 		elseif type(rec) == "table" then setPrompt(e.prompt, true, full and "INVENTORY FULL" or "TAKE", full and "gray" or "blue", full)
 		elseif g then
 			if table.find(decode("PlotPlaced", {}), gid) then setPrompt(e.prompt, true, "ON PLOT", "gray", true)
@@ -283,12 +293,81 @@ local function applyPrompts(M, m)
 	end
 end
 
+-- ===== заїзд у камеру (START) і виїзд назад (CANCEL) =====
+local RIDE_SPEED = 7 -- стад/с
+local function ride(g: Model, from: Vector3, to: Vector3)
+	local dir = Vector3.new(to.X - from.X, 0, to.Z - from.Z)
+	if dir.Magnitude < 0.01 then return end
+	local dur = math.max(0.4, dir.Magnitude / RIDE_SPEED)
+	g:SetAttribute("State", "Walk")
+	local t0 = os.clock()
+	while g.Parent do
+		local k = math.min(1, (os.clock() - t0) / dur)
+		local e = k * k * (3 - 2 * k)
+		local p = from:Lerp(to, e)
+		g:PivotTo(CFrame.lookAt(p, p + dir))
+		if k >= 1 then break end
+		RunService.Heartbeat:Wait()
+	end
+	g:SetAttribute("State", "Idle")
+end
+local function chamberPoint(M, y: number): Vector3
+	local c = M.center or M.model:GetPivot().Position
+	return Vector3.new(c.X, y, c.Z)
+end
+local refreshAll
+-- по черзі: найближчий до камери перший, доїжджає в центр і зникає
+local function animIn(M)
+	M.anim = true
+	for s = MutCfg.SLOTS, 1, -1 do
+		local e = M.slots[s]
+		local g = e and e.golem
+		if g then
+			local from = g:GetPivot().Position
+			ride(g, from, chamberPoint(M, from.Y))
+			g:Destroy()
+			e.golem = nil; e.sig = nil
+			task.wait(0.12)
+		end
+	end
+	M.anim = false
+	refreshAll()
+end
+-- CANCEL: з камери по черзі виїжджають на свої слоти (спершу найдальший)
+local function animOut(M, m)
+	M.anim = true
+	for s = 1, MutCfg.SLOTS do
+		local e = M.slots[s]
+		local rec = e and m.slots[tostring(s)]
+		if type(rec) == "table" then
+			golemOnPad(e, rec)
+			local g = e.golem
+			if g then
+				local final = g:GetPivot()
+				local start = chamberPoint(M, final.Position.Y)
+				g:PivotTo(CFrame.new(start))
+				ride(g, start, final.Position)
+				if g.Parent then g:PivotTo(final) end
+			end
+			task.wait(0.12)
+		end
+	end
+	M.anim = false
+	refreshAll()
+end
+
 local function applyMachine(M, m)
 	local doneNow = isDone(m)
+	local running = m.job ~= nil and not doneNow
+	if not M.anim then
+		if M.lastRun == false and running then task.spawn(animIn, M)
+		elseif M.lastRun == true and m.job == nil and count(m) == MutCfg.SLOTS then task.spawn(animOut, M, m) end
+	end
+	M.lastRun = running
 	for s, e in M.slots do
 		local rec = m.slots[tostring(s)]
-		if doneNow then rec = nil end -- готово: три големи вже злилися в одного на виході
-		golemOnPad(e, type(rec) == "table" and rec or nil)
+		if doneNow or m.job then rec = nil end -- големи в камері / вже злилися в одного на виході
+		if not M.anim then golemOnPad(e, type(rec) == "table" and rec or nil) end
 		local col = type(rec) == "table" and mutColor(rec.mut):Lerp(C("8a8f9e"), 0.35) or PAD_EMPTY
 		if e.pad.Color ~= col then e.pad.Color = col end
 	end
@@ -319,6 +398,8 @@ local function setup(machine: Model)
 	local core = machine:WaitForChild("Core", 10)
 	if core then
 		for _, d in core:GetChildren() do if d.Name == "Screen" then table.insert(M.screens, d) end end
+		local tc = core:WaitForChild("TunnelCeil", 10)
+		M.center = tc and tc.Position
 	end
 	-- вихід: готовий голем стоїть тут, CLAIM
 	local outM = machine:WaitForChild("Output", 10)
@@ -343,7 +424,7 @@ local function setup(machine: Model)
 	machines[index] = M
 end
 
-local function refreshAll()
+function refreshAll()
 	local st = stateOf()
 	for i, M in machines do applyMachine(M, st[tostring(i)]) end
 end
@@ -449,9 +530,10 @@ RunService.Heartbeat:Connect(function(dt)
 		local canStart = (not m.job) and n == MutCfg.SLOTS
 		local left, prog
 		if m.job then
-			left = MutCfg.left(m.job, t); prog = MutCfg.progress(m.job, t)
+			-- таймер у часі машини: прискорення змушує цифри бігти швидше, а не обрізає час стрибком
+			left = MutCfg.machineLeft(m.job, t); prog = MutCfg.progress(m.job, t)
 		elseif r then
-			left = MutCfg.duration(r.mut) / mult; prog = 0
+			left = MutCfg.duration(r.mut); prog = 0
 		else
 			left = nil; prog = 0
 		end
@@ -472,13 +554,19 @@ RunService.Heartbeat:Connect(function(dt)
 				local mk = mutKey(r.mut)
 				P.added.Text = string.format('Added: %s · <font color="#%s">%s</font>  <font color="#e9edf1">[%d/%d]</font>',
 					golemName(r), mutColor(r.mut):ToHex(), mk, n, MutCfg.SLOTS)
-				P.fromL.Text = mk; P.fromL.TextColor3 = mutColor(r.mut)
 				local to = math.min(MutCfg.MAX_MUT, r.mut + 1)
-				P.toL.Text = mutKey(to); P.toL.TextColor3 = mutColor(to)
+				P.fromL.Text = mk; P.toL.Text = mutKey(to)
+				-- назви мутацій — з тим самим переливом, що в інвентарі (Rainbow — веселка, Secret — блиск)
+				if P.fromMut ~= r.mut then
+					P.fromMut = r.mut
+					MutationText.apply(P.fromL, r.mut)
+					MutationText.apply(P.toL, to)
+				end
 				P.arrow.Visible = true
 			else
-				P.added.Text = "Hold a golem and press E on a slot. 3 same golems = next mutation!"
+				P.added.Text = "Put 3 same golems in the slots to get a better one!"
 				P.fromL.Text = ""; P.toL.Text = ""; P.arrow.Visible = false
+				if P.fromMut ~= nil then MutationText.clear(P.fromL); MutationText.clear(P.toL); P.fromMut = nil end
 			end
 			if done then
 				P.timer.Text = "DONE!"; P.timerGrad.Color = cseq({ { 0, "e9ffd9" }, { 1, "7ef05a" } })
@@ -491,7 +579,16 @@ RunService.Heartbeat:Connect(function(dt)
 			P.canStart = canStart
 			P.startBtn.root.Visible = canStart; P.startSh.Visible = canStart
 			P.barBack.Visible = not canStart
-			P.bar.Size = UDim2.fromOffset(math.floor(620 * (done and 1 or prog)), 30)
+			local canCancel = m.job ~= nil and not done
+			P.canCancel = canCancel
+			P.cancelBtn.root.Visible = canCancel; P.cancelSh.Visible = canCancel
+			if canCancel then
+				P.barBack.Position = UDim2.fromOffset(270, 250); P.barBack.Size = UDim2.fromOffset(380, 30)
+			else
+				P.barBack.Position = UDim2.fromOffset(30, 250); P.barBack.Size = UDim2.fromOffset(620, 30)
+			end
+			P.pct.Size = UDim2.fromScale(1, 1)
+			P.bar.Size = UDim2.fromScale(done and 1 or prog, 1)
 			P.barGrad.Color = ColorSequence.new(bc:Lerp(WHITE, 0.35), bc)
 			P.pct.Text = m.job and string.format("%d%%", math.floor((done and 1 or prog) * 100)) or ""
 			P.speedCur.Text = nextT and ("SPEED x" .. mult .. "  •  " .. nextT.robux .. " R$") or ("SPEED x" .. mult)

@@ -55,10 +55,17 @@ local ATTRS = {
 	{ name = "DonateTier", default = 0, scope = "global" },     -- ступінь купленого x2 Money (0 = x1), MultiConfig
 	{ name = "ExtraSlots", default = 0, scope = "global" },     -- +слоти големів (Extra Storage, MonetizationService)
 	{ name = "MutSpeedTier", default = 0, scope = "global" },
+	{ name = "RebirthSkips", default = 0, scope = "global" }, -- куплені Skip Rebirth, що чекають на ліміт мапи (RebirthService)
+	{ name = "GroupGolem", default = nil, scope = "global" },  -- чи вже забрав групового Mushroom Golem (GroupGolemService)
 	{ name = "IncomeRate", default = 0, scope = "global" },     -- останній дохід $/хв (IncomeService; тайм-скіп одразу після входу)
 	{ name = "LuckRoll10", default = 0, scope = "global" },     -- Lucky Roll x10: скільки ролів у запасі (MonetizationService, RollService)
 	{ name = "LuckRoll99", default = 0, scope = "global" },     -- Lucky Roll x99   -- ступінь Fast Mutations (MonetizationConfig.MUT_SPEED_TIERS)
-	{ name = "RollRole", default = "Miner", scope = "global" }, -- який тип голема ролить станція (Miner / Carrier), RollRoleService
+	{ name = "RollRole", default = "Miner", scope = "global" },
+	-- щоденні нагороди (DailyService, 29.10.2026)
+	{ name = "DailySeed", default = nil, scope = "global" },
+	{ name = "DailyIdx", default = 0, scope = "global" },
+	{ name = "DailyLast", default = -1, scope = "global" },
+	{ name = "DailyStreak", default = 0, scope = "global" }, -- який тип голема ролить станція (Miner / Carrier), RollRoleService
 	-- скидаються на новому етапі
 	{ name = "Money", default = nil, scope = "stage", reset = 0 },
 	{ name = "RollStands", default = 1, scope = "stage", reset = 1 }, -- місця ролу
@@ -385,6 +392,40 @@ function DataService.Start()
 		local t0 = os.clock()
 		while pendingFinals > 0 and os.clock() - t0 < 25 do task.wait() end
 	end)
+end
+
+-- ПОВНЕ СКИДАННЯ гравця (адмін-панель, 29.10.2026): запис P_<userId> стає як у нового гравця.
+-- keep — атрибути, які треба записати в новий профіль (напр. PassOff_* — зняти куплені геймпаси). Список receipts
+-- (оброблені покупки за Robux) лишається, щоб стара покупка не видалась вдруге.
+-- Гравець на ЦЬОМУ сервері: сесія стає offline (жодне збереження більше не перезапише скидання), запис
+-- пишеться без замка, гравця кікає (kickText). Гравець офлайн: запис переписується, якщо його не тримає інший сервер.
+-- Повертає (ok, "locked" | "error" | nil).
+function DataService.Wipe(userId: number, keep: { [string]: any }?, kickText: string?): (boolean, string?)
+	local p = Players:GetPlayerByUserId(userId)
+	local st = p and states[p]
+	if st then st.offline = true; st.captured = nil end -- від цього моменту saveState для нього нічого не пише
+	local key = KEY_PREFIX .. userId
+	local status = nil
+	local attrs = {}
+	for k, v in keep or {} do attrs[k] = clean(v) end
+	local ok, err
+	for _ = 1, 2 do
+		ok, err = pcall(update, key, function(old)
+			status = nil
+			if not st and lockedByOther(old) then status = "locked"; return nil end
+			local receipts = (old and old.data and old.data.receipts) or {}
+			return { v = SCHEMA_VERSION, data = { attrs = attrs, sections = {}, stats = {}, receipts = receipts, wiped = os.time() } }
+		end)
+		if ok or not maybeFallback(err) then break end
+	end
+	if not ok then
+		if st then st.offline = false end
+		warn("DataService.Wipe " .. userId .. ": " .. tostring(err))
+		return false, "error"
+	end
+	if status then return false, status end
+	if p and p.Parent then p:Kick(kickText or "Your progress was reset. Rejoin to start over.") end
+	return true, nil
 end
 
 -- для тестів у Studio

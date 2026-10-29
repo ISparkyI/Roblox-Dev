@@ -103,6 +103,8 @@ local function teleport(player: Player)
 	char:PivotTo(cf + cf.UpVector * up)
 	hrp.AssemblyLinearVelocity = Vector3.zero
 end
+-- кнопка HOME у HUD (TeleportHUD → StallShopService "Teleport", "home"; 29.10.2026): на PlotSpawn своєї ніші
+function NicheService.TeleportHome(player: Player) teleport(player) end
 
 local function claim(player: Player)
 	if byPlayer[player] then return end
@@ -139,6 +141,19 @@ end
 function NicheService.GetNiche(player: Player): Model?
 	local slot = byPlayer[player]
 	return slot and slot.model
+end
+
+-- перебудувати нішу гравця під його поточний етап (перехід на нову мапу, MapService): старі сервіси знімають стан
+-- (Released), ніша збирається з шаблону етапу, сервіси підхоплюють нову (Claimed), гравець — на спавн.
+function NicheService.Rebuild(player: Player)
+	local slot = byPlayer[player]
+	if not slot then return end
+	local stage = (player:GetAttribute("Stage") :: number?) or 1
+	NicheService.Released:Fire(player, slot.model)
+	build(slot, stage)
+	player:SetAttribute("NicheIndex", slot.index)
+	NicheService.Claimed:Fire(player, slot.model)
+	if player.Character then task.spawn(teleport, player) end
 end
 
 function NicheService.GetOwner(niche: Model): Player?

@@ -21,6 +21,8 @@ updated: 2026-10-29
 | [[Roll Upgrades Screen]] | табло покращень ролу: коли власник зупиняється біля важеля й стоїть 1 с, падає зі стелі на ланцюгах; відійшов — піднімається | у грі (картки Roll Luck, Roll Stands) |
 | Mutation Machine | дві машини по центру зали: 3 входи → камера з реактором і блискавками → 1 вихід; E · PLACE / TAKE / CLAIM, START і xN TIME на панелі над машиною; локальні для кожного гравця ([[GDD - Mutation Machine]]) | у грі |
 | Diamonds Shop / Events Shop | дві лавки в кінці зали з големами-братами, коло → вікно магазину ([[GDD - Diamonds Shop]]) | у грі (Events — COMING SOON) |
+| Group Stands | 2 стенди групового голема між Mutation Machine і Marketplace: мухоморна підставка, Mushroom Golem ширяє й крутиться, «+50% BEST»; у радіусі — вікно GROUP REWARD ([[GDD - Monetization]]) | у грі |
+| Boss Portal | кінець зали: кам'яна арка з порталом усередині (спіраль, промені), червоне коло, BOSS FIGHT і таймер (бос кожні 15 хв); кнопка Boss у HUD — телепорт ([[GDD - Boss Events]]) | у грі (арена — COMING SOON) |
 | Plot Stats | особисте табло статистики біля входу в нішу (модель `PlotStats` у шаблоні ніші) ([[GDD - Leaderboards]]) | у грі |
 
 **Як додати новий об'єкт:** папка `<Назва>/` з нотаткою `<Назва>.md` (рядок `← [[Interactive Objects]]`), рядок у таблицю вище, генератор у `Source/`, знімок у `Preview/`.

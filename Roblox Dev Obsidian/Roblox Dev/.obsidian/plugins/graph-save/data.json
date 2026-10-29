@@ -22,8 +22,8 @@
     },
     {
       "id": "Places/My Mining Golems/2D/Inventory/Inventory.md",
-      "x": 1863.17529296875,
-      "y": -612.1610107421875
+      "x": 1864.1927490234375,
+      "y": -611.7555541992188
     },
     {
       "id": "Places/My Mining Golems/2D/Main HUD/Main HUD.md",
@@ -127,8 +127,8 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Data Saving.md",
-      "x": 995.7702026367188,
-      "y": -521.800537109375
+      "x": 1044.45654296875,
+      "y": -451.24652099609375
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Diamonds Shop.md",
@@ -157,8 +157,8 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Marketplace.md",
-      "x": 1086.107177734375,
-      "y": -760.4619140625
+      "x": 1098.4989013671875,
+      "y": -761.0469970703125
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Monetization.md",
@@ -187,8 +187,8 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Roll.md",
-      "x": 1035.592529296875,
-      "y": -554.1402587890625
+      "x": 979.492431640625,
+      "y": -558.5834350585938
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Studio Scene.md",
@@ -197,8 +197,8 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/My Mining Golems - GDD.md",
-      "x": 1159.6500244140625,
-      "y": -547.5452880859375
+      "x": 1176.4691162109375,
+      "y": -515.162353515625
     },
     {
       "id": "Places/My Mining Golems/Interactive Objects/Cave Entrance/Cave Entrance.md",
@@ -477,13 +477,28 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Golem UID.md",
-      "x": 1069.8133544921875,
-      "y": -467.1277770996094
+      "x": 1073.6383056640625,
+      "y": -396.3622741699219
     },
     {
       "id": "OREKO Loading Screen",
       "x": 137.2772216796875,
       "y": -130.2307586669922
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Map Prefabs.md",
+      "x": 1290.6439208984375,
+      "y": -592.7491455078125
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Economy.md",
+      "x": 831.5626831054688,
+      "y": -626.3034057617188
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Daily Rewards.md",
+      "x": 858.9100952148438,
+      "y": -505.1392517089844
     }
   ],
   "pinnedNodes": [

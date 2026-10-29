@@ -1,0 +1,193 @@
+--!nonstrict
+-- BossPortalClient — портал на арену боса в кінці зали (Workspace/Cave/Hub/BossPortal). 29.10.2026.
+-- Скеля з гострих каменів (RockL / RockR) з вузьким проломом: у спокої ледь «дихає» (пролом ширшає на ~2 стади і назад),
+-- за 10 с до боса — частіше й сильніше. Коли бос з'явився (Workspace.BossAt … BossOpenUntil, BossPortalService) — скеля
+-- здригається й розсувається, з пролому б'ють прозорі червоні промені, спіраль крутиться швидше; потім закривається.
+-- Усередині — червона спіраль (Core/Spiral), що крутиться. Табличка BOSS FIGHT: таймер до боса, COMING SOON.
+-- Коло перед скелею — тост «Boss Arena — coming soon» (арени ще немає). Кнопка Boss у HUD (UIEvents/HUDButton "Boss") —
+-- телепорт до входу (Remotes/BossPortalAction "TP").
+local Players = game:GetService("Players")
+local RS = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local hub = workspace:WaitForChild("Cave"):WaitForChild("Hub")
+local portal = hub:WaitForChild("BossPortal", 60)
+if not portal then return end
+local rockL = portal:WaitForChild("RockL")
+local rockR = portal:WaitForChild("RockR")
+local core = portal:WaitForChild("Core")
+local spiral = core:WaitForChild("Spiral")
+local plane = core:WaitForChild("Plane")
+local light = core:WaitForChild("Glow"):FindFirstChildOfClass("PointLight")
+local embers = core:WaitForChild("Embers"):FindFirstChildOfClass("ParticleEmitter")
+local ringCenter = portal:WaitForChild("Ring"):WaitForChild("RingCenter")
+local sign = portal:WaitForChild("SignAnchor"):WaitForChild("BossSign")
+local timerLbl = sign:WaitForChild("Timer")
+local titleLbl = sign:WaitForChild("Title")
+
+local baseL, baseR = rockL:GetPivot(), rockR:GetPivot()
+local spiralPivot = spiral:GetPivot()
+local plane0 = plane.Size
+local center = spiralPivot.Position
+
+local OPEN_DX = 5.5   -- на скільки розсувається кожна половина у відкритій фазі (стади)
+local PULSE = 1.0     -- «дихання» в спокої: кожна половина до 1 стада (пролом ширшає на 2)
+local RED = Color3.fromHex("ff2a2a")
+
+-- промені з пролому (лише на клієнті): плавні світлові конуси (Beam: широкий біля порталу, звужується й тане до кінця),
+-- кожен — два шари (м'який ореол + яскравіша серцевина). Пульсують і по черзі то витягуються з порталу, то втягуються назад.
+local beamsFolder = Instance.new("Folder")
+beamsFolder.Name = "BossPortalBeams"
+beamsFolder.Parent = workspace
+local beamRoot = Instance.new("Part")
+beamRoot.Name = "BeamRoot"; beamRoot.Anchored = true; beamRoot.CanCollide = false; beamRoot.CanQuery = false; beamRoot.CanTouch = false
+beamRoot.Transparency = 1; beamRoot.Size = Vector3.new(0.2, 0.2, 0.2)
+beamRoot.CFrame = CFrame.new()
+beamRoot.Parent = beamsFolder
+local beams = {}
+local rng = Random.new(77)
+local function fade(a0: number): NumberSequence
+	return NumberSequence.new({ NumberSequenceKeypoint.new(0, a0), NumberSequenceKeypoint.new(0.55, a0 + (1 - a0) * 0.45), NumberSequenceKeypoint.new(1, 1) })
+end
+local HOT, WARM = Color3.fromHex("ffb08a"), Color3.fromHex("ff2a2a")
+for i = 1, 11 do
+	local a0 = Instance.new("Attachment"); a0.Parent = beamRoot
+	local a1 = Instance.new("Attachment"); a1.Parent = beamRoot
+	local function mk(w0: number, w1: number, tr: number, col0: Color3)
+		local bm = Instance.new("Beam")
+		bm.Attachment0 = a0; bm.Attachment1 = a1
+		bm.FaceCamera = true; bm.Segments = 12; bm.LightEmission = 1; bm.LightInfluence = 0
+		bm.Color = ColorSequence.new(col0, WARM)
+		bm.Width0 = w0; bm.Width1 = w1
+		bm.Transparency = NumberSequence.new(1)
+		bm.Enabled = false
+		bm.Parent = beamRoot
+		return bm
+	end
+	local wide = rng:NextNumber(3.5, 6.5)
+	table.insert(beams, {
+		a0 = a0, a1 = a1,
+		halo = mk(wide, wide * 0.35, 0.82, WARM),
+		core = mk(wide * 0.35, wide * 0.08, 0.45, HOT),
+		wide = wide,
+		len = rng:NextNumber(20, 36),
+		yaw = rng:NextNumber(-65, 65), pitch = rng:NextNumber(-8, 50),
+		drift = rng:NextNumber(0.15, 0.4), ph = rng:NextNumber(0, 6.28),
+		cyc = rng:NextNumber(0.35, 0.6), -- швидкість «витягнувся — втягнувся»
+		y = rng:NextNumber(-3, 4), x = rng:NextNumber(-1.2, 1.2),
+	})
+end
+
+local function fmt(sec: number): string
+	sec = math.max(0, math.ceil(sec))
+	return string.format("%02d:%02d", sec // 60, sec % 60)
+end
+
+local openAmt = 0 -- 0 закрито … 1 відкрито (плавно)
+local lastT = os.clock()
+local wasOpen = false
+local burstAt = -100
+
+RunService.RenderStepped:Connect(function()
+	local t = os.clock()
+	local dt = math.min(0.1, t - lastT); lastT = t
+	local now = workspace:GetServerTimeNow()
+	local at = workspace:GetAttribute("BossAt")
+	local openUntil = workspace:GetAttribute("BossOpenUntil")
+	local isOpen = type(openUntil) == "number" and now < openUntil
+	if isOpen and not wasOpen then burstAt = t; if embers then embers:Emit(60) end end
+	wasOpen = isOpen
+
+	-- відкриття: 1,2 с здригання на місці, потім розсуваються; закриття — плавно
+	local target = 0
+	if isOpen then target = (t - burstAt < 1.2) and 0 or 1 end
+	local k = (target > openAmt) and 1.6 or 0.9
+	openAmt += (target - openAmt) * math.min(1, dt * k)
+	if math.abs(target - openAmt) < 0.001 then openAmt = target end
+
+	-- «дихання»: за 10 с до боса — частіше й сильніше
+	local left = type(at) == "number" and (at - now) or 999
+	local soon = (not isOpen) and left < 10
+	local freq = soon and 4.5 or 1.6
+	local amp = soon and PULSE * 1.6 or PULSE
+	local pulse = amp * 0.5 * (1 - math.cos(t * freq))
+	local shake = 0
+	if isOpen and t - burstAt < 1.4 then shake = math.sin(t * 60) * 0.25 * (1 - (t - burstAt) / 1.4) end
+	if soon then shake += math.sin(t * 47) * 0.05 end
+	local dx = pulse * (1 - openAmt) + OPEN_DX * openAmt
+	rockL:PivotTo(baseL * CFrame.new(-dx + shake, 0, 0))
+	rockR:PivotTo(baseR * CFrame.new(dx + shake, 0, 0))
+
+	-- спіраль і світло
+	spiral:PivotTo(CFrame.new(center) * CFrame.Angles(0, 0, -t * (1.3 + openAmt * 3.5)) * spiralPivot.Rotation)
+	plane.Size = Vector3.new(plane0.X + openAmt * OPEN_DX * 2, plane0.Y, plane0.Z)
+	if light then light.Brightness = 2.2 + pulse * 0.8 + openAmt * 1.3; light.Range = 22 + openAmt * 6 end
+	if embers then embers.Rate = 10 + openAmt * 50 end
+
+	-- промені: довжина ходить 0 → повна → 0 (втягуються в портал і витягуються знову), ширина й яскравість пульсують
+	local origin = center + Vector3.new(0, 0, 0.6) -- з поверхні порталу
+	for _, b in beams do
+		if openAmt > 0.02 then
+			local ext = 0.5 - 0.5 * math.cos(t * b.cyc * 2 + b.ph) -- 0 … 1
+			local L = 2 + b.len * ext * openAmt
+			local yaw = math.rad(b.yaw + math.sin(t * b.drift + b.ph) * 10)
+			local pitch = math.rad(b.pitch + math.cos(t * b.drift * 1.3 + b.ph) * 6)
+			local dir = Vector3.new(math.sin(yaw) * math.cos(pitch), math.sin(pitch), math.cos(yaw) * math.cos(pitch))
+			local o = origin + Vector3.new(b.x, b.y, 0)
+			b.a0.WorldPosition = o
+			b.a1.WorldPosition = o + dir * L
+			local pulse = 0.5 + 0.5 * math.sin(t * 3.2 + b.ph * 2)
+			local vis = openAmt * (0.55 + 0.45 * pulse) * (0.35 + 0.65 * ext)
+			b.halo.Transparency = fade(1 - 0.1 * vis) -- на 50 % прозоріші (29.10.2026)
+			b.core.Transparency = fade(1 - 0.3 * vis)
+			local wk = 0.8 + 0.35 * pulse
+			b.halo.Width0 = b.wide * wk; b.halo.Width1 = b.wide * 0.35 * wk
+			b.core.Width0 = b.wide * 0.35 * wk; b.core.Width1 = b.wide * 0.08 * wk
+			b.halo.Enabled = true; b.core.Enabled = true
+		elseif b.halo.Enabled then
+			b.halo.Enabled = false; b.core.Enabled = false
+		end
+	end
+
+	-- табличка
+	if isOpen then
+		timerLbl.Text = "BOSS IS HERE!"
+		timerLbl.TextColor3 = Color3.fromHex("ff6a5a")
+	else
+		timerLbl.Text = type(at) == "number" and fmt(at - now) or "--:--"
+		timerLbl.TextColor3 = Color3.new(1, 1, 1)
+	end
+	titleLbl.Rotation = soon and math.sin(t * 30) * 2 or 0
+end)
+
+-- коло: арени ще немає
+local uiEvents = RS:WaitForChild("UIEvents", 30)
+local toast = uiEvents and uiEvents:WaitForChild("Toast", 30)
+local inside = false
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		local char = player.Character
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		local now = false
+		if hrp then
+			local d = (hrp.Position - ringCenter.Position) * Vector3.new(1, 0, 1)
+			now = d.Magnitude < 8.6 and math.abs(hrp.Position.Y - ringCenter.Position.Y) < 8
+		end
+		if now and not inside and toast then
+			toast:Fire("BOSS ARENA — COMING SOON!", Color3.fromHex("ff5a4a"))
+		end
+		inside = now
+	end
+end)
+
+-- кнопка Boss у HUD: телепорт до входу
+local hudEvent = uiEvents and uiEvents:WaitForChild("HUDButton", 30)
+local remotes = RS:WaitForChild("Remotes", 30)
+local action = remotes and remotes:WaitForChild("BossPortalAction", 30)
+if hudEvent and action then
+	hudEvent.Event:Connect(function(key)
+		if key == "Boss" then action:FireServer("TP") end
+	end)
+end

@@ -24,6 +24,8 @@ local StyleA = require(Shared:WaitForChild("StyleA"))
 local WindowFit = require(Shared:WaitForChild("WindowFit"))
 local WindowManager = require(Shared:WaitForChild("WindowManager"))
 local UISounds = require(Shared:WaitForChild("UISounds"))
+local Items = require(Shared:WaitForChild("ItemConfig"))
+local ItemViewport = require(Shared:WaitForChild("ItemViewport"))
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -33,6 +35,8 @@ local EXIT_PAD = 0.5
 local DIA_ICON = "rbxassetid://126442692946356"
 local SKIP_ICON = "rbxassetid://76478987044650"
 local EVENT_ICON = "rbxassetid://133326399418460"
+local CASH_ICON = "rbxassetid://103015355952567" -- купюра поверх годинника (як картки TIME SKIPS у SHOP)
+local PATTERN_TILE = 24 -- візерунок StyleA на картках (як у SHOP)
 
 local C = Color3.fromHex
 local INK = C("14161a")
@@ -213,9 +217,36 @@ new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C("ffe0f6"), C("ff7
 label(soon, 0, 260, WIN_W - 80, 50, 34, "Event items arrive with the next events!", SUB_TXT, 4, { ZIndex = 6, FontFace = XBOLD })
 
 local cards = {} -- [id] = card
+local function potDef(key: string?): any
+	for _, d in Items.POTIONS do if d.key == key then return d end end
+	return nil
+end
+-- іконки товару падають на фоні картки (згори вниз, 40 % прозорі) — як у SHOP
+local function startRain(clip: Frame, icon: string, w: number, h: number, every: number)
+	task.spawn(function()
+		while clip.Parent do
+			if modalRoot.Visible and icon ~= "" then
+				local s = math.random(22, 40)
+				local img = new("ImageLabel", { BackgroundTransparency = 1, Image = icon, ImageTransparency = 0.4, ScaleType = Enum.ScaleType.Fit,
+					AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(s, s), Rotation = math.random(-25, 25),
+					Position = UDim2.fromOffset(math.random(10, math.max(11, math.floor(w) - 10)), -s), ZIndex = 2 }, clip)
+				local tw = TweenService:Create(img, TweenInfo.new(3 + math.random() * 3, Enum.EasingStyle.Linear), {
+					Position = UDim2.fromOffset(img.Position.X.Offset + math.random(-30, 30), h + s), Rotation = img.Rotation + math.random(-60, 60) })
+				tw.Completed:Connect(function() img:Destroy() end)
+				tw:Play()
+			end
+			task.wait(every * (0.6 + math.random() * 0.8))
+		end
+	end)
+end
+local function lotPrice(l): number
+	if l.kind == "potion" then return Cfg.potionPrice(l.price, player:GetAttribute("Stage")) end
+	return l.price
+end
 local lotsCache = {}
 local function lotName(l): string
 	if l.kind == "pass" then return (MonCfg.Passes[l.pass] and MonCfg.Passes[l.pass].name) or l.pass end
+	if l.kind == "potion" then local d = potDef(l.potion); return d and d.name or (tostring(l.potion) .. " Potion") end
 	if l.min >= 60 then return (l.min // 60) .. (l.min >= 120 and " Hours" or " Hour") .. " Skip" end
 	return l.min .. " Min Skip"
 end
@@ -227,6 +258,7 @@ local function buy(c)
 	if ok and type(res) == "table" and res.ok then
 		UISounds.play("purchase", 0.1)
 		if res.kind == "pass" then toast(lotName(l) .. " unlocked!", "purple", "claim")
+		elseif res.kind == "potion" then toast("+1 " .. lotName(l) .. "!", "green", "claim")
 		else toast("+" .. NF.money(res.gain or 0) .. " Money!", "green", "claim") end
 	else
 		shake(c.btn.group or c.btn.root)
@@ -239,26 +271,58 @@ local function buildCards(lots)
 	for _, c in cards do c.root:Destroy() end
 	cards = {}
 	local n = #lots
-	local total = n * CARD_W + (n - 1) * CARD_GAP
+	-- ширина картки: 4–5 лотів — як було (214), 6 (скіпи + зілля + геймпас) — вужчі, щоб влізли у вікно
+	local cw = math.min(CARD_W, math.floor((WIN_W - 80 - (n - 1) * CARD_GAP) / math.max(1, n)))
+	local ch = CARD_H - 92
+	local total = n * cw + (n - 1) * CARD_GAP
 	local x0 = (WIN_W - total) / 2
 	for i, l in lots do
-		local x = x0 + (i - 1) * (CARD_W + CARD_GAP)
-		local col = Cfg.RARITY[l.rarity] or Cfg.RARITY.Common
-		local root = frame(cardsHolder, x, CARD_Y, CARD_W, CARD_H, nil, { BackgroundTransparency = 1, ZIndex = 4 })
-		frame(root, 0, 10, CARD_W, CARD_H - 92, BLACK, { BackgroundTransparency = 0.65, ZIndex = 4 })
-		local card = frame(root, 0, 0, CARD_W, CARD_H - 92, WHITE, { ZIndex = 5, ClipsDescendants = true })
+		local x = x0 + (i - 1) * (cw + CARD_GAP)
+		local pc = l.kind == "potion" and Cfg.potion(l.potion) or nil
+		local pd = l.kind == "potion" and potDef(l.potion) or nil
+		local col = pc and pc.col or (Cfg.RARITY[l.rarity] or Cfg.RARITY.Common)
+		local root = frame(cardsHolder, x, CARD_Y, cw, CARD_H, nil, { BackgroundTransparency = 1, ZIndex = 4 })
+		frame(root, 0, 10, cw, ch, BLACK, { BackgroundTransparency = 0.65, ZIndex = 4 })
+		local card = frame(root, 0, 0, cw, ch, WHITE, { ZIndex = 5, ClipsDescendants = true })
 		vgrad(card, { { 0, col[1] }, { 1, col[2] } }); stroke(card, INK, 5)
-		local gl = frame(card, 8, 8, CARD_W - 16, 110, WHITE, { ZIndex = 5 })
+		-- фон як у SHOP: візерунок StyleA (studs) + тінь донизу + іконки товару, що падають
+		local tile = pc and pc.tile or (Cfg.TILE[l.rarity] or "gray")
+		local A = StyleA.ASSETS
+		new("ImageLabel", { Name = "Pattern", BackgroundTransparency = 1, Image = A["stylea_tile_" .. tile] or A["stylea_tile_" .. tile .. "_half"] or A.stylea_tile_gray,
+			ImageTransparency = 0.15, ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(PATTERN_TILE, PATTERN_TILE), Size = UDim2.fromOffset(cw, ch), ZIndex = 1 }, card)
+		local shade = frame(card, 0, 0, cw, ch, BLACK, { Name = "Shade", ZIndex = 1 })
+		new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.85), NumberSequenceKeypoint.new(1, 0.6) }) }, shade)
+		local rainIcon = l.kind == "pass" and ((MonCfg.Passes[l.pass] and MonCfg.Passes[l.pass].icon) or "") or (pd and pd.icon or SKIP_ICON)
+		local clip = frame(card, 0, 0, cw, ch, nil, { Name = "Rain", BackgroundTransparency = 1, ZIndex = 2, ClipsDescendants = true })
+		startRain(clip, rainIcon, cw, ch, 0.75)
+		local gl = frame(card, 8, 8, cw - 16, 110, WHITE, { ZIndex = 3 })
 		new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(1, 1) }) }, gl)
-		fit(label(card, 10, 10, CARD_W - 20, 30, 24, string.upper(l.rarity == "Pass" and "Rare Pass" or l.rarity), WHITE, 3, { ZIndex = 7 }), 24)
-		local icon = l.kind == "pass" and ((MonCfg.Passes[l.pass] and MonCfg.Passes[l.pass].icon) or "") or SKIP_ICON
-		new("ImageLabel", { BackgroundTransparency = 1, Image = icon, ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(CARD_W / 2, 118), Size = UDim2.fromOffset(140, 140), Rotation = -8, ZIndex = 6 }, card)
-		fit(label(card, 10, 196, CARD_W - 20, 40, 32, lotName(l), WHITE, 4, { ZIndex = 7 }), 32)
-		local gain = fit(label(card, 10, 240, CARD_W - 20, 34, 28, "", C("b8ff5a"), 3.5, { ZIndex = 7 }), 28)
-		local left = fit(label(card, 10, 300, CARD_W - 20, 30, 24, "", WHITE, 3, { ZIndex = 7, FontFace = XBOLD }), 24)
-		local btn = makeButton(root, 0, CARD_H - 80, CARD_W, 70, { shadowDy = 6, color = "blue", icon = nil, z = 6 })
-		local row = new("Frame", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(CARD_W / 2, 32),
+		fit(label(card, 10, 10, cw - 20, 30, 24, string.upper(l.rarity == "Pass" and "Rare Pass" or (l.kind == "potion" and "Potion" or l.rarity)), WHITE, 3, { ZIndex = 7 }), 24)
+		local isz = math.min(140, cw - 40)
+		if pd then -- зілля — 3D-модель (як у SHOP / інвентарі)
+			local ic = new("ImageLabel", { BackgroundTransparency = 1, Image = pd.icon, ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromOffset(cw / 2, 118), Size = UDim2.fromOffset(isz, isz), ZIndex = 6 }, card)
+			ItemViewport.set(ic, "Pot_" .. pd.key, 1.12)
+		else
+			local icon = l.kind == "pass" and ((MonCfg.Passes[l.pass] and MonCfg.Passes[l.pass].icon) or "") or SKIP_ICON
+			for _, m in { { 6, INK, 0.35, 5 }, { 0, WHITE, 0, 6 } } do
+				new("ImageLabel", { BackgroundTransparency = 1, Image = icon, ImageColor3 = m[2], ImageTransparency = m[3], ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromOffset(cw / 2, 118 + m[1]), Size = UDim2.fromOffset(isz, isz), Rotation = -8, ZIndex = m[4] }, card)
+			end
+			if l.kind == "skip" then -- купюра поверх годинника (правий нижній кут), як TIME SKIPS у SHOP
+				local cs = math.floor(isz * 0.58)
+				for _, m in { { 4, INK, 0.35, 6 }, { 0, WHITE, 0, 7 } } do
+					new("ImageLabel", { BackgroundTransparency = 1, Image = CASH_ICON, ImageColor3 = m[2], ImageTransparency = m[3], ScaleType = Enum.ScaleType.Fit,
+						AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cw / 2 + isz * 0.32, 118 + isz * 0.32 + m[1]),
+						Size = UDim2.fromOffset(cs, cs), Rotation = -8, ZIndex = m[4] }, card)
+				end
+			end
+		end
+		fit(label(card, 10, 196, cw - 20, 40, 32, lotName(l), WHITE, 4, { ZIndex = 7 }), 32)
+		local gain = fit(label(card, 10, 240, cw - 20, 34, 28, "", C("b8ff5a"), 3.5, { ZIndex = 7 }), 28)
+		local left = fit(label(card, 10, 300, cw - 20, 30, 24, "", WHITE, 3, { ZIndex = 7, FontFace = XBOLD }), 24)
+		local btn = makeButton(root, 0, CARD_H - 80, cw, 70, { shadowDy = 6, color = "blue", icon = nil, z = 6 })
+		local row = new("Frame", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cw / 2, 32),
 			Size = UDim2.fromOffset(0, 60), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 9 }, btn.root)
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, row)
 		local bIcon = new("ImageLabel", { BackgroundTransparency = 1, Image = DIA_ICON, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(38, 38), LayoutOrder = 1, ZIndex = 9 }, row)
@@ -284,14 +348,17 @@ local function refreshCards()
 		local c = cards[i]
 		if c then
 			c.lot = l
-			if l.kind == "skip" then c.gain.Text = "+" .. NF.money(rate * l.min) else c.gain.Text = "Gamepass" end
+			if l.kind == "skip" then c.gain.Text = "+" .. NF.money(rate * l.min)
+			elseif l.kind == "potion" then local d = potDef(l.potion); c.gain.Text = d and d.desc or ""
+			else c.gain.Text = "Gamepass" end
 			c.left.Text = l.stock .. " / " .. l.max .. " LEFT"
 			local owned = l.kind == "pass" and player:GetAttribute("Pass_" .. l.pass) == true
 			if owned then c.btn:setColor("gray"); c.bIcon.Visible = false; c.bText.Text = "OWNED"
 			elseif l.stock <= 0 then c.btn:setColor("gray"); c.bIcon.Visible = false; c.bText.Text = "SOLD OUT"
 			else
-				c.bIcon.Visible = true; c.bText.Text = NF.full(l.price)
-				c.btn:setColor(dia >= l.price and "blue" or "gray")
+				local price = lotPrice(l)
+				c.bIcon.Visible = true; c.bText.Text = NF.full(price)
+				c.btn:setColor(dia >= price and "blue" or "gray")
 			end
 		end
 	end

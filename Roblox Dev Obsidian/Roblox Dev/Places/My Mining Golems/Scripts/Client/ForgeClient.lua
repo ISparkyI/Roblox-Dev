@@ -509,7 +509,13 @@ end)
 
 -- ===== політ руди в піч (тільки візуал) =====
 local flyers = {}
-local CHUNK = { "ChunkCoal", "ChunkCopper", "ChunkIron" } -- Union-моделі руди (ті самі, що на піддоні)
+-- руда кузні — руда мапи її ніші (29.10.2026): тип t (1..3) → ключ руди
+local curForge: Instance? = nil
+local function oreAt(t: number): any
+	local n = curForge and curForge.Parent
+	return Cfg.oresFor(n and n:GetAttribute("Stage") or 1)[t] or ORE[t]
+end
+local CHUNK = setmetatable({}, { __index = function(_, t) local o = oreAt(t) return o and ("Chunk" .. o.key) or nil end })
 local function fly(from: Vector3, to: Vector3, color: Color3, size: Vector3, dur: number, t: number?)
 	local tpl = PROPS and t and PROPS:FindFirstChild(CHUNK[t] or "")
 	local p
@@ -534,7 +540,7 @@ local function jobUpdate(r, dt, clock)
 		if r.ingotLight then r.ingotLight.Brightness = 0 end
 		return
 	end
-	local bar = ORE[job.t].bar
+	local bar = oreAt(job.t).bar
 	ing.Transparency = 0
 	local k = r.k or 1
 	if job.phase == "toAnvil" then
@@ -708,6 +714,7 @@ RunService.RenderStepped:Connect(function(dt)
 	local clock = os.clock()
 	for f, r in recs do
 		if not f.Parent then recs[f] = nil continue end
+		curForge = f
 		-- нова переплавка на сервері → руда летить у піч і стає в чергу
 		local seq = f:GetAttribute("SmeltSeq") or 0
 		r.k = tempoOf(f)
@@ -716,7 +723,7 @@ RunService.RenderStepped:Connect(function(dt)
 			r.seq = seq
 			local t = f:GetAttribute("SmeltType") or 1
 			if r.flyFrom and r.mouth and n > 0 then
-				fly(r.flyFrom.Position, r.mouth.Position, ORE[t].color, V(0.62, 0.62, 0.62) * S, 0.5 / r.k, t)
+				fly(r.flyFrom.Position, r.mouth.Position, oreAt(t).color, V(0.62, 0.62, 0.62) * S, 0.5 / r.k, t)
 				if #r.queue < QUEUE_MAX then table.insert(r.queue, { t = t, ready = clock + 0.9 / r.k }) end
 			end
 		end
@@ -855,10 +862,17 @@ local function refreshPanels()
 			local cp, sp = Cfg.capPrice(cl), Cfg.spdPrice(sl)
 			local smax = Cfg.spdMax(sl)
 			local cap, spd = pn.cards.Cap, pn.cards.Spd
-			cap.value.Text = string.format('<font color="#FFFFFF">%s</font>  <font color="#D4FF3E">›  %s</font>', NF.money(Cfg.capOf(cl)), NF.money(Cfg.capOf(cl + 1)))
-			cap.sa:setText(NF.money(cp))
-			cap.sa:setColor(money >= cp and "green" or "gray")
-			pn.can.Cap = working and money >= cp
+			if Cfg.capMax(cl) then -- економіка v2: місткість має максимум
+				cap.value.Text = string.format('<font color="#D4FF3E">MAX (%s)</font>', NF.money(Cfg.capOf(cl)))
+				cap.sa:setText("MAX")
+				cap.sa:setColor("gray")
+				pn.can.Cap = false
+			else
+				cap.value.Text = string.format('<font color="#FFFFFF">%s</font>  <font color="#D4FF3E">›  %s</font>', NF.money(Cfg.capOf(cl)), NF.money(Cfg.capOf(cl + 1)))
+				cap.sa:setText(NF.money(cp))
+				cap.sa:setColor(money >= cp and "green" or "gray")
+				pn.can.Cap = working and money >= cp
+			end
 			if smax then
 				spd.value.Text = string.format('<font color="#D4FF3E">MAX (%.2fs)</font>', Cfg.spdOf(sl))
 				spd.sa:setText("MAX")

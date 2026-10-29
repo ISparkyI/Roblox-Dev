@@ -29,7 +29,19 @@ local DataService = require(script.Parent:WaitForChild("DataService"))
 local MultiService = require(script.Parent:WaitForChild("MultiService"))
 
 local ForgeService = {}
-local ORE = Cfg.ORES
+-- руда кузні — руда мапи її ніші (атрибут ніші Stage; 29.10.2026)
+local function oresOf(f: Instance): { any }
+	local n = f.Parent
+	return Cfg.oresFor(n and n:GetAttribute("Stage") or 1)
+end
+local function stageOf(f: Instance): number
+	local n = f.Parent
+	return tonumber(n and n:GetAttribute("Stage")) or 1
+end
+local function wakeOf(f: Instance): any
+	local n = f.Parent
+	return Cfg.wakeFor(n and n:GetAttribute("Stage") or 1)
+end
 local forges: { [Model]: { timer: number, rr: number, bars: { number }, flying: number } } = {}
 
 -- ===== тестовий «інвентар» на атрибутах гравця =====
@@ -48,11 +60,13 @@ local function invFree(p: Player, key: string, locked: { [string]: boolean }): n
 local function now() return workspace:GetServerTimeNow() end
 local function attr(f: Model, k: string): number return (f:GetAttribute(k) :: number?) or 0 end
 local function palValue(f: Model): number
+	local ORE = oresOf(f)
 	local v = 0
 	for _, o in ORE do v += attr(f, "Pal_" .. o.key) * o.price end
 	return v
 end
 local function palCount(f: Model): number
+	local ORE = oresOf(f)
 	local c = 0
 	for _, o in ORE do c += attr(f, "Pal_" .. o.key) end
 	return c
@@ -60,6 +74,7 @@ end
 
 -- ===== вигляд: табличка над колом, табло, піддони =====
 local function refresh(f: Model)
+	local ORE = oresOf(f)
 	local st = f:GetAttribute("State")
 	local sign = f:FindFirstChild("Ring") and f.Ring:FindFirstChild("SignAnchor")
 	if sign and sign:FindFirstChild("ForgeSign") then
@@ -109,17 +124,25 @@ end
 local function upgrade(f: Model, p: Player, which: string)
 	if ownerOf(f) ~= p or f:GetAttribute("State") ~= "Working" then return end
 	if which == "Cap" then
-		local l = attr(f, "CapLvl"); local price = Cfg.capPrice(l)
-		if invGet(p, "Money") < price then return end
+		local l = attr(f, "CapLvl"); local price = Cfg.capPrice(l, stageOf(f))
+		if Cfg.capMax(l) or invGet(p, "Money") < price then return end
 		invAdd(p, "Money", -price); f:SetAttribute("CapLvl", l + 1)
 	elseif which == "Spd" then
-		local l = attr(f, "SpdLvl"); local price = Cfg.spdPrice(l)
+		local l = attr(f, "SpdLvl"); local price = Cfg.spdPrice(l, stageOf(f))
 		if Cfg.spdMax(l) or invGet(p, "Money") < price then return end
 		invAdd(p, "Money", -price); f:SetAttribute("SpdLvl", l + 1)
 	elseif which == "Oph" then
-		local l = math.max(1, attr(f, "OphLvl")); local price = Cfg.ophPrice(l)
+		local l = math.max(1, attr(f, "OphLvl")); local price = Cfg.ophPrice(l, stageOf(f))
 		if Cfg.ophMax(l) or invGet(p, "Money") < price then return end
 		invAdd(p, "Money", -price); f:SetAttribute("OphLvl", l + 1)
+	elseif which == "Auto" then -- Auto Workshop: куплено / геймпас — перемикач ON / OFF; інакше покупка (з мапи AUTO_MIN_STAGE)
+		if Cfg.autoOwned(p, f) then
+			p:SetAttribute("Set_AutoWorkshop", p:GetAttribute("Set_AutoWorkshop") == false)
+		else
+			if stageOf(f) < Cfg.AUTO_MIN_STAGE or invGet(p, "Money") < Cfg.AUTO_PRICE then return end
+			invAdd(p, "Money", -Cfg.AUTO_PRICE); f:SetAttribute("AutoLvl", 2)
+			p:SetAttribute("Set_AutoWorkshop", true)
+		end
 	end
 	refresh(f)
 end
@@ -127,9 +150,22 @@ end
 local function init(f: Model)
 	if forges[f] then return end
 	forges[f] = { timer = 0, rr = 1, bars = {}, flying = 0 }
+	local ORE = oresOf(f)
+	-- піддони: кубики руди й злитки фарбуються в руду мапи цієї ніші (префаби мап — копії мапи 1)
+	local pal = f:FindFirstChild("Pallets")
+	if pal then
+		for _, d in pal:GetDescendants() do
+			if d:IsA("BasePart") then
+				local t = d:GetAttribute("Ore") :: number?
+				local bt = d:GetAttribute("BarType") :: number?
+				if t and ORE[t] then d.Color = ORE[t].color end
+				if bt and ORE[bt] then d.Color = ORE[bt].bar; if d:IsA("UnionOperation") then d.UsePartColor = true end end
+			end
+		end
+	end
 	f:SetAttribute("State", "Asleep"); f:SetAttribute("StateTime", now())
 	for _, o in ORE do f:SetAttribute("Wake_" .. o.key, 0); f:SetAttribute("Pal_" .. o.key, 0); f:SetAttribute("Bars_" .. o.key, 0) end
-	f:SetAttribute("CapLvl", 1); f:SetAttribute("SpdLvl", 1); f:SetAttribute("OphLvl", 1); f:SetAttribute("Busy", false)
+	f:SetAttribute("CapLvl", 1); f:SetAttribute("SpdLvl", 1); f:SetAttribute("OphLvl", 1); f:SetAttribute("AutoLvl", 1); f:SetAttribute("Busy", false)
 	f:SetAttribute("SmeltSeq", 0); f:SetAttribute("SmeltType", 1); f:SetAttribute("SmeltCount", 1)
 	f.AncestryChanged:Connect(function() if not f:IsDescendantOf(workspace) then forges[f] = nil end end)
 	refresh(f)
@@ -152,10 +188,12 @@ end
 local function onAction(p: Player, action: any, arg: any)
 	if action == "Upgrade" then -- клік по екрану табла (табло стоїть окремо від кола, тому без перевірки кола)
 		local f = forgeOf(p)
-		if f and (arg == "Cap" or arg == "Spd" or arg == "Oph") then upgrade(f, p, arg) end
+		if f and (arg == "Cap" or arg == "Spd" or arg == "Oph" or arg == "Auto") then upgrade(f, p, arg) end
 		return
 	end
 	if action == "TestOre" then -- ТЕСТ: +10 руди, як від големів (60 / 30 / 10%)
+		local fo = forgeOf(p)
+		local ORE = fo and oresOf(fo) or Cfg.oresFor(1)
 		for _ = 1, 10 do local r = math.random(); invAdd(p, "Ore_" .. ORE[r < 0.6 and 1 or r < 0.9 and 2 or 3].key, 1) end
 		return
 	end
@@ -163,15 +201,17 @@ local function onAction(p: Player, action: any, arg: any)
 	if not f or not inRing(p, f) then return end
 	local st = f:GetAttribute("State")
 	local locked = lockedSet(p)
+	local ORE = oresOf(f)
+	local WAKE = wakeOf(f)
 	if action == "Give" and st == "Asleep" then
 		for i, o in ORE do
-			local need = Cfg.WAKE_REQ[i] - attr(f, "Wake_" .. o.key)
+			local need = WAKE.req[i] - attr(f, "Wake_" .. o.key)
 			local k = math.min(invFree(p, "Ore_" .. o.key, locked), need)
 			if k > 0 then invAdd(p, "Ore_" .. o.key, -k); f:SetAttribute("Wake_" .. o.key, attr(f, "Wake_" .. o.key) + k) end
 		end
 	elseif action == "Wake" and st == "Asleep" then
-		for i, o in ORE do if attr(f, "Wake_" .. o.key) < Cfg.WAKE_REQ[i] then return end end
-		local wm = Cfg.WAKE_MONEY or 0
+		for i, o in ORE do if attr(f, "Wake_" .. o.key) < WAKE.req[i] then return end end
+		local wm = WAKE.money or 0
 		if wm > 0 then
 			if invGet(p, "Money") < wm then return end
 			invAdd(p, "Money", -wm)
@@ -179,7 +219,7 @@ local function onAction(p: Player, action: any, arg: any)
 		setState(f, "Waking")
 		task.delay(Cfg.WAKE_TIME, function() if f.Parent and f:GetAttribute("State") == "Waking" then setState(f, "Working") end end)
 	elseif action == "Put" and st == "Working" then
-		local room = Cfg.capOf(attr(f, "CapLvl")) - palValue(f)
+		local room = Cfg.capOf(attr(f, "CapLvl"), stageOf(f)) - palValue(f)
 		for i = #ORE, 1, -1 do -- спершу найдорожча руда
 			local o = ORE[i]
 			local k = Cfg.canSmelt(o) and math.min(invFree(p, "Ore_" .. o.key, locked), math.floor(room / o.price)) or 0 -- вугілля на піддон не кладемо
@@ -190,7 +230,7 @@ local function onAction(p: Player, action: any, arg: any)
 		local want = math.floor(arg.n)
 		for _, o in ORE do
 			if o.key == arg.ore and Cfg.canSmelt(o) then
-				local room = Cfg.capOf(attr(f, "CapLvl")) - palValue(f)
+				local room = Cfg.capOf(attr(f, "CapLvl"), stageOf(f)) - palValue(f)
 				local k = math.min(want, invFree(p, "Ore_" .. o.key, locked), math.floor(room / o.price))
 				if k > 0 then invAdd(p, "Ore_" .. o.key, -k); f:SetAttribute("Pal_" .. o.key, attr(f, "Pal_" .. o.key) + k) end
 				break
@@ -233,6 +273,7 @@ end
 local function step(dt: number)
 	for f, s in forges do
 		if f:GetAttribute("State") == "Working" then
+			local ORE = oresOf(f)
 			s.timer += dt
 			if palCount(f) > 0 and s.timer >= spdFor(f) then
 				s.timer = 0
@@ -280,10 +321,12 @@ local function forgeSection(p: Player, old: any): any
 	local f = forgeOf(p)
 	if not f or not forges[f] then return old end -- ніша вже зібрана заново / ще не готова — лишаємо попереднє
 	local st = f:GetAttribute("State")
+	local ORE = oresOf(f)
 	local sec: any = {
 		stage = (f.Parent and f.Parent:GetAttribute("Stage")) or 1,
 		awake = (st == "Working" or st == "Waking"),
 		CapLvl = attr(f, "CapLvl"), SpdLvl = attr(f, "SpdLvl"), OphLvl = math.max(1, attr(f, "OphLvl")),
+		AutoLvl = math.max(1, attr(f, "AutoLvl")), -- Auto Workshop за Money (скидається разом із секцією на новій мапі)
 	}
 	for _, o in ORE do
 		sec["Wake_" .. o.key] = attr(f, "Wake_" .. o.key)
@@ -296,10 +339,12 @@ end
 local function applyForgeSection(f: Model, sec: any)
 	local s = forges[f]
 	if not s or type(sec) ~= "table" then return end
+	local ORE = oresOf(f)
 	if (sec.stage or 1) ~= ((f.Parent and f.Parent:GetAttribute("Stage")) or 1) then return end -- дані іншого етапу
 	f:SetAttribute("CapLvl", math.max(1, sec.CapLvl or 1))
 	f:SetAttribute("SpdLvl", math.max(1, sec.SpdLvl or 1))
 	f:SetAttribute("OphLvl", math.clamp(sec.OphLvl or 1, 1, Cfg.OPH_MAX))
+	f:SetAttribute("AutoLvl", math.clamp(sec.AutoLvl or 1, 1, 2))
 	table.clear(s.bars)
 	for t, o in ORE do
 		f:SetAttribute("Wake_" .. o.key, math.max(0, sec["Wake_" .. o.key] or 0))
@@ -341,12 +386,12 @@ function ForgeService.Start()
 	niches.ChildAdded:Connect(watchNiche)
 	for _, n in niches:GetChildren() do task.spawn(watchNiche, n) end
 
-	local function onPlayer(p: Player) -- ТЕСТ: стартова руда й гроші (тільки якщо у збережених даних їх немає)
+	local function onPlayer(p: Player) -- стартові значення (тільки якщо у збережених даних їх немає); тестову стартову руду прибрано
 		if not DataService.WaitLoaded(p) then return end
 		if p:GetAttribute("Money") == nil then p:SetAttribute("Money", Cfg.TEST_START.Money) end
 		if p:GetAttribute("TotalMulti") == nil then p:SetAttribute("TotalMulti", 1) end
-		for i, o in ORE do
-			if p:GetAttribute("Ore_" .. o.key) == nil then p:SetAttribute("Ore_" .. o.key, Cfg.TEST_START.Ore[i]) end
+		for _, o in Cfg.ALL_ORES do
+			if p:GetAttribute("Ore_" .. o.key) == nil then p:SetAttribute("Ore_" .. o.key, 0) end
 			if p:GetAttribute("Bars_" .. o.key) == nil then p:SetAttribute("Bars_" .. o.key, 0) end
 		end
 	end
@@ -354,6 +399,40 @@ function ForgeService.Start()
 	for _, p in Players:GetPlayers() do task.spawn(onPlayer, p) end
 
 	RunService.Heartbeat:Connect(step)
+
+	-- Auto Workshop (29.10.2026): раз на секунду для кожної кузні, де власник має Auto Workshop (картка або геймпас) і перемикач
+	-- не вимкнено: руда мапи з інвентаря → на піддон (спершу найдорожча, до місткості), готові злитки → в інвентар
+	-- (далі їх може продати Auto Sell). Атрибут гравця AutoWorkshopOn — для AutoSellService (руду для переплавки той не продає).
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			for f in forges do
+				local ok, err = pcall(function()
+					local p = f.Parent and NicheService.GetOwner(f.Parent)
+					if not p or not DataService.IsLoaded(p) then return end
+					local on = Cfg.autoOwned(p, f) and p:GetAttribute("Set_AutoWorkshop") ~= false
+					if p:GetAttribute("AutoWorkshopOn") ~= on then p:SetAttribute("AutoWorkshopOn", on) end
+					if not on or f:GetAttribute("State") ~= "Working" then return end
+					local ORE = oresOf(f)
+					local locked = lockedSet(p)
+					local room = Cfg.capOf(attr(f, "CapLvl"), stageOf(f)) - palValue(f)
+					for i = #ORE, 1, -1 do
+						local o = ORE[i]
+						local k = Cfg.canSmelt(o) and math.min(invFree(p, "Ore_" .. o.key, locked), math.floor(room / o.price)) or 0
+						if k > 0 then invAdd(p, "Ore_" .. o.key, -k); f:SetAttribute("Pal_" .. o.key, attr(f, "Pal_" .. o.key) + k); room -= k * o.price end
+					end
+					local took = false
+					for _, o in ORE do
+						local k = attr(f, "Bars_" .. o.key)
+						if k > 0 then invAdd(p, "Bars_" .. o.key, k); questAdd(p, "Smelt", k); f:SetAttribute("Bars_" .. o.key, 0); took = true end
+					end
+					if took and forges[f] then table.clear(forges[f].bars) end
+					refresh(f)
+				end)
+				if not ok then warn("ForgeService auto: " .. tostring(err)) end
+			end
+		end
+	end)
 end
 
 return ForgeService

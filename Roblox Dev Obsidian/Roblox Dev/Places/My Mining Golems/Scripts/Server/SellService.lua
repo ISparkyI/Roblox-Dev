@@ -61,7 +61,7 @@ local function onAction(p: Player, action: any, arg: any)
 	local base = 0
 	local units = 0
 	local locked = lockedSet(p)
-	for _, o in Cfg.ORES do
+	for _, o in Cfg.ALL_ORES do -- руда всіх мап (29.10.2026)
 		for _, kind in { "Ore_", "Bars_" } do
 			local key = kind .. o.key
 			local n = arg[key]

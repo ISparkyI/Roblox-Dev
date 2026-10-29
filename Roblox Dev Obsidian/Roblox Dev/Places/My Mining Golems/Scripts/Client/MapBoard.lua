@@ -93,7 +93,7 @@ local function progressOf(owner: Player?): number
 	local sum, n = 0, 0
 	for _, key in Cfg.CARD_ORDER do
 		local def = Cfg.CARDS[key]
-		if def and Cfg.cardOpen(key, stage) and def.max > 1 then
+		if def and Cfg.cardOpen(key, stage) and def.max > 1 and not def.optional then -- Auto Sell (optional) не рахується
 			local l = math.clamp(math.floor(tonumber(lv[key]) or 1), 1, def.max)
 			sum += (l - 1) / (def.max - 1); n += 1
 		end
@@ -195,8 +195,10 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 	end
 	if mine then
 		StyleA.bind(sa, { hoverAlways = true, canClick = function() return pn.pct >= 1 and near() end, onClick = function()
-			-- перехід з'явиться разом із префабом другої мапи
-			screenToast("Next map is coming soon!", "yellow")
+			-- перехід на наступну мапу (сервер MapService перевіряє умови й скидає дані за GDD)
+			local r = RS:FindFirstChild("Remotes")
+			local ev = r and r:FindFirstChild("MapAction")
+			if ev then ev:FireServer("Next") end
 		end })
 		sa.button.Activated:Connect(function()
 			if not near() then screenToast("Come a bit closer to the board!", "red", "deny")
@@ -233,6 +235,25 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 	end
 	return pn
 end
+
+-- відповідь сервера на MAP N
+task.spawn(function()
+	local r = RS:WaitForChild("Remotes", 60)
+	local ev = r and r:WaitForChild("MapAction", 60)
+	if not ev then return end
+	ev.OnClientEvent:Connect(function(kind, arg)
+		local ui = RS:FindFirstChild("UIEvents")
+		local b = ui and ui:FindFirstChild("Toast")
+		if not b then return end
+		if kind == "Done" then
+			b:Fire("Welcome to Map " .. tostring(arg) .. " · " .. (MAP_NAMES[tonumber(arg) or 0] or "") .. "!", "green", "purchase")
+		elseif kind == "Deny" then
+			local t = arg == "soon" and "Next map is coming soon!" or arg == "plots" and "Max all plot upgrades first!"
+				or arg == "far" and "Come a bit closer to the board!" or "Can't move to the next map right now"
+			b:Fire(t, arg == "soon" and "yellow" or "red", "deny")
+		end
+	end)
+end)
 
 local panels = {} -- [niche] = pn
 local function refresh()

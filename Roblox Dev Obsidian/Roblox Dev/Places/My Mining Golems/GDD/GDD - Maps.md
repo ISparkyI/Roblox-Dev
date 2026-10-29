@@ -17,7 +17,7 @@ updated: 2026-10-25
 > [!note] Назва
 > Раніше — «етапи» (Stage). За рішенням користувача в грі й документах тепер **Map / мапа** (рядок «Map» у плашці множників, «Map 1 · Mossy Grotto» на табличці ніші). Ідентифікатори в коді й даних лишились старі (`Stage`, `NichePrefab_Stage1`, `STAGE_MULTS`, scope `stage`), щоб не зламати збереження; так само назва нотатки локації Niche Stage 1.
 
-6 мап. На кожній мапі — 3 нові руди; нові големи — за колонкою «Мапа» в таблиці майнера (GDD - Golems). Руди попередніх мап на новій мапі не спавняться, і навпаки: руду наступної мапи не можна фармити раніше. Частина ніші змінює вигляд через префаб мапи (мапа 1 — [Niche Stage 1](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FNiche%20Stage%201%2FNiche%20Stage%201)).
+7 мап (оновлено 29.10.2026 за моделями руди в Studio). На кожній мапі — 3 нові руди; нові големи — за колонкою «Мапа» в таблиці майнера (GDD - Golems). Руди попередніх мап на новій мапі не спавняться, і навпаки: руду наступної мапи не можна фармити раніше. Частина ніші змінює вигляд через префаб мапи (мапа 1 — [Niche Stage 1](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FNiche%20Stage%201%2FNiche%20Stage%201)).
 
 | Мапа | Назва | Як виглядає | Нові големи | Руди | Ціна переходу (пропозиція) |
 | --- | --- | --- | --- | --- | --- |
@@ -25,8 +25,9 @@ updated: 2026-10-25
 | 2 | **Rusty Mine** | стара шахта: рейки, вагонетки, дерев'яні підпори, іржа | — | Tin, Silver, Gold | 1M |
 | 3 | **Crystal Depths** | світні блакитні й фіолетові кристали, відблиски | Legendary (Magmaheart, Ruby) | Quartz, Amethyst, Sapphire | 25M |
 | 4 | **Magma Caverns** | ріки лави, чорний базальт, іскри | Mythic | Obsidian, Ruby, Emberite | 625M |
-| 5 | **Frozen Abyss** | лід, сніг, бурульки, холодне світло | Divine | Frostite, Platinum, Diamond | 15.62B |
-| 6 | **Void Core** | темна порожнеча, левітуючі брили, зорі | Celestial | Voidstone, Starmetal, Celestium | 390.62B |
+| 5 | **Frozen Abyss** | лід, сніг, бурульки, холодне світло | Divine | Frostite, Platinum, Celestium | 15.62B |
+| 6 | **Void Core** | темна порожнеча, левітуючі брили, зорі | Celestial | Voidstone, Starmetal, Eclipsium | 390.62B |
+| 7 | **Toxic Wastes** *(пропозиція)* | отруйно-зелене світло, токсичні калюжі, радіоактивні кристали *(пропозиція)* | *(уточнити)* | Toxite, Uranite, Venomite | 9.77T *(×25, пропозиція)* |
 
 **Що скидається при переході на нову мапу:**
 

@@ -27,6 +27,8 @@
 --   (кнопки StyleA — сам StyleA.bind), claim на Claim / Claim All. Пігулки мутацій — у горизонтальному ScrollingFrame (повзунок 4 px), лічильник
 --   усередині пігулки справа. Іконки на кнопках — у «safe area» (відступ ≈ 10 % висоти кнопки з усіх боків).
 --   Bosses — заглушка в тому ж стилі.
+-- 30.10.2026: група Exclusive (GolemCatalog.EXCLUSIVES: Mushroom) — в кінці сторінки Normal кожного класу (після Celestial); замість шансу —
+--   як отримати (Catalog.howToGet: Group / Daily / Soon). У лічильники N / 576 не входять, Claim — як за Normal.
 -- Відкриття: кнопка Index у HUD (MainHUD → ReplicatedStorage/UIEvents/HUDButton "Index"; повторне натискання — закрити).
 --   Закриття — X, Esc, клік поза вікном. Одне вікно за раз: при відкритті закривається Inventory і ховаються Forge / Sell / PlotPlace;
 --   відкрили Inventory (кнопка або B) — Index закривається.
@@ -398,6 +400,7 @@ end
 local function pageClaim(cls: string, k: number): number
 	local n = 0
 	for _, g in GOLEMS do if claimable(keyOf(g.id, cls, k)) then n += 1 end end
+	if k == 0 then for _, id in Catalog.EXCLUSIVES or {} do if claimable(keyOf(id, cls, 0)) then n += 1 end end end
 	return n
 end
 local function classClaim(cls: string): number
@@ -894,7 +897,26 @@ do
 		end
 		y += math.ceil(#list / GCOLS) * (S + GG) + 2
 	end
+	-- ексклюзиви — остання група, лише на сторінці Normal (висота стрічки — атрибути HAll / HNoEx
+	-- самої стрічки: нові локальні верхнього рівня не додаємо — скрипт біля ліміту 200)
+	gstrip:SetAttribute("HNoEx", y + GP - 2)
+	local exl = {}
+	for _, id in Catalog.EXCLUSIVES or {} do local g = Catalog.get(id); if g then table.insert(exl, g) end end
+	if #exl > 0 then
+		local grp = { r = "Exclusive", list = exl, cnt = groupHeader(gstrip, y, Catalog.rarityColor("Exclusive"), "Exclusive"), y = y, excl = true, items = {} }
+		table.insert(groups, grp)
+		y += HDR_H + HDR_GAP
+		for i, g in exl do
+			local c = makeCard(gstrip, GP + ((i - 1) % GCOLS) * (S + GG), y + math.floor((i - 1) / GCOLS) * (S + GG), "Card_" .. g.id, true)
+			c.group = grp
+			c.g = g
+			cards[g.id] = c
+			table.insert(grp.items, c)
+		end
+		y += math.ceil(#exl / GCOLS) * (S + GG) + 2
+	end
 	gH = y + GP - 2
+	gstrip:SetAttribute("HAll", gH)
 	gstrip.Size = UDim2.fromOffset(GW, gH)
 end
 
@@ -981,7 +1003,14 @@ task.spawn(function()
 end)
 
 renderGrid = function(resetScroll: boolean)
+	-- ексклюзиви — лише на Normal: інакше ховаємо групу й коротшаємо стрічку
+	gH = (mut == 0 and gstrip:GetAttribute("HAll")) or gstrip:GetAttribute("HNoEx") or gH
+	gstrip.Size = UDim2.fromOffset(GW, gH)
 	for _, grp in groups do
+		if grp.excl then
+			grp.cnt.Parent.Visible = mut == 0
+			for _, c in grp.items do c.holder.Visible = mut == 0 end
+		end
 		local n = 0
 		for _, g in grp.list do if found[keyOf(g.id, cls, mut)] then n += 1 end end
 		local done = n == #grp.list
@@ -992,7 +1021,8 @@ renderGrid = function(resetScroll: boolean)
 		local g = c.g
 		local k = keyOf(id, cls, mut)
 		c.set({ found = found[k] == true, claim = claimable(k) and REWARD[mut + 1] or nil, sel = sel == id, tone = Catalog.rarityColor(g.rarity),
-			name = g.name, icon = Catalog.icon(id), vp = ItemVP.golemKey(id, cls), odds = oddsTxt(id, mut), mut = mut })
+			name = g.name, icon = Catalog.icon(id), vp = ItemVP.golemKey(id, cls),
+			odds = g.rarity == "Exclusive" and Catalog.howToGet(id, cls, true) or oddsTxt(id, mut), mut = mut })
 	end
 	if resetScroll then gscroll = 0 end -- при відкритті й зміні класу / мутації — на початок
 	setG(gscroll)
@@ -1072,9 +1102,10 @@ renderInfo = function()
 	MutationText.apply(infoMut, mut)
 	local k1 = math.max(info.AbsoluteSize.X / 646, 0.01) -- TextBounds — у пікселях екрана
 	infoMut.Position = UDim2.fromOffset(104 + infoSub.TextBounds.X / k1 + 4, infoMut.Position.Y.Offset)
-	infoStat.Text = isFound and statRich(g.id, cls, mut) or L("Roll it to reveal stats")
-	oddsTitle.Text = "ROLL CHANCE"
-	oddsTx.Text = oddsTxt(g.id, mut)
+	local ex = g.rarity == "Exclusive" -- ексклюзив: замість шансу — як отримати
+	infoStat.Text = isFound and statRich(g.id, cls, mut) or L(ex and "Get it to reveal stats" or "Roll it to reveal stats")
+	oddsTitle.Text = ex and "HOW TO GET" or "ROLL CHANCE"
+	oddsTx.Text = ex and Catalog.howToGet(g.id, cls) or oddsTxt(g.id, mut)
 	oddsTx.TextColor3 = isFound and WHITE or C("c9ced4")
 	fitText(oddsTx, 26, 18)
 	rewardLine(k, REWARD[mut + 1])
@@ -1275,6 +1306,7 @@ render = function(animate: boolean?)
 		ch.ct.TextColor3 = n == PAGE and RING or (on and WHITE or MUTED)
 		ch.root.ZIndex = on and 5 or 4
 	end
+	if sel and mut ~= 0 and cards[sel] and cards[sel].group.excl then sel = nil end -- ексклюзиви — лише на Normal
 	local n, d = totals()
 	collTitle.Text = "All Golems"
 	collTxt.Text = n .. " / " .. TOTAL

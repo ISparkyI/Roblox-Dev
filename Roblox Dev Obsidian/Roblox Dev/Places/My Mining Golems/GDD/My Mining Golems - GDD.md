@@ -52,7 +52,8 @@ updated: 2026-10-29
 | **Станція ролу** (вибір типу голема, важіль E · ROLL), 1–5 підставок ролу, табло покращень ролу | біля спавну гравця (спавн дивиться на станцію) | [[GDD - Roll]], [Roll Station](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FRoll%20Station%2FRoll%20Station), [Roll Upgrades Screen](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FRoll%20Upgrades%20Screen%2FRoll%20Upgrades%20Screen) |
 | **Вхід у печеру големів** (CAVE, затиск 0,9 с → печера-сховище ніші) | у ніші | [Cave Entrance](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FCave%20Entrance%2FCave%20Entrance) |
 | **Печера-сховище големів** (своя під кожною нішею, 14 стендів: купівля по черзі за Money, голем на стенді, збереження — не скидається на новій мапі; автор печери — друг користувача) | окремо під картою | [Golem Cave](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FGolem%20Cave%2FGolem%20Cave) |
-| **Табло прокачки плоту** (8 карток) | ліворуч від лавки SELL | [[GDD - Plots]] |
+| **Табло прокачки плоту** (8 карток) | ліворуч від лавки SELL | [[GDD - Economy]] | економіка v2: ціни всіх покращень мапи 1, темп (симуляція), ребітхи, Roll Luck, старт $0 |
+| [[GDD - Plots]] |
 | **Forge** — голем-коваль, переплавка руди в злитки | правий передній кут біля входу | [[GDD - Ores and Bars]], [Forge](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FForge%2FForge) |
 | **Sell** — лавка скупщика Наґґета | лівий передній кут біля входу | [[GDD - Ores and Bars]], [Sell Shop](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FSell%20Shop%2FSell%20Shop) |
 | Особистий борд гравця | біля ніші | [[GDD - Leaderboards]] |
@@ -84,7 +85,7 @@ updated: 2026-10-29
 | [[GDD - Golems]] | класи (майнер, носій, воїн), рідкість, мутації, каталог, формули, утилізація, як працює удар |
 | [[GDD - Roll]] | вибір типу на станції, шанси «1 до N», Roll Luck, анімація ролу, підписи над големами, покращення ролу |
 | [[GDD - Plots]] | 8 карток прокачки плоту й ціни, множник цін на нових мапах, поведінка големів на плоті, Place Golems |
-| [[GDD - Maps]] | 6 мап печери, нова рідкість і руди кожної, ціна переходу, що скидається |
+| [[GDD - Maps]] | 7 мап печери, нова рідкість і руди кожної, ціна переходу, що скидається |
 | [[GDD - Ores and Bars]] | руда всіх мап (шанси, ціни, HP), Forge (пробудження, переплавка, табло), Sell (продаж, правила) |
 | [[GDD - Currencies and Rebirths]] | Money, діаманти, тікети, руда й злитки; ребітхи |
 | [[GDD - Monetization]] | геймпаси, кейси, TOTAL MULTI, драбина x2 Money і ID продуктів, стенд для новачків |
@@ -158,7 +159,10 @@ updated: 2026-10-29
 - [x] Mutation Machines (29.10.2026): 2 машини, 3 входи → 1 вихід, START, таймери, прискорення Fast Mutations (11 продуктів) ([[GDD - Mutation Machine]])
 - [ ] Утилізація
 - [x] Лідерборди в центрі зали, статуї топ-1 з анімаціями, особисте табло біля ніші ([[GDD - Leaderboards]])
-- [ ] Стенд для новачків — груповий голем: група 996441586, 2 стенди між Mutation Machine і Marketplace, «+50% Best Miner», підказки вступити в групу й поставити лайк (наступне)
+- [x] Стенд для новачків (29.10.2026): Exclusive Mushroom Golem за вступ у групу 996441586, 2 стенди між Mutation Machine і Marketplace, вікно GROUP REWARD по радіусу, «+50% BEST» над големом ([[GDD - Monetization]])
+- [x] Інвентар: перетягування голема з вікна в зону хотбара — закріплення (як кнопка Hotbar)
+- [x] Портал на арену боса (29.10.2026): скеля з вузьким «дихаючим» проломом у кінці зали, червона спіраль, пів кола, BOSS FIGHT і таймер (кожні 15 хв), таймер у HUD, кнопка Boss — телепорт до входу; відкриття з променями ([[GDD - Boss Events]]). Арена — COMING SOON
+- [ ] Арена боса: телепорт з кола, бій, нагороди
 - [ ] Маркетплейс, торгівля, логування
 - [ ] Арена боса, воїни
 - [ ] Геймпаси й кейси

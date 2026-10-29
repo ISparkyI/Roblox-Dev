@@ -3,8 +3,8 @@
 -- Де: ReplicatedStorage/Shared/RollConfig. Користуються сервер (RollUpgradeService) і екран (RollUpgradeUI).
 --
 -- Roll Luck: рівень 1 = 5%, кожен рівень +5%, без обмеження, ніколи не скидається.
---   Ціна переходу з рівня n на n+1: Ціна_1 = 1 000, Ціна_(n+1) = floor(Ціна_n × max(1.25, 4 − 0.05·(n−1))).
--- Місця ролу (Roll Stands): 1 → 5, ціни 500 × 3^(k−1) за перехід k → k+1, множаться на множник етапу;
+--   Ціна переходу з рівня n на n+1 (економіка v2): 500 × 1,55^(n−1), округлено (див. luckPrice).
+-- Місця ролу (Roll Stands): 1 → 5, ціни 50 / 250 / 1,000 / 4,000 × множник цін мапи (як картки плоту);
 --   скидаються на новому етапі.
 -- Множник етапу (до етапу 1): ×1, ×5, ×40, ×440, ×6 160, ×104 720 («×5, далі +×3 з кожним етапом»).
 -- Усі ціни — пропозиція GDD, округлення вниз.
@@ -14,7 +14,6 @@
 local RollConfig = {}
 
 RollConfig.LUCK_PER_LEVEL = 5
-RollConfig.LUCK_START_PRICE = 1000
 RollConfig.STANDS_BASE = 5 -- за Money (табло Roll Upgrades)
 RollConfig.STANDS_MAX = 7 -- + геймпаси Pass_RollStand1 / Pass_RollStand2 (+1 кожен; точки Point6 / Point7)
 RollConfig.STAND_BASE_PRICE = 500
@@ -24,13 +23,18 @@ function RollConfig.luckPercent(level: number): number
 	return RollConfig.LUCK_PER_LEVEL * level
 end
 
+-- економіка v2 (29.10.2026): Roll Luck дешевша — ціна = 500 × 1,55^(рівень − 1), округлено до «гарних» чисел.
+-- 100 % (рівень 20) — разом ≈ $3.76M (було ≈ $12.7T). Рівень 8 (40 %) — ≈ $18.7K (кінець мапи 1). Не скидається і не множиться за мапу.
+RollConfig.LUCK_START_PRICE = 500
+RollConfig.LUCK_GROWTH = 1.55
+local function nice(x: number): number
+	local s = if x < 100 then 5 elseif x < 1000 then 25 elseif x < 10000 then 100 elseif x < 100000 then 500 else 5000
+	if x >= 1e7 then s = 10 ^ (math.floor(math.log10(x)) - 2) end -- далі — 3 значущі цифри
+	return math.max(s, math.floor(x / s + 0.5) * s)
+end
 -- ціна переходу з рівня level на level + 1
 function RollConfig.luckPrice(level: number): number
-	local p = RollConfig.LUCK_START_PRICE
-	for n = 1, level - 1 do
-		p = math.floor(p * math.max(1.25, 4 - 0.05 * (n - 1)))
-	end
-	return p
+	return nice(RollConfig.LUCK_START_PRICE * RollConfig.LUCK_GROWTH ^ (math.max(1, math.floor(level)) - 1))
 end
 
 function RollConfig.stageMult(stage: number): number
@@ -42,10 +46,16 @@ function RollConfig.stageMult(stage: number): number
 	return m
 end
 
--- ціна переходу з count місць на count + 1 (nil, якщо вже максимум)
+-- ціна переходу з count місць на count + 1 (nil, якщо вже максимум).
+-- економіка v2 (29.10.2026): мапа 1 — 50 / 250 / 1,000 / 4,000; на інших мапах × той самий множник, що й картки плоту
+-- (PlotConfig.priceMult: 1 + 2 × (множник мапи − 1) → ×1, ×2, ×3 …). Раніше — 500 × 3^k і власний множник ×5 / ×40.
+RollConfig.STAND_PRICES = { 50, 250, 1000, 4000 }
 function RollConfig.standPrice(count: number, stage: number): number?
 	if count >= RollConfig.STANDS_BASE then return nil end
-	return math.floor(RollConfig.STAND_BASE_PRICE * RollConfig.STAND_PRICE_STEP ^ (count - 1) * RollConfig.stageMult(stage))
+	local base = RollConfig.STAND_PRICES[math.clamp(math.floor(count), 1, #RollConfig.STAND_PRICES)]
+	local MultiCfg = require(script.Parent:WaitForChild("MultiConfig"))
+	local mult = 1 + 2 * (MultiCfg.stageMult(tonumber(stage) or 1) - 1)
+	return math.floor(base * mult)
 end
 
 -- усього підставок гравця: куплені за Money (1–5) + геймпаси Pass_RollStand1 / Pass_RollStand2 (+1 кожен)

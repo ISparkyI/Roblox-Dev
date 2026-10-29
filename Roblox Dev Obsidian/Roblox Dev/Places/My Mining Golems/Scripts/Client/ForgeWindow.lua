@@ -260,8 +260,10 @@ local function makeChip(parent)
 end
 
 -- ===== плитка 80 × 80 з іконкою (стиль A: колір руди, візерунок половинної сили, іконка в межах грані; галочка — ZIndex 4) =====
-local ORE_TILE = { Coal = "ore_coal", Copper = "ore_copper", Iron = "ore_iron" }
+local ORE_TILE = { Coal = "ore_coal", Copper = "ore_copper", Iron = "ore_iron", Tin = "blue", Silver = "gray", Gold = "yellow" }
 local function makeTile(parent, x, y, oreKey, iconId, clickable, itemKey)
+	-- руда без PNG (мапа 2+): тимчасова картинка, щоб у плитці був ImageLabel — далі його замінить 3D-модель (ItemViewport)
+	if not iconId and itemKey and ItemVP.has(itemKey) then iconId = "rbxasset://textures/ui/GuiImagePlaceholder.png" end
 	-- якір у центрі (за замовчуванням StyleA): наведення / натискання масштабують плитку від центру, а не від лівого верхнього кута
 	local t = StyleA.new(parent, { size = Vector2.new(80, 80), position = Vector2.new(x, y),
 		color = ORE_TILE[oreKey] or "gray", half = true, rows = 4, icon = iconId, zIndex = 2, clickable = clickable, shine = false })
@@ -441,6 +443,10 @@ setScrollY(0)
 
 local rows = {}
 local openPicker, closePicker, onTileClick -- попап вибору кількості руди (нижче, після refresh)
+-- рядки руди поточної мапи; нова мапа (Cfg.StageChanged) — рядки перебудовуються
+local function buildRows()
+for _, r in rows do r.row:Destroy() end
+table.clear(rows)
 for i = 1, math.min(3, #ORE) do
 	local o = ORE[i]
 	local row = frame(rowsStrip, 4, 4 + (i - 1) * (ROW_H + ROW_GAP), RW, ROW_H, WHITE, { Name = "OreRow_" .. o.key, ZIndex = 1 })
@@ -472,6 +478,9 @@ for i = 1, math.min(3, #ORE) do
 	local ingot = makeTile(row, RW - 8 - 80, 8, o.key, ICONS["bar_" .. o.key], nil, "Bars_" .. o.key).root
 	rows[i] = { dim = rowDim, ore = o, row = row, tile = tile, badge = badge, toast = toast, toastTok = 0, sub = sub, bar = bar, check = check, barsText = barsText, ingot = ingot, prog = prog }
 end
+end
+buildRows()
+Cfg.StageChanged.Event:Connect(buildRows)
 
 -- затемнення «Прокидається / Засинає» (накриває рядок 2 і рядки руди; ловить кліки)
 local overlay = frame(content, 34, 120, CW + 16, 388, C("0d0f12"), { Name = "Overlay", BackgroundTransparency = 0.28, Active = true, Visible = false, ZIndex = 5 })

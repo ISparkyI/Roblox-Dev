@@ -50,7 +50,7 @@ local ICONS = {
 	bar_Copper = "rbxassetid://106483042191242",
 	bar_Iron = StyleA.ASSETS.forge_bar_iron_v2,
 }
-local TONE = { Coal = "6d737c", Copper = "e0743c", Iron = "d9b08a" }
+local TONE = { Coal = "6d737c", Copper = "e0743c", Iron = "d9b08a", Tin = "a9bccb", Silver = "dfe6ee", Gold = "ffc928" }
 
 -- ===== константи макета (одиниці дизайну) =====
 -- рамка 1206 × 650 — ті самі пропорції, що в Inventory (980 × 528): на екрані вікна 1 в 1 (Shared/WindowFit.match)
@@ -274,15 +274,21 @@ UIS.InputEnded:Connect(function(inp) if isPress(inp) and holdActive then holdAct
 -- ===== дані =====
 -- =====================================================================
 local ITEMS = {} -- { key = "Ore_Coal", ore = o, kind = "ore" | "bar", price, name, icon, tone }
-for _, o in ORE do
-	table.insert(ITEMS, { key = "Ore_" .. o.key, ore = o, kind = "ore", price = o.price, name = o.key, icon = ICONS["ore_" .. o.key] or "", tone = C(TONE[o.key] or "9aa3ad") })
-end
-for _, o in ORE do
-	if not Cfg.canSmelt(o) then continue end -- злитків вугілля не буває
-	table.insert(ITEMS, { key = "Bars_" .. o.key, ore = o, kind = "bar", price = o.price * Cfg.BAR_MULT, name = o.key, icon = ICONS["bar_" .. o.key] or "", tone = C(TONE[o.key] or "9aa3ad") })
-end
 local sel: { [string]: number } = {}
-for _, it in ITEMS do sel[it.key] = 0 end
+-- руда поточної мапи (Cfg.ORES оновлюється при зміні Stage; тоді слоти перебудовуються — buildSlots нижче)
+local function buildItems()
+	table.clear(ITEMS)
+	for _, o in ORE do
+		table.insert(ITEMS, { key = "Ore_" .. o.key, ore = o, kind = "ore", price = o.price, name = o.key, icon = ICONS["ore_" .. o.key] or "", tone = C(TONE[o.key] or "9aa3ad") })
+	end
+	for _, o in ORE do
+		if not Cfg.canSmelt(o) then continue end -- злитків вугілля не буває
+		table.insert(ITEMS, { key = "Bars_" .. o.key, ore = o, kind = "bar", price = o.price * Cfg.BAR_MULT, name = o.key, icon = ICONS["bar_" .. o.key] or "", tone = C(TONE[o.key] or "9aa3ad") })
+	end
+	table.clear(sel)
+	for _, it in ITEMS do sel[it.key] = 0 end
+end
+buildItems()
 
 local function inv(key: string): number return math.max(0, math.floor(tonumber(player:GetAttribute(key)) or 0)) end
 -- заблоковане в інвентарі (замок, InvLocks) не продається: для продажу його кількість = 0 (сервер теж відкидає)
@@ -524,15 +530,20 @@ local function makeSlot(it, col: number, row: number)
 	return s
 end
 
-for row, kind in { "ore", "bar" } do
-	local col = 0
-	for _, it in ITEMS do
-		if it.kind == kind then
-			col += 1
-			table.insert(slots, makeSlot(it, col, row))
+local function buildSlots()
+	for _, s in slots do s.holder:Destroy() end
+	table.clear(slots)
+	for row, kind in { "ore", "bar" } do
+		local col = 0
+		for _, it in ITEMS do
+			if it.kind == kind then
+				col += 1
+				table.insert(slots, makeSlot(it, col, row))
+			end
 		end
 	end
 end
+buildSlots()
 
 -- підписи рядів зліва: назва, вартість ряду, кнопка «All Ore» / «All Bars»
 local rowInfo = {}
@@ -567,6 +578,11 @@ local function applyLocks()
 	end
 end
 applyLocks()
+-- нова мапа — нова руда: слоти перебудовуються
+Cfg.StageChanged.Event:Connect(function()
+	buildItems(); buildSlots(); applyLocks()
+	if refresh then refresh() end
+end)
 player:GetAttributeChangedSignal("InvLocks"):Connect(function() applyLocks(); if refresh then refresh() end end)
 btnClear.onClick = function() for _, it in ITEMS do sel[it.key] = 0 end; refresh() end
 

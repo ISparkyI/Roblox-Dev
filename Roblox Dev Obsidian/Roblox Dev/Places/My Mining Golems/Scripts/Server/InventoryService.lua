@@ -28,7 +28,7 @@
 --   "Sort",   ключ (Shared/GolemSort.LIST) — сортування големів (атрибут InvSort, спільний для інвентаря й вікна плоту; зберігається в секції, поле sort);
 --   "Hold",   ключ або ""     — взяти в руку (створює слот) / прибрати з рук (слот зникає). Модель у руці й табличку над
 --                             големом показує HeldItemService (за атрибутом InvHeld).
--- ТЕСТ: у Studio без збереженої секції — тестові големи й зілля (ItemConfig.TEST_*).
+-- Новий гравець (без збереженої секції) починає з порожнім інвентарем: тестові големи й зілля прибрано.
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -248,20 +248,14 @@ local function onPlayer(p: Player)
 			if left and left > 0 then p:SetAttribute("Boost_" .. d.key, workspace:GetServerTimeNow() + math.min(left, 7 * 86400)) end
 		end
 	else
-		local gl = {}
-		if RunService:IsStudio() then -- ТЕСТ: зілля й големи для перевірки вкладок
-			for i, e in Items.TEST_GOLEMS do
-				local kind, cls, mut = string.match(e, "^(%w+):?(%a*)@?(%d*)$")
-				table.insert(gl, GolemRegistry.Mint(p, { id = i, kind = Catalog.id(kind) or "wooden", cls = (cls == "carrier") and "carrier" or "miner", mut = Catalog.mut(mut) }, "test"))
-			end
-		end
+		local gl = {} -- новий гравець починає з порожнім інвентарем (тестові големи й зілля прибрано)
 		encode(p, "InvGolems", gl)
 		encode(p, "InvLocks", {})
 		encode(p, "InvHotbar", {})
 		encode(p, "InvPinned", {})
 		p:SetAttribute("InvSort", GolemSort.DEFAULT)
 		for _, d in Items.POTIONS do
-			p:SetAttribute("Pot_" .. d.key, RunService:IsStudio() and (Items.TEST_POTIONS[d.key] or 0) or 0)
+			p:SetAttribute("Pot_" .. d.key, 0)
 		end
 	end
 	p:SetAttribute("InvHeld", "")
@@ -333,6 +327,22 @@ function InventoryService.RemoveByUid(p: Player, uid: string, reason: string): a
 	if i then table.remove(l, i); encode(p, "InvLocks", l) end
 	cleanup(p)
 	return found
+end
+
+-- нова мапа (MapService, GDD - Maps): големи інвентаря скидаються, КРІМ Exclusive (Catalog exclusive).
+-- Големи на стендах печери й у машинах мутацій — окремі атрибути, їх не чіпаємо. Повертає скільки прибрано.
+function InventoryService.ResetForNewMap(p: Player): number
+	if p:GetAttribute("InvReady") ~= true then return 0 end
+	local keep, n = {}, 0
+	for _, g in golems(p) do
+		local def = type(g) == "table" and Catalog.GOLEMS[Catalog.id(g.kind) or g.kind] or nil
+		if def and def.exclusive then table.insert(keep, g)
+		elseif type(g) == "table" then GolemRegistry.Burn(p, g, "newmap"); n += 1 end
+	end
+	encode(p, "InvGolems", keep)
+	p:SetAttribute("PlotPlaced", nil)
+	cleanup(p)
+	return n
 end
 
 function InventoryService.Start()
