@@ -34,7 +34,7 @@ local DAILY_POOL = {
 	{ stat = "Roll", text = "Roll %s times", t = { 10, 25, 50 } },
 	{ stat = "Buy", text = "Buy %s rolled golems", t = { 2, 5, 10 } },
 	{ stat = "Play", text = "Play for %s minutes", t = { 10, 20, 40 } },
-	{ stat = "Smelt", text = "Collect %s bars from the Forge", t = { 10, 25, 50 } },
+	{ stat = "Smelt", text = "Collect %s bars from the Workshop", t = { 10, 25, 50 } },
 }
 local DAILY_REWARD = { 5, 10, 15 }
 
@@ -149,6 +149,8 @@ end
 
 local function addDiamonds(p: Player, n: number)
 	p:SetAttribute("Diamonds", ((tonumber(p:GetAttribute("Diamonds")) or 0) :: number) + n)
+	-- кожна отримана нагорода квесту — +1 до Stat_QuestsDone (особисте табло біля ніші, PlotStatsClient)
+	p:SetAttribute("Stat_QuestsDone", ((tonumber(p:GetAttribute("Stat_QuestsDone")) or 0) :: number) + 1)
 end
 
 -- одна нагорода; повертає кількість діамантів (0 — не можна)

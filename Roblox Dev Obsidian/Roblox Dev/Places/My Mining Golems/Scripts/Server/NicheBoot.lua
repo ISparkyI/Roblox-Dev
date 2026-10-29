@@ -4,6 +4,7 @@ require(script.Parent:WaitForChild("DataService")).Start()
 require(script.Parent:WaitForChild("GolemRegistry")).Start() -- UID големів, глобальний індекс цінних, журнал подій
 require(script.Parent:WaitForChild("MultiService")).Start()
 require(script.Parent:WaitForChild("MonetizationService")).Start()
+require(script.Parent:WaitForChild("GiftService")).Start() -- подарунки геймпасів іншим гравцям за Robux (Remotes/GiftAction)
 require(script.Parent:WaitForChild("NicheService")).Start()
 require(script.Parent:WaitForChild("ForgeService")).Start()
 require(script.Parent:WaitForChild("RollScreenService")).Start()
@@ -21,3 +22,6 @@ require(script.Parent:WaitForChild("SettingsService")).Start() -- налашту
 require(script.Parent:WaitForChild("QuestService")).Start() -- квести: щоденні, тижневі, спеціальні (секція Quests, Remotes/QuestAction)
 require(script.Parent:WaitForChild("RebirthService")).Start() -- ребітхи: Remotes/RebirthAction, скидає Money, Rebirths + 1
 require(script.Parent:WaitForChild("IncomeService")).Start() -- дохід за хвилину (IncomePerMin) — статистика й тайм-скіпи
+require(script.Parent:WaitForChild("StatsService")).Start() -- статистика Stat_* і лідерборди в центрі зали (OrderedDataStore)
+require(script.Parent:WaitForChild("StallShopService")).Start() -- лавки Diamonds Shop / Events Shop у кінці зали (Remotes/StallShopAction)
+require(script.Parent:WaitForChild("MutationService")).Start() -- Mutation Machines у центрі зали: 3 однакових → наступна мутація (секція Mutation)

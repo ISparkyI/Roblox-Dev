@@ -361,7 +361,7 @@ end
 -- =====================================================================
 local SoundService = game:GetService("SoundService")
 local Lighting = game:GetService("Lighting")
-local DEF = { Music = 100, Sfx = 100, HidePlayers = false, Auras = true, LowGfx = false, AutoEquip = true, AutoRoll = true, AutoBuy = true, RollMuts = 0, RollRars = 0, RollMinDmg = 0, Tag = "" }
+local DEF = { Music = 100, Sfx = 100, HidePlayers = false, Auras = true, LowGfx = false, AutoEquip = true, AutoRoll = true, AutoBuy = true, FastRoll = true, AutoCollect = true, RollMuts = 0, RollRars = 0, RollMinDmg = 0, Tag = "" }
 local pending = {} -- локальні значення, ще не підтверджені сервером
 local function val(k: string): any
 	if pending[k] ~= nil then return pending[k] end
@@ -572,7 +572,7 @@ local function lockedRow(order: number, title: string, sub: string)
 end
 
 sliderRow(1, "Music", "MUSIC", "Background music volume")
-sliderRow(2, "Sfx", "SOUND EFFECTS", "Buttons, mining, forge and other sounds")
+sliderRow(2, "Sfx", "SOUND EFFECTS", "Buttons, mining, workshop and other sounds")
 toggleRow(3, "Auras", "MUTATION AURAS", "Glow and particles around mutated golems")
 toggleRow(4, "HidePlayers", "HIDE OTHER PLAYERS", "Other players become invisible (only for you)")
 toggleRow(5, "LowGfx", "LOW GRAPHICS", "No shadows and post effects for better FPS")
@@ -626,9 +626,30 @@ do
 	refreshers.AutoEquip = refresh
 	player:GetAttributeChangedSignal("Pass_AutoEquip"):Connect(refresh)
 end
+-- AUTO COLLECT / FAST ROLL: з геймпасом — ON / OFF (Set_AutoCollect / Set_FastRoll); без нього — ціна, клік відкриває покупку
+local function passToggle(order: number, key: string, title: string, sub: string)
+	local r = row(order, title, sub)
+	local b = makeGroupButton(r, CW - TG_W - 16, (ROW_H - TG_H) / 2 - 2, TG_W, TG_H, { name = "Toggle", shadowDy = 5, color = "green", text = "", textSize = 24, z = 5 })
+	local pp = passPrice(b, key)
+	local function refresh()
+		if player:GetAttribute("Pass_" .. key) ~= true then pp.show(true); return end
+		pp.show(false)
+		local on = val(key)
+		b:setColor(on and "green" or "red"); b:setText(on and "ON" or "OFF")
+	end
+	b.onClick = function()
+		if player:GetAttribute("Pass_" .. key) ~= true then pp.buy(); return end
+		send(key, not val(key)); refresh()
+	end
+	refresh()
+	refreshers[key] = refresh
+	player:GetAttributeChangedSignal("Pass_" .. key):Connect(refresh)
+end
+passToggle(7, "AutoCollect", "AUTO COLLECT", "Crates empty into your inventory by themselves")
+passToggle(8, "FastRoll", "FAST ROLL", "Faster lever and rolls")
 -- AUTO ROLL: з геймпасом (Pass_AutoRoll) — ON / OFF (Set_AutoRoll); без нього — сіра GAMEPASS, клік відкриває SHOP
 do
-	local r = row(7, "AUTO ROLL", "The roll lever pulls itself")
+	local r = row(9, "AUTO ROLL", "The roll lever pulls itself")
 	local b = makeGroupButton(r, CW - TG_W - 16, (ROW_H - TG_H) / 2 - 2, TG_W, TG_H, { name = "Toggle", shadowDy = 5, color = "green", text = "", textSize = 24, z = 5 })
 	local pp = passPrice(b, "AutoRoll")
 	local function refresh()
@@ -655,11 +676,11 @@ do
 	local MutationText = require(Shared:WaitForChild("MutationText"))
 	local NF = require(Shared:WaitForChild("NumberFormat"))
 	-- заголовок розділу
-	local hdr = new("Frame", { Name = "Hdr_AutoRoll", Size = UDim2.fromOffset(CW, 40), BackgroundTransparency = 1, LayoutOrder = 8, ZIndex = 4 }, list)
+	local hdr = new("Frame", { Name = "Hdr_AutoRoll", Size = UDim2.fromOffset(CW, 40), BackgroundTransparency = 1, LayoutOrder = 13, ZIndex = 4 }, list)
 	textAt(hdr, 0, 24, CW, 26, "~ AUTO ROLL FILTER ~", WHITE, 2.8, { ZIndex = 5 })
 
 	-- AUTO BUY: геймпас Pass_AutoBuy — ON / OFF; без нього — GAMEPASS → SHOP
-	local r = row(9, "AUTO BUY", "Golems from your filter are bought automatically")
+	local r = row(14, "AUTO BUY", "Golems from your filter are bought automatically")
 	local b = makeGroupButton(r, CW - TG_W - 16, (ROW_H - TG_H) / 2 - 2, TG_W, TG_H, { name = "Toggle", shadowDy = 5, color = "green", text = "", textSize = 24, z = 5 })
 	local pp = passPrice(b, "AutoBuy")
 	local function refreshBuy()
@@ -678,7 +699,7 @@ do
 
 	-- MUTATIONS: 8 перемикачів (мутація кольором самої мутації), зелений — вибрана
 	local MH = 116
-	local mr = new("Frame", { Name = "Row_MUTATIONS", Size = UDim2.fromOffset(CW, MH), BackgroundTransparency = 1, LayoutOrder = 10, ZIndex = 4 }, list)
+	local mr = new("Frame", { Name = "Row_MUTATIONS", Size = UDim2.fromOffset(CW, MH), BackgroundTransparency = 1, LayoutOrder = 15, ZIndex = 4 }, list)
 	cardBg(mr, 0, 0, CW, MH, 4)
 	textAt(mr, 20, 21, 460, 26, "MUTATIONS", WHITE, 2.6, { TextXAlignment = LEFT, ZIndex = 5 })
 	textAt(mr, 20, 44, CW - 40, 15, "Auto Roll stops on these (Auto Buy buys them). None selected — any mutation", SUB_TXT, 1.4, { TextXAlignment = LEFT, FontFace = BOLD, ZIndex = 5 })
@@ -705,7 +726,7 @@ do
 
 	-- MIN DAMAGE: поле вводу (1500, 1.5K, 2M …); 0 — будь-яка
 	-- RARITY: 8 перемикачів (без Exclusive — у ролі не випадає), назва кольором рідкості; нічого не вибрано — будь-яка
-	local rr = new("Frame", { Name = "Row_RARITY", Size = UDim2.fromOffset(CW, MH), BackgroundTransparency = 1, LayoutOrder = 11, ZIndex = 4 }, list)
+	local rr = new("Frame", { Name = "Row_RARITY", Size = UDim2.fromOffset(CW, MH), BackgroundTransparency = 1, LayoutOrder = 16, ZIndex = 4 }, list)
 	cardBg(rr, 0, 0, CW, MH, 4)
 	textAt(rr, 20, 21, 460, 26, "RARITY", WHITE, 2.6, { TextXAlignment = LEFT, ZIndex = 5 })
 	textAt(rr, 20, 44, CW - 40, 15, "Only these rarities. None selected — any rarity", SUB_TXT, 1.4, { TextXAlignment = LEFT, FontFace = BOLD, ZIndex = 5 })
@@ -730,7 +751,7 @@ do
 	refreshers.RollRars = refreshRars
 	player:GetAttributeChangedSignal("Set_RollRars"):Connect(refreshRars)
 
-	local dr = row(12, "MIN DAMAGE", "At least this damage (carriers: capacity). Nothing selected and 0 — filter off")
+	local dr = row(17, "MIN DAMAGE", "At least this damage (carriers: capacity). Nothing selected and 0 — filter off")
 	local BW, BH = 220, 42
 	local box = frame(dr, CW - BW - 16, (ROW_H - BH) / 2, BW, BH, WHITE, { Name = "Box", ZIndex = 5 })
 	vgrad(box, SLOT_BG); stroke(box, INK, 3)

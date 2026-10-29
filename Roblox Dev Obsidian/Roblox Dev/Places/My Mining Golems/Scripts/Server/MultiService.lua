@@ -37,6 +37,8 @@ local function compute(p: Player)
 		Donate = Cfg.donateMult(p:GetAttribute("DonateTier") or 0),
 		VIP = (p:GetAttribute("Pass_VIP") == true) and Cfg.VIP_MULT or 1,
 		Stage = Cfg.stageMult(p:GetAttribute("Stage") or 1),
+		-- бонуси за місця в лідербордах (StatsService, LB_Money — сума відсотків)
+		Leader = 1 + math.max(0, tonumber(p:GetAttribute("LB_Money")) or 0) / 100,
 	}
 	local total = 1
 	for _, s in Cfg.SOURCES do
@@ -76,7 +78,7 @@ local function setup(p: Player)
 	if not DataService.WaitLoaded(p) then return end
 	friendsOf[p] = friendsOf[p] or {}
 	ready[p] = true
-	for _, a in { "Stage", "Rebirths", "DonateTier", "Pass_VIP", "Boost_Money" } do
+	for _, a in { "Stage", "Rebirths", "DonateTier", "Pass_VIP", "Boost_Money", "LB_Money" } do
 		p:GetAttributeChangedSignal(a):Connect(function() compute(p) end)
 	end
 	compute(p)

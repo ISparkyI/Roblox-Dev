@@ -106,6 +106,7 @@ Config.SOURCES = {
 	{ key = "Donate", label = "Money Boost", icon = "rbxassetid://103015355952567", aspect = 1 },
 	{ key = "VIP", label = "VIP", icon = "rbxassetid://133507616051548", aspect = 1.0711 }, -- hud_vip / hud_map: власні іконки (2D/Main HUD/Roblox/Import); aspect 1.0711 — у ту ж рамку, що Friends
 	{ key = "Stage", label = "Map", icon = "rbxassetid://100812332622032", aspect = 1.0711 },
+	{ key = "Leader", label = "Leaderboards", icon = "podium", aspect = 1 }, -- "podium" — іконка з фреймів (MoneyHUD); бонус за місця в лідербордах (HubConfig.PERK_TIERS)
 }
 
 return Config

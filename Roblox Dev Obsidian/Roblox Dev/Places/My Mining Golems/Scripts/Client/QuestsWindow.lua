@@ -20,6 +20,7 @@ local HttpService = game:GetService("HttpService")
 local Shared = RS:WaitForChild("Shared")
 local StyleA = require(Shared:WaitForChild("StyleA"))
 local WindowFit = require(Shared:WaitForChild("WindowFit"))
+local CurrencyFly = require(Shared:WaitForChild("CurrencyFly")) -- діаманти нагород летять до HUD
 local UISounds = require(Shared:WaitForChild("UISounds"))
 local WindowManager = require(Shared:WaitForChild("WindowManager"))
 local player = Players.LocalPlayer
@@ -489,7 +490,12 @@ local function fillCard(c, kind: string, q)
 		if st ~= "claim" then return end
 		b.enabled = false
 		local res = call("Claim", kind == "daily" and { kind = "daily", i = q.i } or { kind = "weekly", key = q.key })
-		if res and res.ok then UISounds.play("claim", 0.1) else denySound() end
+		if res and res.ok then
+			UISounds.play("claim", 0.1)
+			-- діаманти нагороди летять до лічильника в HUD (від іконки нагороди, якщо вона є)
+			local d = tonumber(res.diamonds) or 0
+			if d > 0 then CurrencyFly.fly("Diamonds", c.rIcon.Visible and c.rIcon or b.group, d) end
+		else denySound() end
 	end
 end
 
@@ -540,7 +546,11 @@ end)
 claimAll.onClick = function()
 	claimAll.enabled = false
 	local res = call("ClaimAll")
-	if res and res.ok then UISounds.play("claim", 0.1) else denySound() end
+	if res and res.ok then
+		UISounds.play("claim", 0.1)
+		local d = tonumber(res.diamonds) or 0
+		if d > 0 then CurrencyFly.fly("Diamonds", claimAll.group, d) end
+	else denySound() end
 end
 
 -- червоний лічильник на кнопці Quests у HUD (значок додаємо звідси, MainHUD не змінюється)

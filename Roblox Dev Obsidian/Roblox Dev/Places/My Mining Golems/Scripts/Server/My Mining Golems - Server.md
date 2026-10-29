@@ -130,3 +130,16 @@ Script — серверні скрипти.
 **Оновлено 28.10.2026 (Shop v4):** `MonetizationService` — Starter Pack, Extra Storage, Fast Mutations (MutSpeedTier), етапи геймпасів (`requires`); `RollService` — окремо x2 Roll Luck / x2 Mutation Luck, `RollConfig.totalStands`; `RollUpgradeService` — до 7 підставок; `DataService` — ExtraSlots, MutSpeedTier; ліміт големів — `Items.maxGolems(p)` (Inventory / Cave / Backend / Roll).
 
 **Оновлено 28.10.2026 (неймтеги):** `SettingsService` — ключ Tag (лише власний тег), BillboardGui «Nametag» над головою, тег знімається, якщо геймпас забрали.
+
+## Додано в індекс 29.10.2026
+
+| Файл | Де в Roblox | Що робить |
+| --- | --- | --- |
+| `MutationService.lua` | `ServerScriptService/MutationService` (ModuleScript, `NicheBoot`) | Mutation Machines: PLACE / TAKE / CLAIM за підказками E (`MutSlotPrompt`, `MutClaimPrompt`), START — `Remotes/MutationAction`; стан — атрибут гравця `MutMachines` (JSON), секція `Mutation`; таймер іде й офлайн; ступінь `MutSpeedTier` перераховує поточні мутації на обох машинах; CLAIM спалює 3 записи й видає голема наступної мутації. [[GDD - Mutation Machine]] |
+| `StallShopService.lua` | `ServerScriptService/StallShopService` (ModuleScript, `NicheBoot`) | Diamonds Shop / Events Shop: оновлення асортименту кожні 30 хв (спільний запас на сервер), купівля за діаманти (`Remotes/StallShopAction` "BuyDia"), скіп = дохід × хвилини, рідкісні геймпаси; стан — `ReplicatedStorage/StallShops`. [[GDD - Diamonds Shop]] |
+| `GiftService.lua` | `ServerScriptService/GiftService` (ModuleScript, `NicheBoot`) | подарунки за Robux іншим гравцям: геймпаси (окремі продукти «Gift: …») і Developer Products (`GiftDevProducts`), ціль запам'ятовується на `GIFT_TTL` с; гравця немає — подарунок у GiftInbox. [[GDD - Monetization]] |
+| `StatsService.lua` | `ServerScriptService/StatsService` (ModuleScript, `NicheBoot`) | статистика `Stat_*` за весь час і лідерборди в центрі зали (OrderedDataStore), статуї топ-1 (`solveRig` — голова й деталі на місці для R6 / R15 / нових аватарів). [[GDD - Leaderboards]] |
+| `IncomeService.lua` | `ServerScriptService/IncomeService` (ModuleScript, `NicheBoot`) | дохід за хвилину (руда, яку добувають големи на плотах, × множники) — для статистики й тайм-скіпів |
+| `MarketplaceTeleport.lua` | `ServerScriptService/MarketplaceTeleport` (Script) | телепорт з кола Marketplace (`Remotes/MarketplaceTP`): перевірка, що гравець у колі, TeleportAsync; місця ще немає — "soon" |
+| `LeverScript.lua` | у моделі важеля станції ролу (Script) | важіль ролу: E · ROLL (лише власник ніші), анімація ривка, подія `Pulled(player, role)`, AutoPull (Auto Roll) |
+| `WorkshopDraftDriver.lua` | `Workspace/WorkshopDraft/DraftDriver` (Script, лише Studio) | тест чернетки Workshop: по колу перемикає стани голема-майстра; прибрати разом із чернеткою |

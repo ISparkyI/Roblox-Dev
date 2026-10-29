@@ -60,7 +60,7 @@ local function pull(player, auto)
 	busy = true
 	prompt.Enabled = false
 	-- геймпас Fast Roll: важіль смикається вдвічі швидше (k = 0,5) — менша пауза між ролами
-	local k = player:GetAttribute("Pass_FastRoll") == true and 0.5 or 1
+	local k = (player:GetAttribute("Pass_FastRoll") == true and player:GetAttribute("Set_FastRoll") ~= false) and 0.5 or 1
 	step( 44, 0.28 * k, Enum.EasingStyle.Sine,   Enum.EasingDirection.InOut, 90)  -- відтяг до себе
 	step( 48, 0.08 * k, Enum.EasingStyle.Linear, Enum.EasingDirection.Out,   100) -- напруга
 	step(-22, 0.14 * k, Enum.EasingStyle.Cubic,  Enum.EasingDirection.In,    -45) -- постріл назад

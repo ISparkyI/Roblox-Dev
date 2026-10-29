@@ -540,7 +540,7 @@ local collect -- нижче (Auto Collect викликає з deliver)
 -- force (носія знімають): що не влізло — у pl.carry, його забере наступний носій (ящик ніколи не переповнюється)
 local function deliver(st: State, pl: Plot, g: Golem, force: boolean?)
 	-- Auto Collect: те, що вже лежить у ящику (напр. повний ящик до покупки), спершу йде в інвентар
-	if st.player:GetAttribute("Pass_AutoCollect") == true and pl.binN > 0 then collect(st, pl) end
+	if st.player:GetAttribute("Pass_AutoCollect") == true and st.player:GetAttribute("Set_AutoCollect") ~= false and pl.binN > 0 then collect(st, pl) end
 	local space = math.max(0, crateCap(st) - pl.binN)
 	local put = 0
 	while #g.load > 0 and put < space do
@@ -555,7 +555,7 @@ local function deliver(st: State, pl: Plot, g: Golem, force: boolean?)
 		setLoad(g)
 		showCrate(st, pl)
 		-- геймпас Auto Collect: руда з ящика одразу в інвентар
-		if st.player:GetAttribute("Pass_AutoCollect") == true then collect(st, pl) end
+		if st.player:GetAttribute("Pass_AutoCollect") == true and st.player:GetAttribute("Set_AutoCollect") ~= false then collect(st, pl) end
 	end
 	if force and #g.load > 0 then
 		local c = pl.carry or {}

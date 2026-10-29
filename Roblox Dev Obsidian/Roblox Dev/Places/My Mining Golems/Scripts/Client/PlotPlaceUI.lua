@@ -381,7 +381,7 @@ local BPX, BPY = 24, 18
 local bAnim = new("CanvasGroup", { Name = "Anim", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(150, 60),
 	Size = UDim2.fromOffset(300 + 2 * BPX, 120 + 2 * BPY), GroupTransparency = 1 }, bRoot)
 local bPop = new("UIScale", { Scale = 0.8 }, bAnim)
-local bTag = textAt(bAnim, BPX, BPY + 14, 300, 20, "", WHITE, 2.6, { FontFace = XBOLD })
+local bTag = textAt(bAnim, BPX, BPY + 10, 300, 40, "", WHITE, 4, { FontFace = XBOLD }) -- назва плоту (×2, 28.10.2026: було висота 20)
 local placeShadow = frame(bAnim, BPX, BPY + 38 + 7, 300, 80, BLACK, { BackgroundTransparency = 0.7 })
 -- anchor за замовчуванням (центр) — наведення й натискання масштабують кнопку від центру
 local placeBtn = StyleA.new(bAnim, { size = Vector2.new(300, 80), position = Vector2.new(BPX, BPY + 38), color = "green", text = "",

@@ -78,7 +78,29 @@ function MonetizationService.GrantProduct(p: Player, key: string): boolean
 	return true
 end
 -- Developer Product за id: ступінь x2 Money, пакет тікетів або продукт; false — невідомий
-local function grantProductId(p: Player, productId: number): boolean
+-- додатковий обробник продуктів з інших сервісів (GiftService: подарунки): fn(p, productId, receiptInfo) -> true/false або nil (не мій)
+MonetizationService.ExtraGrant = nil
+-- налагодження покупок (29.10.2026): рядок у вивід сервера і в консоль клієнта ВЛАСНИКА гри (у Team Test сервер у хмарі — його вивід не видно)
+function MonetizationService.Debug(...)
+	local parts = {}
+	for i = 1, select("#", ...) do parts[i] = tostring((select(i, ...))) end
+	local msg = table.concat(parts, " ")
+	print(msg)
+	local owner = Players:GetPlayerByUserId(game.CreatorId)
+	local r = RS:FindFirstChild("Remotes")
+	local ev = r and r:FindFirstChild("AdminBroadcast")
+	if owner and ev then ev:FireClient(owner, "debug", { text = msg }) end
+end
+-- видати ефект Developer Product за id гравцеві p (без ExtraGrant; GiftService — для подарунків цілі)
+local baseGrant
+local function grantProductId(p: Player, productId: number, info: any?): boolean
+	if MonetizationService.ExtraGrant then
+		local r = MonetizationService.ExtraGrant(p, productId, info)
+		if r ~= nil then return r end
+	end
+	return baseGrant(p, productId)
+end
+baseGrant = function(p: Player, productId: number): boolean
 	local tier = tierOfProduct(productId)
 	if tier then MonetizationService.GrantMoneyTier(p, tier); return true end
 	for _, t in MonCfg.TicketProducts do
@@ -98,12 +120,14 @@ local function grantProductId(p: Player, productId: number): boolean
 	end
 	return false
 end
+MonetizationService.GrantById = function(p: Player, productId: number): boolean return baseGrant(p, productId) end
 
 local function checkPasses(p: Player)
 	for name, def in MonCfg.Passes do
 		if def.id ~= 0 then
 			local ok, owns = pcall(function() return MarketplaceService:UserOwnsGamePassAsync(p.UserId, def.id) end)
-			if ok and owns then p:SetAttribute("Pass_" .. name, true) end
+			-- PassOff_<ключ> — геймпас знято через адмін-панель: не повертаємо (29.10.2026)
+			if ok and owns and p:GetAttribute("PassOff_" .. name) ~= true then p:SetAttribute("Pass_" .. name, true) end
 		end
 	end
 end
@@ -119,7 +143,7 @@ local function onShop(p: Player, action: any, key: any): any
 		if p:GetAttribute("Pass_" .. key) == true then return { ok = false, err = "owned" } end
 		if def.requires and p:GetAttribute("Pass_" .. def.requires) ~= true then return { ok = false, err = "requires" } end
 		price = MonCfg.ticketPrice(def.robux)
-		grant = function() p:SetAttribute("Pass_" .. key, true) end
+		grant = function() p:SetAttribute("Pass_" .. key, true); p:SetAttribute("PassOff_" .. key, nil) end
 	elseif action == "BuyProduct" and type(key) == "string" then
 		local d = MonCfg.Products[key]
 		if not d or d.diamonds then return { ok = false } end -- діаманти — лише за Robux
@@ -153,20 +177,28 @@ function MonetizationService.Start()
 	rf.OnServerInvoke = onShop
 	Players.PlayerRemoving:Connect(function(p) shopBusy[p] = nil end)
 	MarketplaceService.ProcessReceipt = function(info)
+		MonetizationService.Debug("[Receipt] in", info.PlayerId, info.ProductId)
 		local p = Players:GetPlayerByUserId(info.PlayerId)
-		if not p or not DataService.WaitLoaded(p) then return Enum.ProductPurchaseDecision.NotProcessedYet end
+		if not p or not DataService.WaitLoaded(p) then MonetizationService.Debug("[Receipt] no player / not loaded"); return Enum.ProductPurchaseDecision.NotProcessedYet end
 		local data = DataService.GetData(p)
-		if not data then return Enum.ProductPurchaseDecision.NotProcessedYet end
+		if not data then MonetizationService.Debug("[Receipt] no data"); return Enum.ProductPurchaseDecision.NotProcessedYet end
+		MonetizationService.Debug("[Receipt]", p.Name, info.ProductId, "spent", info.CurrencySpent, "purchase", info.PurchaseId)
 		local id = tostring(info.PurchaseId)
 		if not table.find(data.receipts, id) then
-			if not grantProductId(p, info.ProductId) then
+			local granted = grantProductId(p, info.ProductId, info)
+			MonetizationService.Debug("[Receipt] granted", granted)
+			if not granted then
 				warn("MonetizationService: невідомий ProductId " .. tostring(info.ProductId))
 				return Enum.ProductPurchaseDecision.NotProcessedYet
 			end
 			table.insert(data.receipts, id)
 			while #data.receipts > MAX_RECEIPTS do table.remove(data.receipts, 1) end
+			-- статистика: витрачені Robux (лідерборд TOP DONATORS, StatsService); геймпаси рахує StatsService сам
+			p:SetAttribute("Stat_RobuxSpent", (tonumber(p:GetAttribute("Stat_RobuxSpent")) or 0) + math.max(0, tonumber(info.CurrencySpent) or 0))
 		end
-		if DataService.SaveNow(p) then return Enum.ProductPurchaseDecision.PurchaseGranted end
+		local saved = DataService.SaveNow(p)
+		MonetizationService.Debug("[Receipt] saved", saved)
+		if saved then return Enum.ProductPurchaseDecision.PurchaseGranted end
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
@@ -175,6 +207,7 @@ function MonetizationService.Start()
 		for name, def in MonCfg.Passes do
 			if def.id ~= 0 and def.id == passId then
 				p:SetAttribute("Pass_" .. name, true)
+				p:SetAttribute("PassOff_" .. name, nil)
 				task.spawn(DataService.SaveNow, p)
 			end
 		end

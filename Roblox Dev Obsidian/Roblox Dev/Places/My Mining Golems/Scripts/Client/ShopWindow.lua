@@ -370,7 +370,7 @@ local DESC = {
 	Lucky = { fc(GOLD, "x2 Roll Luck") .. " forever", "Rare golems " .. fc(GOLD, "2x") .. " more often" },
 	MutLucky = { fc("ffb3f0", "x2 Mutation Luck") .. " forever", "Mutations " .. fc("ffb3f0", "2x") .. " more often" },
 	AutoEquip = { "Auto-equips " .. fc(GOLD, "best golems"), "Toggle it in Settings" },
-	FastForge = { "Forge smelts " .. fc(LIME, "2x faster") },
+	FastForge = { "Workshop smelts " .. fc(LIME, "2x faster") },
 	AutoCollect = { "Crates go to " .. fc(LIME, "inventory"), "No more COLLECT" },
 	RollStand1 = { fc(GREEN, "+1 roll stand") .. " per stage", "2 stages, up to " .. fc(GREEN, "7 stands") },
 	MoneyTier = { "More " .. fc(GOLD, "Money") .. " from every sale", fc(GOLD, "Permanent") .. ", stacks with VIP" },
@@ -495,16 +495,18 @@ local function descLines(card: GuiObject, x: number, y: number, w: number, size:
 	return y
 end
 -- ряд 3D-зіль з підписом (x5) — більше картинок, менше тексту
-local function miniRow(card: GuiObject, x: number, y: number, minis: any, z: number): number
+local function miniRow(card: GuiObject, x: number, y: number, minis: any, z: number, maxW: number?): number
 	-- колонка на зілля: 3D-іконка, під нею кількість (колір зілля) і на що воно впливає
+	-- maxW — ширина до кнопки покупки: колонки стискаються, щоб останнє зілля не ховалося під кнопкою
 	local S, CWD = 40, 104
+	if maxW and #minis > 0 then CWD = math.min(CWD, math.floor(maxW / #minis)) end
 	for i, mn in minis do
 		local cx = x + (i - 1) * CWD
 		local im = new("ImageLabel", { Name = "Mini", BackgroundTransparency = 1, Position = UDim2.fromOffset(cx + (CWD - S) / 2, y), Size = UDim2.fromOffset(S, S), ZIndex = z }, card)
 		ItemViewport.set(im, mn[1], 1.2)
 		local t = textAt(card, cx, y + S + 9, CWD, 18, mn[2], C(mn[3]), 2.4, { ZIndex = z + 1 })
 		t.TextColor3 = C(mn[3])
-		if mn[4] then textAt(card, cx, y + S + 29, CWD, 15, mn[4], WHITE, 1.8, { ZIndex = z + 1, FontFace = XBOLD }) end
+		if mn[4] then textAt(card, cx, y + S + 29, CWD, CWD < 100 and 13 or 15, mn[4], WHITE, 1.8, { ZIndex = z + 1, FontFace = XBOLD }) end
 	end
 	return y + S + 40
 end
@@ -613,7 +615,27 @@ local function shopCall(action: string, arg: any): any
 end
 
 -- куплені геймпаси, які мають перемикач у SETTINGS: замість OWNED — синя кнопка SETTINGS, клік відкриває налаштування
-local SETTINGS_PASSES = { AutoRoll = true, AutoBuy = true, AutoEquip = true }
+local SETTINGS_PASSES = { AutoRoll = true, AutoBuy = true, AutoEquip = true, FastRoll = true, AutoCollect = true }
+-- куплені тікети / діаманти летять від іконки картки до лічильника в HUD (Shared/CurrencyFly): будь-яке зростання,
+-- поки магазин відкритий (або до 2 хв після вікна оплати Robux)
+local CurrencyFly = require(Shared:WaitForChild("CurrencyFly"))
+local lastBuy = nil
+for _, attr in { "Tickets", "Diamonds" } do
+	local prev = tonumber(player:GetAttribute(attr)) or 0
+	player:GetAttributeChangedSignal(attr):Connect(function()
+		local n = tonumber(player:GetAttribute(attr)) or 0
+		local d = n - prev
+		prev = n
+		if d <= 0 then return end
+		local recent = lastBuy and os.clock() - lastBuy.t < 120
+		if not (win.isOpen or recent) then return end
+		local from = recent and lastBuy.card.card:FindFirstChild("Icon") or nil
+		if from and not from:IsDescendantOf(game) then from = nil end
+		if from and not win.isOpen then from = nil end
+		CurrencyFly.fly(attr, from, d)
+		lastBuy = nil
+	end)
+end
 local function onBuy(c)
 	local item = c.item
 	local st = stateOf(item)
@@ -641,6 +663,11 @@ local function onBuy(c)
 		else shakeGroup(c.btn.group); balance.Text = "Fast Mutations are coming soon!" end
 		return
 	end
+	do -- покупка для себе: скасувати ціль подарунка (GiftService), інакше той самий продукт пішов би іншому
+		local r = RS:FindFirstChild("Remotes")
+		local rf = r and r:FindFirstChild("GiftAction")
+		if rf then pcall(rf.InvokeServer, rf, "Clear") end
+	end
 	if item.kind == "pass" and item.stages then item.id = (MonCfg.Passes[stageKey(item) or ""] or {}).id end
 	if item.kind == "tier" then
 		local nxt = (tonumber(player:GetAttribute("DonateTier")) or 0) + 1
@@ -654,10 +681,55 @@ local function onBuy(c)
 		return
 	end
 	if item.kind == "product" or item.kind == "tickets" then
+		lastBuy = { card = c, t = os.clock() } -- звідси полетять тікети / діаманти після покупки
 		pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, player, item.id)
 	else
 		pcall(MarketplaceService.PromptGamePassPurchase, MarketplaceService, player, item.id)
 	end
+end
+
+-- ===== подарунки геймпасів (GiftService): кнопка з подарунком біля ціни → список гравців сервера → оплата Robux =====
+-- Лише за Robux (перемикач TICKETS на це не впливає). Продукти — MonetizationConfig.GiftProducts (0 — «coming soon»).
+-- іконка подарунка з фреймів: червона коробка з кришкою, жовта стрічка і бантик, чорний контур
+-- (v2, 29.10.2026: без нахилених рамок і темних тіней на дрібних деталях; обводка з круглими кутами; фігура відцентрована в s × s)
+local function giftIcon(parent: GuiObject, cx: number, cy: number, s: number, z: number)
+	local root = frame(parent, cx - s / 2, cy - s / 2, s, s, nil, { Name = "GiftIcon", BackgroundTransparency = 1, ZIndex = z })
+	local th = math.max(1.5, math.floor(s * 0.055 * 2 + 0.5) / 2)
+	local function box(x, y, w, h, c1, c2, zz, r)
+		local f = frame(root, math.floor(x * s + 0.5), math.floor(y * s + 0.5), math.floor(w * s + 0.5), math.floor(h * s + 0.5), WHITE, { ZIndex = zz })
+		vgrad(f, { { 0, c1 }, { 1, c2 } })
+		new("UIStroke", { Color = INK, Thickness = th, LineJoinMode = Enum.LineJoinMode.Round, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, f)
+		if r then corner(f, r) end
+		return f
+	end
+	-- бантик: дві округлі петлі (фігура займає y 0.06…0.94)
+	box(0.2, 0.06, 0.3, 0.24, "ffe066", "f0a400", z, UDim.new(0.5, 0))
+	box(0.5, 0.06, 0.3, 0.24, "ffe066", "f0a400", z, UDim.new(0.5, 0))
+	box(0.12, 0.46, 0.76, 0.48, "ff6b7d", "c21a32", z + 1, 3)      -- коробка
+	box(0.06, 0.27, 0.88, 0.22, "ff8a98", "e0263f", z + 2, 3)      -- кришка
+	box(0.42, 0.27, 0.16, 0.67, "fff1a0", "ffb21f", z + 3)         -- стрічка
+	return root
+end
+local openGift -- (item) — нижче, після карток
+local giftOv -- затемнення вікна подарунка (клік по ньому не закриває магазин)
+-- чи можна подарувати товар (GiftService.resolve): геймпаси (з етапами теж), ступені Money Boost, продукти, пакети тікетів
+local function canGift(item): boolean
+	if item.kind == "pass" then return MonCfg.GiftProducts ~= nil and MonCfg.GiftProducts[item.key] ~= nil end
+	if item.kind == "tier" or item.kind == "tickets" then return true end
+	if item.kind == "product" then return MonCfg.Products[item.key] ~= nil end
+	return false
+end
+-- ціль уже має товар (сіра кнопка OWNED / MAX у списку гравців)
+local function targetHas(item, pl: Player): string?
+	if item.kind == "pass" then
+		for _, k in (item.stages or { item.key }) do if pl:GetAttribute("Pass_" .. k) ~= true then return nil end end
+		return "OWNED"
+	end
+	if item.kind == "tier" then
+		return MultiCfg.DONATE_TIERS[(tonumber(pl:GetAttribute("DonateTier")) or 0) + 1] == nil and "MAX" or nil
+	end
+	if item.kind == "product" and item.once and pl:GetAttribute("Pass_" .. item.key) == true then return "OWNED" end
+	return nil
 end
 
 -- картка: layout "wide" (на всю ширину) | "half" (2 у ряд) | "compact" (3 у ряд)
@@ -731,7 +803,7 @@ local function makeCard(item, x: number, y: number, w: number, h: number, layout
 		title = textAt(card, tx, layout == "wide" and 32 or 30, tw, layout == "wide" and 36 or 28, item.name, WHITE, layout == "wide" and 3.4 or 2.8, { TextXAlignment = LEFT, ZIndex = 6 })
 		local dy = layout == "wide" and 54 or 48
 		local dw = layout == "wide" and (tw - 250) or tw
-		if MINIS[item.key] then dy = miniRow(card, tx + 4, dy + 2, MINIS[item.key], 6) + 2 end
+		if MINIS[item.key] then dy = miniRow(card, tx + 4, dy + 2, MINIS[item.key], 6, layout == "wide" and (w - 330 - 16 - (tx + 4) - 10) or nil) + 2 end
 		descLines(card, tx, dy, dw, layout == "wide" and 21 or 16, desc, "left", 6)
 	end
 	new("UIGradient", { Rotation = 90, Color = cseq({ { 0, "ffffff" }, { 1, soon and "c9ced5" or item.tone } }) }, title)
@@ -740,7 +812,13 @@ local function makeCard(item, x: number, y: number, w: number, h: number, layout
 	local full = compact or square -- кнопка на всю ширину внизу
 	-- розмір кнопки ×1,5 (v10, 28.10.2026): була 220×58 / повна ширина×48 / 180×50
 	local bw, bh = layout == "wide" and 330 or (full and w - 28 or 270), layout == "wide" and 87 or (full and 72 or 75)
-	local bx, by = full and 14 or w - bw - 16, h - bh - (full and 16 or 18)
+	if item.btnW then bw = item.btnW end -- власний розмір кнопки (Lucky Rolls: не налазить на велику конюшину)
+	if item.btnH then bh = item.btnH end
+	-- товар, який можна подарувати: кнопка ціни вужча, ЛІВОРУЧ — квадратна кнопка з подарунком висотою 0,75 кнопки ціни
+	local giftable = not soon and canGift(item)
+	local gs = math.floor(bh * 0.75)
+	if giftable then bw -= gs + 10 end
+	local bx, by = full and (giftable and 14 + gs + 10 or 14) or w - bw - 16, h - bh - (full and 16 or 18)
 	local btn = makeGroupButton(card, bx, by, bw, bh, { name = "Buy", shadowDy = 5, color = "green", z = 7 })
 	local row = new("Frame", { Name = "PriceRow", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(bw / 2, bh / 2 - 3),
 		Size = UDim2.fromOffset(0, bh), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 8 }, btn.group)
@@ -751,7 +829,13 @@ local function makeCard(item, x: number, y: number, w: number, h: number, layout
 	local bText = new("TextLabel", { Name = "Price", BackgroundTransparency = 1, FontFace = HEAVY, TextSize = layout == "wide" and 42 or 36, TextColor3 = WHITE, Text = "",
 		Size = UDim2.fromOffset(0, bh), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 2, ZIndex = 9 }, row)
 	stroke(bText, INK, 3.4, 0, true)
-	local c = { item = item, holder = holder, card = card, btn = btn, bIcon = bIcon, bText = bText, title = title }
+	if giftable then
+		local gb = makeGroupButton(card, bx - gs - 10, by + (bh - gs) / 2, gs, gs, { name = "Gift", shadowDy = 4, color = "purple", z = 7 })
+		giftIcon(gb.group, gs / 2, gs / 2 - 2, math.floor(gs * 0.66), 8)
+		gb.onClick = function() if openGift then openGift(item) end end
+	end
+	local c = { item = item, holder = holder, card = card, btn = btn, bIcon = bIcon, bText = bText, title = title,
+		bSize = bText.TextSize, bw = bw, iconW = s }
 	CardHover.attach(holder, card, function() return win.isOpen end)
 	-- картка під мишкою — над сусідами (збільшена не ховається під іншою)
 	card.MouseEnter:Connect(function() holder.ZIndex = 5 end)
@@ -761,6 +845,126 @@ local function makeCard(item, x: number, y: number, w: number, h: number, layout
 	return c
 end
 
+-- вікно вибору гравця для подарунка. Затемнення — на ВЕСЬ екран (окремий шар над вікном магазину), саме вікно —
+-- у тій самій системі координат, що й магазин (копія розміру / позиції / масштабу ModalRoot)
+do
+	local GW, GH = 560, 400
+	local mr = win.modalRoot
+	local mrScale = mr:FindFirstChildOfClass("UIScale")
+	local ov = new("TextButton", { Name = "GiftPicker", Text = "", AutoButtonColor = false, BackgroundColor3 = BLACK, BackgroundTransparency = 0.45,
+		BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 50, Visible = false }, win.gui)
+	giftOv = ov
+	local layer = new("Frame", { Name = "GiftLayer", BackgroundTransparency = 1, ZIndex = 51, Visible = false }, win.gui)
+	local layerScale = new("UIScale", {}, layer)
+	local function sync()
+		layer.AnchorPoint, layer.Position, layer.Size = mr.AnchorPoint, mr.Position, mr.Size
+		layerScale.Scale = mrScale and mrScale.Scale or 1
+	end
+	mr:GetPropertyChangedSignal("Position"):Connect(sync)
+	if mrScale then mrScale:GetPropertyChangedSignal("Scale"):Connect(sync) end
+	-- вміст магазину в координатах полотна: Window (WX, WY), список (LX, LY) у ньому
+	local area = frame(layer, WX + LX - 10, WY + LY - 10, LW + 20, LH + 20, nil, { BackgroundTransparency = 1, ZIndex = 1 })
+	-- вікно в нашому стилі: сіра рамка зі studs (windowFrame), заголовок на верхньому краї з переливом, червона X стилю A, рядки — темні поля як слоти
+	local PX, PY = (LW + 20 - GW) / 2, (LH + 20 - GH) / 2 + 14
+	local pnlRoot = frame(area, 0, 0, LW + 20, LH + 20, nil, { BackgroundTransparency = 1, ZIndex = 1 })
+	local pwin, pnl = windowFrame(pnlRoot, PX, PY, GW, GH - 14, 1, 8)
+	pwin.Active = true -- клік по вікну не закриває його (лише по затемненню)
+	local TY = PY - 2
+	textAt(pnlRoot, PX + 20, TY + 4, GW - 100, 40, "GIFT", INK, 5, { TextXAlignment = LEFT, ZIndex = 8, Name = "TitleShadow" })
+	local ttl = textAt(pnlRoot, PX + 20, TY, GW - 100, 40, "GIFT", WHITE, 4.5, { TextXAlignment = LEFT, ZIndex = 9 })
+	new("UIGradient", { Rotation = 90, Color = cseq({ { 0, "f0d4ff" }, { 1, "b05cff" } }) }, ttl)
+	local ttlS = ttl.Parent:FindFirstChild("TitleShadow")
+	for _, t in { ttl, ttlS } do -- довга назва («GIFT 10,000 DIAMONDS») зменшується, щоб не лізти під X
+		if t then t.TextScaled = true; new("UITextSizeConstraint", { MaxTextSize = 40, MinTextSize = 16 }, t) end
+	end
+	-- підзаголовок — посередині між верхнім краєм панелі зі studs (y 18) і списком гравців (y 66)
+	textAt(pnl, 24, 42, GW - 48, 15, "Choose a player on this server · Robux only", SUB_TXT, 2, { TextXAlignment = LEFT, ZIndex = 6, FontFace = XBOLD })
+	local xb = makeGroupButton(pnlRoot, PX + GW - 50, PY - 26, 64, 64, { name = "Close", shadowDy = 6, color = "red", z = 10,
+		icon = StyleA.ASSETS.stylea_icon_x, iconPad = -0.05 })
+	local scBg = slotBg(pnl, 22, 66, GW - 44, GH - 14 - 88, 4)
+	local sc = new("ScrollingFrame", { Position = UDim2.fromOffset(30, 74), Size = UDim2.fromOffset(GW - 60, GH - 14 - 104), BackgroundTransparency = 1, BorderSizePixel = 0,
+		ScrollBarThickness = 8, ScrollBarImageColor3 = C("b05cff"), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 5 }, pnl)
+	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, sc)
+	local empty = textAt(pnl, 22, 66 + (GH - 14 - 88) / 2, GW - 44, 20, "No other players on this server", MUTED, 2.4, { ZIndex = 6 })
+	local cur = nil
+	local function close() ov.Visible = false; layer.Visible = false; cur = nil end
+	xb.onClick = close
+	ov.Activated:Connect(close)
+	local prevClose = win.onClose
+	win.onClose = function() close(); if prevClose then prevClose() end end
+	local function giftCall(key: string, uid: number): any
+		local r = RS:FindFirstChild("Remotes")
+		local rf = r and r:FindFirstChild("GiftAction")
+		if not rf then return nil end
+		local ok, res = pcall(rf.InvokeServer, rf, "Select", key, uid)
+		return ok and res or nil
+	end
+	local function fill(item)
+		for _, ch in sc:GetChildren() do if ch:IsA("GuiObject") then ch:Destroy() end end
+		local n = 0
+		for _, pl in Players:GetPlayers() do
+			if pl ~= player then
+				n += 1
+				local has = targetHas(item, pl)
+				local row = cardBg(sc, 0, 0, GW - 76, 64, 6)
+				row.LayoutOrder = has and 1000 + n or n
+				local av = new("ImageLabel", { BackgroundColor3 = C("2a2e36"), Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(52, 52), ZIndex = 7,
+					Image = "rbxthumb://type=AvatarHeadShot&id=" .. pl.UserId .. "&w=150&h=150" }, row)
+				stroke(av, INK, 3)
+				textAt(row, 72, 24, 260, 22, pl.DisplayName, WHITE, 2.6, { TextXAlignment = LEFT, ZIndex = 7 })
+				textAt(row, 72, 46, 260, 14, "@" .. pl.Name, MUTED, 1.6, { TextXAlignment = LEFT, ZIndex = 7, FontFace = XBOLD })
+				local b = makeGroupButton(row, GW - 76 - 150, 8, 140, 46, { name = "Send", shadowDy = 4, color = has and "gray" or "purple", z = 8,
+					text = has or "GIFT", textSize = 24 })
+				b.enabled = not has
+				b.onClick = function()
+					local res = giftCall(item.key, pl.UserId)
+					if res and res.ok and res.id then
+						close()
+						pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, player, res.id)
+					else
+						shakeGroup(b.group)
+						local err = res and res.err
+						local t = uiEvents and uiEvents:FindFirstChild("Toast")
+						local msg = err == "soon" and "Gifting is coming soon!" or (err == "owned" and "They already own it!" or "Can't gift right now")
+						if t then t:Fire(msg, err == "soon" and "yellow" or "red", "deny") end
+					end
+				end
+			end
+		end
+		empty.Visible = n == 0
+	end
+	openGift = function(item)
+		cur = item
+		ttl.Text = "GIFT " .. string.upper(item.name)
+		if ttlS then ttlS.Text = ttl.Text end
+		fill(item)
+		sync()
+		ov.Visible = true; layer.Visible = true
+	end
+	Players.PlayerAdded:Connect(function() if cur and ov.Visible then fill(cur) end end)
+	Players.PlayerRemoving:Connect(function() if cur and ov.Visible then task.defer(fill, cur) end end)
+end
+
+-- напис на кнопці ціни не вилазить за кнопку (SETTINGS на вузькій кнопці з подарунком): шрифт менший, до підібраного
+local fitCache = {}
+local function fitBtnText(c)
+	local text = c.bText.Text
+	local avail = c.bw - 24 - (c.bIcon.Visible and c.iconW + 8 or 0)
+	local ck = text .. "|" .. c.bSize .. "|" .. avail
+	if not fitCache[ck] then
+		local params = Instance.new("GetTextBoundsParams")
+		params.Font = HEAVY; params.Width = 100000; params.Text = text
+		local size = c.bSize
+		while size > 14 do
+			params.Size = size
+			local ok, v = pcall(TextService.GetTextBoundsAsync, TextService, params)
+			if not ok or v.X <= avail then break end
+			size -= 1
+		end
+		fitCache[ck] = size
+	end
+	c.bText.TextSize = fitCache[ck]
+end
 local function refreshCard(c)
 	local item, b = c.item, c.btn
 	local st = stateOf(item)
@@ -774,12 +978,14 @@ local function refreshCard(c)
 		b:setColor("blue"); b.enabled = true
 		c.bIcon.Visible = false
 		c.bText.Text = "SETTINGS"
+		fitBtnText(c)
 		return
 	end
 	if st == "owned" or st == "max" or st == "soon" then
 		b:setColor("gray"); b.enabled = st == "soon"
 		c.bIcon.Visible = false
 		c.bText.Text = st == "owned" and "OWNED" or (st == "max" and "MAX" or "SOON")
+		fitBtnText(c)
 		return
 	end
 	local icon, price = priceOf(item)
@@ -790,6 +996,7 @@ local function refreshCard(c)
 	c.bIcon.Visible = true
 	c.bIcon.Image = icon or ICON.robux
 	c.bText.Text = NF.full(price or 0)
+	fitBtnText(c)
 end
 
 -- ===== побудова розділів =====
@@ -854,6 +1061,7 @@ do
 	for i, it in LR do
 		local d = MonCfg.Products[it.key]
 		it.kind = "product"; it.robux = d.robux; it.id = d.id
+		it.btnW, it.btnH = 210, 66
 		local have
 		it.extra = function(card, cw, ch, tx, tw)
 			-- конюшина в 1,6 раза більша за звичайну іконку half-картки (у PNG широкі прозорі поля)
@@ -981,7 +1189,7 @@ local TABS = {
 	{ "MONEY MULTIPLIER", "MONEY", "rbxassetid://103015355952567" },
 	{ "GAMEPASSES", "PASSES", "rbxassetid://111200556390804" },
 	{ "LUCKY ROLLS", "LUCKY", "rbxassetid://" .. (LUCK10_ICON_ID or "116109725516204") },
-	{ "BUNDLES", "PACKS", "rbxassetid://104193388781391" },
+	{ "BUNDLES", "BUNDLES", "rbxassetid://104193388781391" },
 	{ "TICKETS", "TICKETS", ICON.ticket },
 	{ "TIME SKIPS", "SKIPS", "rbxassetid://" .. (SKIP_ICON_ID or "103015355952567") },
 	{ "DIAMONDS", "DIAMONDS", "rbxassetid://126442692946356" },
@@ -1047,6 +1255,7 @@ do
 		if not (scrollTw and scrollTw.PlaybackState == Enum.PlaybackState.Playing) then setActive(best) end
 	end
 	win.keepInside = function(p: Vector2): boolean
+		if giftOv and giftOv.Visible then return true end -- відкрите вікно подарунка: клік закриває лише його
 		for _, t in tabs do
 			local a, s = t.g.AbsolutePosition, t.g.AbsoluteSize
 			if p.X >= a.X and p.X <= a.X + s.X and p.Y >= a.Y and p.Y <= a.Y + s.Y then return true end

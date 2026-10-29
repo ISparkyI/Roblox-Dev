@@ -197,3 +197,19 @@
 **Оновлено 28.10.2026 (Shop v2):** `ShopWindow` — розділи MONEY MULTIPLIER / GAMEPASSES / BUNDLES / PRODUCTS / COMING SOON, візерунок як на кнопках, без накладання при наведенні; `AdminPanel` — секція GAMEPASSES з вікном вибору.
 
 **Оновлено 28.10.2026 (Shop v4):** `ShopWindow` — нові товари, розділ MUTATION SPEED, prewrap описів; `InventoryUI` / `CaveStandsClient` / `RollRevealClient` — ліміт `Items.maxGolems(player)`.
+
+## Додано в індекс 29.10.2026
+
+| Файл | Де в Roblox | Що робить |
+| --- | --- | --- |
+| `MutationMachineClient.lua` | `StarterPlayerScripts/MutationMachineClient` (LocalScript) | Mutation Machines для локального гравця: големи на входах і результат на виході (`GolemModel`, аури, таблички), написи кнопок E (PLACE / TAKE / CLAIM / HOLD A GOLEM / NOT THE SAME / MAX MUTATION / ON PLOT / INVENTORY FULL), панель над машиною (SurfaceGui на `PanelBoard` з обох боків: статус, таймер, прогрес, START, xN TIME — покупка ступеня `MUT_SPEED_TIERS`), блискавки від котушок до антени, частинки реактора. [[GDD - Mutation Machine]] |
+| `StallShopWindow.lua` | `StarterPlayerScripts/StallShopWindow` (LocalScript) | вікна лавок DIAMONDS SHOP / EVENTS SHOP: відкривається в колі лавки, таймер оновлення, баланс діамантів, картки лотів з кнопкою ціни (`StallShopAction` "BuyDia"); Events — COMING SOON. [[GDD - Diamonds Shop]] |
+| `PlotStatsClient.lua` | `StarterPlayerScripts/PlotStatsClient` (LocalScript) | особисте табло `PlotStats` біля входу в нішу: шапка з аватаром і іменем власника, 14 рядків статистики з прокруткою; вільна ніша — EMPTY PLOT. [[GDD - Leaderboards]] |
+| `LeaderboardClient.lua` | `StarterPlayerScripts/LeaderboardClient` (LocalScript) | екрани лідербордів у центрі зали (`Hub/Leaderboards/<key>/Screen`): шапка, п'єдестал топ-3, список з прокруткою, таймер оновлення; дані — атрибути `Data` / `NextAt` (StatsService), набір — `HubConfig.BOARDS`. [[GDD - Leaderboards]] |
+| `StatueAnimator.lua` | `StarterPlayerScripts/StatueAnimator` (LocalScript) | процедурні анімації статуй топ-1 над лідербордами (8 різних, R6 і R15), без Animation-асетів — від HumanoidRootPart по суглобах |
+| `MarketplaceClient.lua` | `StarterPlayerScripts/MarketplaceClient` (LocalScript) | коло Marketplace: напис «TELEPORTING TO MARKETPLACE IN», потім 3 → 2 → 1 (по одному), `Remotes/MarketplaceTP`; місця ще немає — тост «coming soon» |
+| `BoostsHUD.lua` | `StarterPlayerScripts/BoostsHUD` (LocalScript) | активні зілля зверху по центру (значок і таймер, атрибути `Boost_*`), Lucky Roll у запасі — конюшина з «xN» |
+| `ShopBoard.lua` | `StarterPlayerScripts/ShopBoard` (LocalScript) | табло TIME SKIPS у ніші між SELL і CAVE: картки скіпів з «+$…», вигодою й кнопкою з ціною в Robux (прокрутка вбік) |
+| `MapBoard.lua` | `StarterPlayerScripts/MapBoard` (LocalScript) | табло «наступна мапа» в ніші: % прокачки плотів, множник, «You will lose», кнопка MAP N (лише своя ніша, поруч з екраном) |
+| `WorkshopClient.lua` | `StarterPlayerScripts/WorkshopClient` (LocalScript) | чернетка Workshop (заміна Forge): анімація 6-рукого голема-майстра «Брасс», печі, міха, заготовки, топки й диму, екран покращень |
+| `ForgeWindow-1.lua` | — | стара копія `ForgeWindow.lua` (до вікна v2), у грі не використовується; лишено як архів |

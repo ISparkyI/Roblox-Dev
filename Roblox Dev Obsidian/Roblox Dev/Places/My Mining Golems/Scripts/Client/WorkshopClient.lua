@@ -1,6 +1,6 @@
 -- WorkshopClient — клієнт Workshop (майстерня, заміна Forge; чернетка 28.10.2026): анімація 6-рукого голема-майстра «Брасс»,
 --   печі, міха, заготовки на ковадлі, топки в грудях і диму з димаря, екран покращень. Основа — ForgeClient.
--- Де: StarterPlayer/StarterPlayerScripts/WorkshopClient (LocalScript). Моделі: Niche*/Workshop і тестова Workspace/WorkshopDraft/Workshop.
+-- Де: StarterPlayer/StarterPlayerScripts/WorkshopClient (LocalScript). Моделі: Niche*/Forge (майстерня в префабі, 28.10.2026; ForgeClient вимкнено) і тестова Workspace/WorkshopDraft/Workshop.
 -- Анімація 6 рук: верхні — як у коваля (молот, ліва тримає заготовку); середні — по шляхах WorkshopRig.MPATH (без перетинів):
 --   права бере руду внизу й підкидає до печі на замаху, ліва після удару підхоплює злиток; у спокої — розкладені вбік;
 --   нижні — огранювання: різець постукує, кристал повертається. Сон: усі руки складені, нижні на колінах, топка ледь тліє.
@@ -588,7 +588,7 @@ task.spawn(function()
 		local niches = workspace:FindFirstChild("Niches")
 		if niches then
 			for _, n in niches:GetChildren() do
-				local f = n:FindFirstChild("Workshop")
+				local f = n:FindFirstChild("Workshop") or n:FindFirstChild("Forge") -- у префабі майстерня зветься Forge (для ForgeService / ForgeWindow)
 				if f and not recs[f] and f:FindFirstChild("Ring") and f:FindFirstChild("Pallets") and f:FindFirstChild("Kiln") then
 					local ok, err = pcall(setup, f) if not ok then warn("WorkshopClient: " .. tostring(err)) end
 				end

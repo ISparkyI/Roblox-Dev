@@ -401,7 +401,10 @@ local function applyGrant(p: Player, g: any, tx: string, silent: boolean?): (boo
 		end
 	elseif g.what == "Pass" then
 		for key in MonCfg.Passes do
-			if g.item == "*" or g.item == key then p:SetAttribute("Pass_" .. key, n > 0 and true or nil) end
+			if g.item == "*" or g.item == key then
+				p:SetAttribute("Pass_" .. key, n > 0 and true or nil)
+				p:SetAttribute("PassOff_" .. key, n < 0 and true or nil) -- знято адміном: не повертати при вході (власник гри / покупець володіє геймпасом у Roblox)
+			end
 		end
 	elseif TIER_ATTR[g.what] then
 		-- «до ступеня»: вищий або такий самий вже є — нічого не міняємо і не показуємо тост
@@ -777,6 +780,9 @@ function A.Kick(p, arg)
 	return { ok = true, text = "Kick sent" }
 end
 
+-- бани цього сервера (29.10.2026): BanAsync не працює в Studio / Team Test і доходить до серверів із затримкою —
+-- забанений не зайде назад на цей сервер (u → { till = os.time або math.huge, reason })
+local sessionBans: { [number]: { till: number, reason: string } } = {}
 function A.Ban(p, arg)
 	local u = resolveUser(arg)
 	if not u then return { ok = false, error = "User not found" } end
@@ -788,14 +794,21 @@ function A.Ban(p, arg)
 			DisplayReason = reason ~= "" and reason or "Banned by an admin.", PrivateReason = "admin " .. p.UserId .. ": " .. reason })
 	end)
 	audit(p.UserId, "ban", { u = u, hours = hours, reason = reason, ok = ok })
+	sessionBans[u] = { till = hours > 0 and os.time() + math.floor(hours * 3600) or math.huge, reason = reason ~= "" and reason or "Banned by an admin." }
 	send({ c = "kick", u = u, reason = reason ~= "" and reason or "Banned by an admin." })
-	if not ok then return { ok = false, error = "BanAsync: " .. tostring(err) } end
+	local here = Players:GetPlayerByUserId(u)
+	if here then pcall(function() here:Kick(sessionBans[u].reason) end) end
+	if not ok then
+		if game:GetService("RunService"):IsStudio() then return { ok = true, text = "Banned on this server (Studio: no Roblox ban)" } end
+		return { ok = false, error = "BanAsync: " .. tostring(err) }
+	end
 	return { ok = true, text = hours > 0 and ("Banned for " .. hours .. " h") or "Banned permanently" }
 end
 
 function A.Unban(p, arg)
 	local u = resolveUser(arg)
 	if not u then return { ok = false, error = "User not found" } end
+	sessionBans[u] = nil
 	local ok, err = pcall(function() Players:UnbanAsync({ UserIds = { u }, ApplyToUniverse = true }) end)
 	audit(p.UserId, "unban", { u = u, ok = ok })
 	if not ok then return { ok = false, error = "UnbanAsync: " .. tostring(err) } end
@@ -1130,7 +1143,11 @@ function AdminService.Start()
 	DataService.RegisterSection("AdminTx", function(p, old)
 		return txOf[p] or old
 	end)
-	Players.PlayerAdded:Connect(function(p) task.spawn(onPlayer, p) end)
+	Players.PlayerAdded:Connect(function(p)
+		local b = sessionBans[p.UserId]
+		if b and b.till > os.time() then p:Kick(b.reason); return end
+		task.spawn(onPlayer, p)
+	end)
 	for _, p in Players:GetPlayers() do task.spawn(onPlayer, p) end
 	Players.PlayerRemoving:Connect(function(p)
 		task.delay(5, function() txOf[p] = nil; rate[p] = nil end) -- після фінального збереження (DataService знімає знімок синхронно)

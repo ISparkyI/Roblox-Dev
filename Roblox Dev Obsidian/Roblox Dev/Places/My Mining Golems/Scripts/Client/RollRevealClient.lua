@@ -220,6 +220,15 @@ local function clearVis(stand: Model, v: Vis)
 end
 
 -- фінал: справжній результат стоїть із табличкою
+-- звуки ролу й купівлі — лише коли персонаж поруч зі стендом (Auto Roll крутить і тоді, коли власник далеко)
+local SOUND_DIST = 45
+local function nearStand(stand: Model): boolean
+	local ch = game:GetService("Players").LocalPlayer.Character
+	local hrp = ch and ch:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not hrp then return false end
+	return (hrp.Position - stand:GetPivot().Position).Magnitude <= SOUND_DIST
+end
+
 local function placeFinal(stand: Model, v: Vis, seq: any, animate: boolean, owner: boolean)
 	local cls = Catalog.cls(seq.c)
 	local mut = Catalog.mut(seq.m)
@@ -245,7 +254,7 @@ local function placeFinal(stand: Model, v: Vis, seq: any, animate: boolean, owne
 		end
 	end
 	if not animate then board(); return end
-	if owner then UISounds.play("claim", 0.1) end
+	if owner and nearStand(stand) then UISounds.play("claim", 0.1) end
 	flash(g.m, color, 0.3)
 	burst(standTop(stand), color)
 	local t0 = os.clock()
@@ -276,7 +285,7 @@ local function runFake(stand: Model, v: Vis, f: any, cls: string, startT: number
 	g.m:SetAttribute("AuraScale", STAND_SCALE); g.m:SetAttribute("Mut", mut) -- 3D-ефект мутації (MutationAuraClient)
 	g.m.Parent = stand
 	-- легкий звук на кожну появу (minGap — один на «хвилю» підставок), трохи вище з кожною появою
-	if owner and now() - startT < 0.08 then UISounds.play("hover", 0.15, 1 + 0.06 * (cycle - 1)) end
+	if owner and now() - startT < 0.08 and nearStand(stand) then UISounds.play("hover", 0.15, 1 + 0.06 * (cycle - 1)) end
 	local tok = v.token
 	local conn
 	conn = RunService.RenderStepped:Connect(function()
@@ -327,7 +336,7 @@ local function refresh(stand: Model)
 		-- порожньо: куплено (ефект) або просто прибрано
 		local bt = stand:GetAttribute("RollBoughtT")
 		if v.final and type(bt) == "number" and now() - bt < 1.5 then
-			if owner then UISounds.play("BuySound", 0.1) end
+			if owner and nearStand(stand) then UISounds.play("BuySound", 0.1) end
 			boughtFx(stand, v.final)
 			v.final = nil
 		end
@@ -434,14 +443,15 @@ end
 local function hookNiche(niche: Instance)
 	task.spawn(function()
 		-- без тайм-аутів (v7): зі StreamingEnabled частини ніші можуть прийти пізно — тоді підставки не підхоплювались
-		local rs = niche:WaitForChild("RollSystem")
+		-- тайм-аут math.huge = чекати скільки завгодно, але без попередження «Infinite yield possible» в консолі (далекі ніші ще не прийшли стрімінгом)
+		local rs = niche:WaitForChild("RollSystem", math.huge)
 		task.spawn(function()
-			local lm = rs:WaitForChild("RollLeverModel")
-			local anchor = lm:WaitForChild("PromptAnchor")
-			local pr = anchor:WaitForChild("RollPrompt")
+			local lm = rs:WaitForChild("RollLeverModel", math.huge)
+			local anchor = lm:WaitForChild("PromptAnchor", math.huge)
+			local pr = anchor:WaitForChild("RollPrompt", math.huge)
 			if pr:IsA("ProximityPrompt") then hookLever(niche, pr) end
 		end)
-		local holder = rs:WaitForChild("Stands")
+		local holder = rs:WaitForChild("Stands", math.huge)
 		for _, s in holder:GetChildren() do hookStand(s) end
 		holder.ChildAdded:Connect(hookStand)
 	end)
@@ -458,3 +468,11 @@ niches.ChildAdded:Connect(hookNiche)
 local function repaintAll() for s in vis do paintPrompt(s) end end
 player:GetAttributeChangedSignal("Money"):Connect(repaintAll)
 player:GetAttributeChangedSignal("InvGolems"):Connect(repaintAll)
+
+-- інвентар повний — Auto Roll / Auto Buy стоять (RollService, атрибут AutoRollFull): тост на екрані (UIEvents/Toast)
+player:GetAttributeChangedSignal("AutoRollFull"):Connect(function()
+	if player:GetAttribute("AutoRollFull") ~= true then return end
+	local ui = game:GetService("ReplicatedStorage"):FindFirstChild("UIEvents")
+	local t = ui and ui:FindFirstChild("Toast")
+	if t then t:Fire("Inventory full! Auto Roll paused", "red", "deny") end
+end)

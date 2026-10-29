@@ -269,6 +269,8 @@ local function onPull(p: Player, role: any, niche: Model)
 	-- геймпаси: x2 Roll Luck (Pass_Lucky) — рідкість голема; x2 Mutation Luck (Pass_MutLucky) — мутація
 	-- Luck Potion (Boost_Luck): Roll Luck ×1,25 — і для голема, і для мутації
 	local potL = Items.boostOn(p, "Luck") and 1.25 or 1
+	-- бонус лідербордів (StatsService, атрибут LB_Luck — відсотки): Roll Luck × (1 + LB_Luck / 100), для голема й мутації
+	potL *= 1 + math.max(0, tonumber(p:GetAttribute("LB_Luck")) or 0) / 100
 	-- Lucky Roll (продукт SHOP): один рол ×99 або ×10 на всіх підставках — береться найсильніший з запасу
 	for _, k in { 99, 10 } do
 		local a = "LuckRoll" .. k
@@ -293,9 +295,10 @@ local function onPull(p: Player, role: any, niche: Model)
 	local stands = standsOf(niche)
 	local pend = {}
 	local n = 0
+	local best = 0 -- найрідкісніший результат цього ролу («1 до N») — лідерборд TOP BEST ROLL
 	local cy = RollConfig.cycle(count) -- цикл фейка: остання підставка закінчує рівно на RollConfig.TOTAL
 	-- геймпас Fast Roll: без фейків — результат одразу з'являється на всіх підставках (RollRevealClient: поява + спалах)
-	local fast = p:GetAttribute("Pass_FastRoll") == true
+	local fast = p:GetAttribute("Pass_FastRoll") == true and p:GetAttribute("Set_FastRoll") ~= false
 	for i = 1, count do
 		local stand = stands[i]
 		if stand then
@@ -303,6 +306,7 @@ local function onPull(p: Player, role: any, niche: Model)
 			local g = RollConfig.pick(pool, luckGolem, rnd)
 			local mu = RollConfig.pick(MUTS, luckMut, rnd)
 			local rec = { kind = g.id, cls = cls, mut = mu.mut }
+			best = math.max(best, (tonumber(g.odds) or 1) * (tonumber(mu.odds) or 1))
 			pend[tostring(i)] = rec
 			local fakes = {}
 			local prev = nil
@@ -325,6 +329,8 @@ local function onPull(p: Player, role: any, niche: Model)
 	if n == 0 then return end
 	-- некуплені результати попереднього ролу замінюються (у тому числі на підставках, яких уже немає)
 	setPending(p, pend)
+	local okS, Stats = pcall(require, script.Parent:FindFirstChild("StatsService"))
+	if okS and Stats then Stats.Max(p, "BestRoll", best) end
 	busyUntil[p] = t + (fast and RollConfig.RESULT_APPEAR or RollConfig.revealTime(n)) + BUSY_PAD
 	niche:SetAttribute("RollBusyUntil", busyUntil[p])
 	questAdd(p, "Roll", 1)
@@ -383,7 +389,13 @@ end
 local function filterHold(p: Player, niche: Instance): boolean
 	local autobuy = p:GetAttribute("Pass_AutoBuy") == true and p:GetAttribute("Set_AutoBuy") ~= false
 	local stands = standsOf(niche)
-	local hold = false
+	-- інвентар повний (без големів на плотах, як у buyAt) — Auto Roll і Auto Buy стоять, клієнт показує тост (атрибут AutoRollFull)
+	local full = Items.invGolemCount(decode(p, "InvGolems", {}), decode(p, "PlotPlaced", {})) >= Items.maxGolems(p)
+	local autoOn = (p:GetAttribute("Pass_AutoRoll") == true and p:GetAttribute("Set_AutoRoll") ~= false) or autobuy
+	local fullFlag = full and autoOn
+	if (p:GetAttribute("AutoRollFull") == true) ~= fullFlag then p:SetAttribute("AutoRollFull", fullFlag or nil) end
+	if full then autobuy = false end
+	local hold = full
 	for k, rec in pendingOf(p) do
 		local g = clean(rec)
 		local i = tonumber(k)
@@ -507,14 +519,14 @@ function RollService.Start()
 				-- Auto Buy працює і на ручних ролах; Auto Roll стоїть, поки під фільтр є некуплений результат
 				local hold = niche0 ~= nil and filterHold(p, niche0)
 				if not hold and p:GetAttribute("Pass_AutoRoll") == true and p:GetAttribute("Set_AutoRoll") ~= false and p:GetAttribute("RollReady") == true then
-					local gap = (p:GetAttribute("Pass_FastRoll") == true) and AUTO_GAP_FAST or AUTO_GAP
+					local gap = (p:GetAttribute("Pass_FastRoll") == true and p:GetAttribute("Set_FastRoll") ~= false) and AUTO_GAP_FAST or AUTO_GAP
 					if t >= (busyUntil[p] or 0) + gap and t >= (nextAuto[p] or 0) then
 						local niche = NicheService.GetNiche(p)
 						local rsys = niche and niche:FindFirstChild("RollSystem")
 						local lever = rsys and rsys:FindFirstChild("RollLever", true)
 						local ap = lever and lever:FindFirstChild("AutoPull")
 						if ap and ap:IsA("BindableEvent") then
-							nextAuto[p] = t + ((p:GetAttribute("Pass_FastRoll") == true) and 0.6 or 1.2) -- поки важіль іде до удару (≈0,5 с; з Fast Roll ≈0,25 с), не стріляємо вдруге
+							nextAuto[p] = t + ((p:GetAttribute("Pass_FastRoll") == true and p:GetAttribute("Set_FastRoll") ~= false) and 0.6 or 1.2) -- поки важіль іде до удару (≈0,5 с; з Fast Roll ≈0,25 с), не стріляємо вдруге
 							ap:Fire(p)
 						end
 					end

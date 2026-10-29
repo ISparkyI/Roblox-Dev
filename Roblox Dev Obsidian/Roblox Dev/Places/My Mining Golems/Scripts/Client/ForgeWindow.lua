@@ -542,10 +542,10 @@ new("ImageLabel", { Name = "TitleIconShadow", BackgroundTransparency = 1, Image 
 	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(TITLE_ICX, TITLE_ICY + 9), Size = UDim2.fromOffset(TITLE_IS, TITLE_IS), Rotation = -8, ZIndex = 3 }, pop)
 new("ImageLabel", { Name = "TitleIcon", BackgroundTransparency = 1, Image = TITLE_ICON, ScaleType = Enum.ScaleType.Fit,
 	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(TITLE_ICX, TITLE_ICY), Size = UDim2.fromOffset(TITLE_IS, TITLE_IS), Rotation = -8, ZIndex = 4 }, pop)
-local titleShadow = textAt(pop, TITLE_X, 50 + 9, 560, 118, "FORGE", INK, 11, { Name = "TitleShadow", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
-local title = textAt(pop, TITLE_X, 50, 560, 118, "FORGE", WHITE, 10, { Name = "Title", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
+local titleShadow = textAt(pop, TITLE_X, 50 + 9, 560, 118, "WORKSHOP", INK, 11, { Name = "TitleShadow", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
+local title = textAt(pop, TITLE_X, 50, 560, 118, "WORKSHOP", WHITE, 10, { Name = "Title", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
 local titleGrad = new("UIGradient", { Rotation = 0 }, title)
-local titleShine = textAt(pop, TITLE_X, 50, 560, 118, "FORGE", WHITE, 0, { Name = "TitleShine", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
+local titleShine = textAt(pop, TITLE_X, 50, 560, 118, "WORKSHOP", WHITE, 0, { Name = "TitleShine", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
 local titleShineGrad = new("UIGradient", { Rotation = 25, Offset = Vector2.new(-1.3, 0),
 	Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.32, 1), NumberSequenceKeypoint.new(0.40, 0.2),
 		NumberSequenceKeypoint.new(0.48, 1), NumberSequenceKeypoint.new(0.51, 1), NumberSequenceKeypoint.new(0.55, 0.45),

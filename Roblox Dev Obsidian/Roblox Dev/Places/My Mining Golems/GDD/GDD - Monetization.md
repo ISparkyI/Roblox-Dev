@@ -1,7 +1,7 @@
 ---
 tags: [gdd, place, monetization]
 status: draft
-updated: 2026-10-28
+updated: 2026-10-29
 ---
 
 # GDD - Monetization
@@ -215,3 +215,19 @@ updated: 2026-10-28
 - Іконки геймпасів імпортовано (Asset Manager, 28.10.2026): VIP 94885703643821 (корона з відновленим контуром), x2 Mutation Luck 90173095287975 (фіолетовий чарівний дим), Auto Equip Best 85163785197859 (голова голема + золота зірка), Fast Roll 117046150824957 (зелені стрілки Auto Open з пака), Auto Buy 73783624459990 (золотий кошик). PNG — `2D/Shop/Roblox/Import/`.
 - Potion Pack — 4 колби купкою (задній ряд 2 вище, передній 2 зі зсувом).
 
+
+**Оновлено 29.10.2026 (Fast Mutations):** 11 Developer Products «Fast Mutations xN» створено в Creator Hub (іконка — годинник скіпа на фіолетовому з бейджем xN, Managed pricing вимкнено), ID — у `MonetizationConfig.MUT_SPEED_TIERS`. Ступінь `MutSpeedTier` — на гравця, діє на **обидві** Mutation Machines. Купується кнопкою xN TIME на панелі машини ([[GDD - Mutation Machine]]).
+
+| Ступінь | R$ | Product ID |
+| --- | --- | --- |
+| x2 | 19 | 3723430618 |
+| x3 | 29 | 3723430637 |
+| x4 | 49 | 3723430646 |
+| x8 | 79 | 3723430652 |
+| x16 | 129 | 3723430658 |
+| x32 | 199 | 3723430665 |
+| x64 | 299 | 3723430676 |
+| x128 | 449 | 3723430685 |
+| x256 | 649 | 3723430694 |
+| x512 | 899 | 3723430702 |
+| x1024 | 1 199 | 3723430707 |

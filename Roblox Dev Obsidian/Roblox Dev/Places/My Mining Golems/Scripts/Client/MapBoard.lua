@@ -3,7 +3,7 @@
 --   на screen, сіра підкладка зі studs; референс — «Next Map Upgrade» (банер з %, множник, «You will lose», кнопка MAP N).
 -- Умова переходу: 100 % прокачки плотів — середнє за картками PlotConfig.CARDS, відкритими на цій мапі
 --   ((рівень − 1) / (max − 1)); рівні — атрибут власника ніші PlotLv (JSON), мапа — атрибут Stage.
--- Кнопка MAP N: лише своя ніша і лише близько (CLOSE стадів від персонажа до екрана); далеко — «Come closer».
+-- Кнопка MAP N: лише своя ніша і лише в зоні перед екраном (ZONE_*: майданчик між стовпами); далеко — тост «Come closer».
 --   САМ ПЕРЕХІД ЩЕ НЕ РЕАЛІЗОВАНИЙ (немає префаба другої мапи): на 100 % кнопка пише «Coming soon».
 -- Екран будується, коли камера ближче BUILD_AT стадів (великий екран — видно з усієї ніші), прибирається далі DROP_AT. Грань — screen.ScreenFace (за замовчуванням Front).
 
@@ -28,7 +28,10 @@ local LIME = C("d4ff3e")
 local PINK = C("ff4fa8")
 local GOLD = C("ffd23a")
 local PH = 1000
-local CLOSE = 32 -- стадів до екрана, щоб натиснути MAP N
+-- зона натискання MAP N: прямокутник перед екраном (весь майданчик між стовпами табла)
+local ZONE_DEPTH = 48 -- стадів від екрана вперед
+local ZONE_HALF = 42 -- стадів вліво / вправо від центру екрана (екран 65 завширшки)
+local ZONE_UP = 40 -- допуск по висоті
 local BUILD_AT, DROP_AT = 600, 700 -- дальність прогрузки табла (від ролів і плотів теж видно)
 -- назви мап (GDD - Maps)
 local MAP_NAMES = { "Mossy Grotto", "Rusty Mine", "Crystal Depths", "Magma Caverns", "Frozen Abyss", "Void Core" }
@@ -152,7 +155,7 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 	gradText(label(root, RX, 280, RW, 90, 80, "You will lose:", WHITE, 7, { TextXAlignment = Enum.TextXAlignment.Left }), "ffc4e4", "ff3d9a")
 	-- що НЕ втрачаємо (GDD - Maps): на табличці лише Exclusive големи й големи в Cave (зілля, Cave слоти, геймпас-стенди теж лишаються, але не пишемо)
 	gradText(label(root, RX, 652, RW, 44, 38, "Exclusive & Cave golems are not deleted", WHITE, 4, { TextXAlignment = Enum.TextXAlignment.Left }), "fff1b8", "ffb21e")
-	local LOSE = { "- All Money", "- All ores & bars", "- Golems not saved in the Cave", "- Plot & Forge upgrades", "- Roll stands bought with Money" } -- геймпаси +1 Roll Stand і куплені Cave слоти лишаються
+	local LOSE = { "- All Money", "- All ores & bars", "- Golems not saved in the Cave", "- Plot & Workshop upgrades", "- Roll stands bought with Money" } -- геймпаси +1 Roll Stand і куплені Cave слоти лишаються
 	for i, s in LOSE do
 		gradText(label(root, RX, 366 + (i - 1) * 56, RW, 54, 46, s, WHITE, 6, { TextXAlignment = Enum.TextXAlignment.Left }), "ffc4e4", "ff3d9a")
 	end
@@ -183,7 +186,12 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 	local function near(): boolean
 		local ch = player.Character
 		local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
-		return hrp ~= nil and (hrp.Position - screen.Position).Magnitude <= CLOSE
+		if not hrp then return false end
+		-- у системі екрана: вперед — нормаль грані з написом, вбік — X, вгору — Y
+		local rel = screen.CFrame:PointToObjectSpace(hrp.Position)
+		local face = Enum.NormalId[screen:GetAttribute("ScreenFace") or "Front"]
+		local depth = rel:Dot(Vector3.FromNormalId(face))
+		return depth > -4 and depth <= ZONE_DEPTH and math.abs(rel.X) <= ZONE_HALF and math.abs(rel.Y) <= ZONE_UP
 	end
 	if mine then
 		StyleA.bind(sa, { hoverAlways = true, canClick = function() return pn.pct >= 1 and near() end, onClick = function()

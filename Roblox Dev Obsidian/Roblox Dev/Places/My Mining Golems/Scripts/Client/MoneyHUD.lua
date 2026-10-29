@@ -173,7 +173,20 @@ new("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 16)
 local tipVals = {}
 for i, s in MultiCfg.SOURCES do
 	local row = frame(tipList, { LayoutOrder = i, Size = UDim2.fromOffset(TIP_W, ROW_H), ZIndex = 2 })
-	if s.icon ~= "" then
+	if s.icon == "podium" then
+		-- п'єдестал 3-1-2 з фреймів (стиль іконок: перелив зверху вниз, чорна обводка, білі цифри з обводкою)
+		local box = new("Frame", { Name = "Podium", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0),
+			Size = UDim2.fromOffset(31, 26), ZIndex = 3 }, row)
+		for _, b in { { 1, 12, 10, 13, "ff9a52", "b5531c", "3" }, { 20, 8, 10, 17, "eef3f8", "8c98a8", "2" }, { 10, 2, 11, 23, "ffe14a", "e89a00", "1" } } do
+			local f = new("Frame", { BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, Position = UDim2.fromOffset(b[1], b[2]),
+				Size = UDim2.fromOffset(b[3], b[4]), ZIndex = b[7] == "1" and 5 or 4 }, box)
+			new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C(b[5]), C(b[6])) }, f)
+			new("UIStroke", { Color = INK, Thickness = 2, LineJoinMode = Enum.LineJoinMode.Round, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, f)
+			local t = new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 12), Position = UDim2.fromOffset(0, b[7] == "1" and 3 or 1),
+				FontFace = HEAVY, TextSize = 12, Text = b[7], TextColor3 = Color3.new(1, 1, 1), ZIndex = 6 }, f)
+			new("UIStroke", { Color = INK, Thickness = 1.5, LineJoinMode = Enum.LineJoinMode.Round }, t)
+		end
+	elseif s.icon ~= "" then
 		local ih = 24
 		new("ImageLabel", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0),
 			Size = UDim2.fromOffset(math.round(ih * s.aspect), ih), Image = s.icon, ScaleType = Enum.ScaleType.Fit, ZIndex = 3 }, row)
@@ -192,6 +205,45 @@ for i, s in MultiCfg.SOURCES do
 	end
 	player:GetAttributeChangedSignal("Multi_" .. s.key):Connect(upd)
 	upd()
+end
+
+-- рядок зілля грошей (28.10.2026): лише поки діє Money Potion (атрибут Boost_Money, ItemConfig.boostLeft) — «Potion 9:41 … x2» над INCOME.
+-- Множник x2 уже в TOTAL MULTI (MultiService); рядок просто показує, звідки він.
+do
+	local Items = require(RS:WaitForChild("Shared"):WaitForChild("ItemConfig"))
+	local ItemViewport = require(RS.Shared:WaitForChild("ItemViewport"))
+	local pot = Items.potion("Money")
+	local row = frame(tipList, { Name = "PotionRow", LayoutOrder = 99, Size = UDim2.fromOffset(TIP_W, ROW_H), ZIndex = 2, Visible = false })
+	local ic = new("ImageLabel", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, -2, 0.5, 0),
+		Size = UDim2.fromOffset(28, 28), Image = pot and pot.icon or "", ScaleType = Enum.ScaleType.Fit, ZIndex = 3 }, row)
+	pcall(ItemViewport.set, ic, "Pot_Money", 1.15)
+	local name = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(34, 0), Size = UDim2.new(1, -34 - 60, 1, 0), FontFace = HEAVY, TextSize = 16,
+		TextColor3 = C("e6edf5"), TextXAlignment = Enum.TextXAlignment.Left, RichText = true, Text = "Potion", ZIndex = 3 }, row)
+	new("UIStroke", { Color = INK, Thickness = 2, LineJoinMode = Enum.LineJoinMode.Round }, name)
+	local val = new("TextLabel", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Size = UDim2.new(0, 60, 1, 0),
+		FontFace = HEAVY, TextSize = 21, TextColor3 = ORANGE, TextXAlignment = Enum.TextXAlignment.Right, Text = "x2", ZIndex = 3 }, row)
+	new("UIStroke", { Color = INK, Thickness = 2.5, LineJoinMode = Enum.LineJoinMode.Round }, val)
+	local function fmt(sec: number): string
+		sec = math.ceil(sec)
+		local h, m, s = sec // 3600, sec % 3600 // 60, sec % 60
+		if h > 0 then return string.format("%d:%02d:%02d", h, m, s) end
+		return string.format("%d:%02d", m, s)
+	end
+	local acc = 0
+	local function upd()
+		local left = Items.boostLeft(player, "Money")
+		row.Visible = left > 0
+		if left > 0 then
+			name.Text = 'Potion  <font color="' .. (left <= 10 and "#ff8a8a" or "#ffd23a") .. '">' .. fmt(left) .. "</font>"
+		end
+	end
+	upd()
+	RunService.Heartbeat:Connect(function(dt)
+		acc += dt
+		if acc < 0.25 then return end
+		acc = 0
+		upd()
+	end)
 end
 
 -- рядок доходу (v10, 28.10.2026): скільки гравець заробляє за хвилину (атрибут IncomePerMin, IncomeService на сервері)
@@ -324,3 +376,14 @@ local function onMoney()
 end
 player:GetAttributeChangedSignal("Money"):Connect(function() task.spawn(onMoney) end)
 player:GetAttributeChangedSignal("TotalMulti"):Connect(function() setMulti(player:GetAttribute("TotalMulti") or 1) end)
+-- гроші могли завантажитись, поки скрипт чекав (textWidth / GetTextBoundsAsync) і ще не слухав зміни — тоді в HUD лишався $0
+-- (29.10.2026): після підписки ставимо поточне значення без анімації
+do
+	local cur = player:GetAttribute("Money") or 0
+	if cur ~= shown then
+		shown = cur
+		moneyLabel.Text = money(cur)
+		setW(textWidth(money(cur), MONEY_SIZE))
+	end
+	setMulti(player:GetAttribute("TotalMulti") or 1)
+end

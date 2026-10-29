@@ -239,6 +239,12 @@ function CaveStandService.MaxId(p: Player): number
 	local m = 0
 	for _, g in decode(p, "InvGolems", {}) do if type(g) == "table" and type(g.id) == "number" then m = math.max(m, g.id) end end
 	for _, g in golemsOf(p) do if type(g) == "table" and type(g.id) == "number" then m = math.max(m, g.id) end end
+	-- големи в Mutation Machines (MutationService, атрибут MutMachines)
+	for _, mm in decode(p, "MutMachines", {}) do
+		if type(mm) == "table" and type(mm.slots) == "table" then
+			for _, g in mm.slots do if type(g) == "table" and type(g.id) == "number" then m = math.max(m, g.id) end end
+		end
+	end
 	return m
 end
 

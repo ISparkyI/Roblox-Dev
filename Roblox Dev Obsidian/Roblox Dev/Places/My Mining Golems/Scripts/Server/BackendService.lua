@@ -72,7 +72,7 @@ local FALLBACK_UPDATES = {
 	{ id = "local-2", version = "v0.2", date = "2026-10-27", title = "Mutation auras", titleColor = "#ffd23a",
 		text = "Golems with mutations now glow with their own aura. [#e6e9ef]Secret[/] golems leave comet trails!", textColor = "", image = "", pinned = false },
 	{ id = "local-1", version = "v0.1", date = "2026-10-25", title = "Welcome to My Mining Golems!", titleColor = "",
-		text = "Roll golems, place them on your plot and mine ore. Smelt bars in the **Forge** and sell them for [#7ef05a]Money[/].", textColor = "", image = "", pinned = true },
+		text = "Roll golems, place them on your plot and mine ore. Smelt bars in the **Workshop** and sell them for [#7ef05a]Money[/].", textColor = "", image = "", pinned = true },
 }
 
 -- макет таблиці для тестів у Studio (атрибут Mock)

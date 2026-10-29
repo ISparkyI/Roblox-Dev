@@ -5,7 +5,7 @@ local Catalog = require(script.Parent:WaitForChild("GolemCatalog"))
 local Config = {}
 
 Config.MAX_PLOTS = 6     -- плоти купуються по черзі 1→6 (1 ближній лівий, 2 ближній правий, 3 середній лівий ...)
-Config.MAX_POINTS = 10   -- максимум руди на плоті одночасно (картка Ore Limit, старт 1); місце руди — випадкове
+Config.MAX_POINTS = 6    -- (28.10.2026, було 10) максимум руди на плоті одночасно (картка Ore Limit, старт 1); місце руди — випадкове
 
 -- руда мапи 1: HP і шанс спавну «1 до N» (шанси працюють як ваги: кожен спавн дає одну з трьох руд)
 Config.ORES = {
@@ -57,24 +57,24 @@ function Config.oreChance(key: string): number -- частка у відсотк
 end
 
 -- ===== картки прокачки (діють на ВСІ плоти; рівень 1 = старт) =====
-Config.SPAWN_START, Config.SPAWN_STEP, Config.SPAWN_MIN = 5, 0.25, 0.25
+Config.SPAWN_START, Config.SPAWN_STEP, Config.SPAWN_MIN = 5, 0.25, 0.75 -- мінімум 0,75 с (28.10.2026, було 0,25)
 function Config.spawnOf(l: number): number return math.max(Config.SPAWN_MIN, Config.SPAWN_START - (l - 1) * Config.SPAWN_STEP) end
 function Config.slotsOf(l: number): number return math.clamp(l, 1, 5) end
 function Config.carryOf(l: number): number return math.min(3, 1 + (l - 1) * 0.25) end
 function Config.plotsOf(l: number): number return math.clamp(l, 1, Config.MAX_PLOTS) end
 function Config.pointsOf(l: number): number return math.clamp(l, 1, Config.MAX_POINTS) end
-function Config.dropOf(l: number): number return math.min(10, 1 + (l - 1) * 0.5) end
+function Config.dropOf(l: number): number return math.min(3, 1 + (l - 1) * 0.25) end -- ×1 → ×3 (28.10.2026, було ×10)
 function Config.crateOf(l: number): number return math.clamp(l, 1, 100) * 10 end -- місткість ящика плоту: 10 → 1000
 Config.CRATE_VISUAL = 16 -- руда в ящику — один щільний шар 4 × 4 шматки; він піднімається від дна до краю з заповненням
 
 Config.CARDS = {
 	Plots = { name = "Plots", max = 6, price = function(l: number) return math.floor(150 * 5 ^ (l - 1)) end },        -- 150 … 93,750
-	Points = { name = "Ore Limit", max = 10, price = function(l: number) return math.floor(300 * 2.2 ^ (l - 1)) end },  -- 1 → 10 руди на плоті: 300 … 164,629
-	Spawn = { name = "Ore Spawn", max = 20, price = function(l: number) return math.floor(150 * 1.5 ^ (l - 1)) end },   -- 5 с → 0,25 с: 150 … 221,683
+	Points = { name = "Ore Limit", max = 6, price = function(l: number) return math.floor(300 * 2.2 ^ (l - 1)) end },   -- 1 → 6 руди на плоті: 300 … 15,460
+	Spawn = { name = "Ore Spawn", max = 18, price = function(l: number) return math.floor(150 * 1.5 ^ (l - 1)) end },   -- 5 с → 0,75 с: 150 … 147,789
 	Slots = { name = "Golem Slots", max = 5, price = function(l: number) return math.floor(400 * 5 ^ (l - 1)) end },    -- 1 → 5 майнерів: 400 … 50,000
 	Carry = { name = "Carrier Speed", max = 9, price = function(l: number) return math.floor(250 * 2 ^ (l - 1)) end },  -- ×1 → ×3: 250 … 32,000
 	Crate = { name = "Crate Capacity", max = 100, price = function(l: number) return math.floor(100 * 1.06 ^ (l - 1)) end },      -- 10 → 1000 руди в ящику, +10: 100 … 30,197
-	Drop = { name = "Ore Drop", max = 19, price = function(l: number) return math.floor(300 * 1.6 ^ (l - 1)) end },      -- ×1 → ×10 шматків з руди: 300 … 885,443
+	Drop = { name = "Ore Drop", max = 9, price = function(l: number) return math.floor(300 * 1.6 ^ (l - 1)) end },      -- ×1 → ×3 шматків з руди, +0,25: 300 … 12,884
 	-- Auto Sell: руда з ящика продається сама (рівень 1 = Off, 2 = On). Відкривається на другій карті (Stage >= minStage).
 	-- Механіка й ціна — разом із другою картою; ЦІНА — ЗАГЛУШКА, її задасть користувач.
 	AutoSell = { name = "Auto Sell", max = 2, minStage = 2, price = function(l: number) return 100000 end },

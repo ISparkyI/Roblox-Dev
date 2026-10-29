@@ -57,6 +57,8 @@ local KEYS = {
 	AutoEquip = "bool",
 	AutoRoll = "bool", -- лише з Pass_AutoRoll (RollService читає Set_AutoRoll ~= false)
 	AutoBuy = "bool", -- лише з Pass_AutoBuy
+	FastRoll = "bool", -- лише з Pass_FastRoll (RollService / LeverScript читають Set_FastRoll ~= false)
+	AutoCollect = "bool", -- лише з Pass_AutoCollect (PlotService читає Set_AutoCollect ~= false)
 	RollMuts = "mask", -- фільтр AUTO ROLL: біти мутацій 0..7 (RollService.wanted)
 	RollRars = "mask", -- фільтр AUTO ROLL: біти рідкостей (Catalog.RARITIES)
 	RollMinDmg = "num", -- фільтр AUTO ROLL: мінімум шкоди (носій — місткість)
@@ -83,6 +85,8 @@ local function onSet(p: Player, key: any, v: any)
 	if key == "AutoEquip" and p:GetAttribute("Pass_AutoEquip") ~= true then return end
 	if key == "AutoRoll" and p:GetAttribute("Pass_AutoRoll") ~= true then return end
 	if key == "AutoBuy" and p:GetAttribute("Pass_AutoBuy") ~= true then return end
+	if key == "FastRoll" and p:GetAttribute("Pass_FastRoll") ~= true then return end
+	if key == "AutoCollect" and p:GetAttribute("Pass_AutoCollect") ~= true then return end
 	if kind == "percent" then
 		if type(v) ~= "number" or v ~= v then return end
 		v = math.clamp(math.floor(v + 0.5), 0, 100)

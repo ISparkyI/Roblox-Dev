@@ -28,8 +28,8 @@ Config.Passes = {
 		desc = "Double Mutation Luck forever: mutations drop 2x more often." },
 	AutoEquip = { id = 2058749563, robux = 99, order = 3, name = "Auto Equip Best", icon = "rbxassetid://85163785197859", tone = "5cc8ff",
 		desc = "Your best golems go to your plots automatically. Toggle it in Settings." },
-	FastForge = { id = 2057903547, robux = 149, order = 4, name = "Fast Forge", icon = "rbxassetid://102635405420682", tone = "ff8a3a",
-		desc = "The Forge smelts ore into bars 2x faster." },
+	FastForge = { id = 2057903547, robux = 149, order = 4, name = "Fast Workshop", icon = "rbxassetid://102635405420682", tone = "ff8a3a",
+		desc = "The Workshop smelts ore into bars 2x faster." },
 	AutoCollect = { id = 2058077602, robux = 249, order = 5, name = "Auto Collect", icon = "rbxassetid://91341404610533", tone = "c08cff",
 		desc = "Ore from plot crates goes straight to your inventory. No more COLLECT!" },
 	-- +1 підставка ролу у 2 етапи (Point6, Point7): спершу RollStand1, потім RollStand2 (requires); у магазині — одна картка «1/2 → 2/2»
@@ -112,11 +112,13 @@ function Config.skipBonus(key: string): number
 end
 
 -- Fast Mutations — драбина швидкості Mutation Machine (Developer Products, лише за Robux, атрибут MutSpeedTier).
--- Ціни трохи вищі за драбину x2 Money (пропозиція). Машини ще немає — ефект з'явиться разом із нею.
+-- Ціни трохи вищі за драбину x2 Money (пропозиція). Ступінь — на гравця: діє на ОБИДВІ машини (MutationService, кнопка xN TIME на панелі).
+-- Продукти створені в Creator Hub 29.10.2026 («Fast Mutations xN», іконка — годинник скіпа з бейджем xN, Managed pricing вимкнено).
 Config.MUT_SPEED_TIERS = {
-	{ mult = 2, robux = 19, id = 0 }, { mult = 3, robux = 29, id = 0 }, { mult = 4, robux = 49, id = 0 }, { mult = 8, robux = 79, id = 0 },
-	{ mult = 16, robux = 129, id = 0 }, { mult = 32, robux = 199, id = 0 }, { mult = 64, robux = 299, id = 0 }, { mult = 128, robux = 449, id = 0 },
-	{ mult = 256, robux = 649, id = 0 }, { mult = 512, robux = 899, id = 0 }, { mult = 1024, robux = 1199, id = 0 },
+	{ mult = 2, robux = 19, id = 3723430618 }, { mult = 3, robux = 29, id = 3723430637 }, { mult = 4, robux = 49, id = 3723430646 },
+	{ mult = 8, robux = 79, id = 3723430652 }, { mult = 16, robux = 129, id = 3723430658 }, { mult = 32, robux = 199, id = 3723430665 },
+	{ mult = 64, robux = 299, id = 3723430676 }, { mult = 128, robux = 449, id = 3723430685 }, { mult = 256, robux = 649, id = 3723430694 },
+	{ mult = 512, robux = 899, id = 3723430702 }, { mult = 1024, robux = 1199, id = 3723430707 },
 }
 function Config.mutSpeedMult(tier: number): number
 	local t = Config.MUT_SPEED_TIERS[math.floor(tier)]
@@ -166,4 +168,45 @@ function Config.ownsTag(p: Instance, key: string): boolean
 	return false
 end
 
+-- ===== подарунки геймпасів іншим гравцям (GiftService, кнопка з подарунком на картці геймпаса в SHOP) =====
+-- Лише за Robux (за тікети не можна). Кожен геймпас — окремий Developer Product «Gift: <назва>» з ціною геймпаса.
+-- 0 — продукт ще не створено: кнопка показує «Gifting is coming soon!». Roll Stand — кожен етап свій продукт (дарується наступний етап цілі).
+-- Developer Products (ступені Money Boost, Lucky Rolls, бандли, тікети, скіпи, діаманти) даруються ТИМ САМИМ продуктом:
+--   GiftService запам'ятовує ціль, і наступна оплата цього продукту покупцем (протягом GIFT_TTL с) іде цілі.
+Config.GiftProducts = {
+	-- створені в Creator Hub 29.10.2026 («Gift: <назва>», ціна геймпаса, іконка геймпаса з подарунком, Managed pricing вимкнено)
+	VIP = 3723400043, Lucky = 3723400189, MutLucky = 3723400427, AutoEquip = 3723400471, FastForge = 3723400486, AutoCollect = 3723400499,
+	FastRoll = 3723400547, AutoRoll = 3723400574, AutoBuy = 3723400591, RollStand1 = 3723400516, RollStand2 = 3723400528,
+}
+Config.GIFT_TTL = 600
+function Config.giftPassOf(productId: number): string?
+	for key, id in Config.GiftProducts do if id ~= 0 and id == productId then return key end end
+	return nil
+end
+-- подарунки Developer Products (29.10.2026): [productId товару] = productId «Gift: …» (та сама ціна й іконка з подарунком,
+-- Managed pricing вимкнено). Ступені Money Boost, Lucky Rolls, бандли, тікети, скіпи, діаманти.
+Config.GiftDevProducts = {
+	[3723335507] = 3723410630, [3723335479] = 3723410638, [3723335448] = 3723410645, [3723335416] = 3723410651, [3723335384] = 3723410665, -- Diamonds
+	[3723335358] = 3723410673, [3723335300] = 3723410680, [3723335268] = 3723410691, [3723335234] = 3723410701,
+	[3723335193] = 3723410713, [3723335158] = 3723410724, -- Lucky Roll x99 / x10
+	[3723335120] = 3723410744, [3723335078] = 3723410753, [3723335051] = 3723410770, [3723335023] = 3723410870, [3723334993] = 3723410882, -- Time Skips
+	[3723334950] = 3723410889, [3723334918] = 3723410898, [3723334757] = 3723410907, [3723334727] = 3723410918,
+	[3723334689] = 3723410939, [3723334654] = 3723410952, [3723334627] = 3723410962, [3723334592] = 3723410980, [3723334497] = 3723410993, -- Tickets
+	[3723334459] = 3723411000, [3723334428] = 3723411012, [3723334398] = 3723411023, [3723334366] = 3723411036,
+	[3723334276] = 3723411048, [3723334088] = 3723411073, [3722656338] = 3723411095, -- Potion Pack, Extra Storage, Starter Pack
+	[3721930724] = 3723411114, [3721930680] = 3723411123, [3721930572] = 3723411130, [3721930510] = 3723411139, [3721930359] = 3723411150, -- Money tiers
+	[3721930321] = 3723411158, [3721930194] = 3723411168, [3721930045] = 3723411181, [3721929746] = 3723411193, [3721929082] = 3723411209,
+	[3721929046] = 3723411227, [3721929008] = 3723411234, [3721928868] = 3723411245, [3721928838] = 3723411256, [3721928802] = 3723411266,
+	[3721928644] = 3723411274, [3721928373] = 3723411283, [3721928351] = 3723411294, [3721928105] = 3723411300, [3721927921] = 3723411314,
+	[3721927655] = 3723411322,
+}
+-- gift-продукт → productId товару (nil — не подарунок)
+local giftReal = nil
+function Config.giftRealOf(productId: number): number?
+	if not giftReal then
+		giftReal = {}
+		for real, g in Config.GiftDevProducts do giftReal[g] = real end
+	end
+	return giftReal[productId]
+end
 return Config

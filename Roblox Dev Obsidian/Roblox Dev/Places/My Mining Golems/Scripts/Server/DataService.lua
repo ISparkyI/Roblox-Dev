@@ -68,7 +68,9 @@ local PREFIXES = {
 	{ prefix = "Ore_", scope = "stage", reset = 0 },   -- руда в інвентарі
 	{ prefix = "Bars_", scope = "stage", reset = 0 },  -- злитки в інвентарі
 	{ prefix = "Pass_", scope = "global" },            -- куплені геймпаси (Pass_VIP і т.д.)
+	{ prefix = "PassOff_", scope = "global" },         -- геймпас знято адміном (MonetizationService.checkPasses не повертає його з UserOwnsGamePassAsync)
 	{ prefix = "Set_", scope = "global" },             -- налаштування гравця (SettingsService)
+	{ prefix = "Stat_", scope = "global" },            -- статистика за весь час (StatsService): лідерборди й особистий борд
 }
 -- секції, які скидаються на новому етапі (Forge — GDD 6, пропозиція)
 local STAGE_SECTIONS = { Forge = true }

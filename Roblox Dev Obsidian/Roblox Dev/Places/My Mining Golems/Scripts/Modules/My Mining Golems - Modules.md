@@ -132,3 +132,14 @@ ModuleScript — дані й модулі.
 **Оновлено 28.10.2026 (Shop):** `MonetizationConfig.Passes` — VIP, Lucky, AutoEquip, FastForge, AutoCollect (id, robux, order, featured, name, desc, icon, tone); `TICKET_RATE` 1,25, `ticketPrice(robux)`; MoreCrates прибрано.
 
 **Оновлено 28.10.2026 (Shop v4):** `RollConfig` — STANDS_BASE 5, STANDS_MAX 7, `totalStands(p)`; `ItemConfig.maxGolems(p)`; `MonetizationConfig` — MutLucky, RollStand1/2, Products StarterPack / ExtraStorage, MUT_SPEED_TIERS.
+
+## Додано в індекс 29.10.2026
+
+| Файл | Де в Roblox | Що робить |
+| --- | --- | --- |
+| `MutationConfig.lua` | `ReplicatedStorage/Shared/MutationConfig` | Mutation Machine: 2 машини × 3 слоти, таймери за GDD (15 хв … 120 год), `left` / `progress` / `fmt`, `same` (та сама назва, клас, мутація). [[GDD - Mutation Machine]] |
+| `StallShopConfig.lua` | `ReplicatedStorage/Shared/StallShopConfig` | лавки в кінці зали: оновлення (Diamonds 30 хв, Events 3 год), скіпи (вага, кількість, ціна в 💎), кількість видів, рідкісні геймпаси, кольори рідкостей. [[GDD - Diamonds Shop]] |
+| `HubConfig.lua` | `ReplicatedStorage/Shared/HubConfig` | числа центральної зали: Marketplace (коло, відлік, PLACE_ID), лідерборди (`BOARDS`), магазини, мутаційні установки, груповий голем |
+| `CurrencyFly.lua` | `ReplicatedStorage/Shared/CurrencyFly` | іконки тікетів / діамантів летять до лічильника в HUD (покупки, нагороди квестів) |
+| `WorkshopRig.lua` | `ReplicatedStorage/Shared/WorkshopRig` | скелет 6-рукого голема-майстра Workshop (на основі ForgeRig) — чернетка |
+| `WorkshopGolem.lua` | `ReplicatedStorage/Shared/WorkshopGolem` | модель голема-майстра «Брасс» (латунь, мідь, топка в грудях, 6 рук) — чернетка |

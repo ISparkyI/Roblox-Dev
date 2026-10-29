@@ -193,6 +193,12 @@ local function play(r, name: string)
 end
 
 local function ownerHRP(sell: Model): BasePart?
+	-- лавки в кінці зали (Workspace/Cave/Shops, атрибут Shop): «власник» — будь-який гравець, тобто сам локальний гравець
+	if sell:GetAttribute("Shop") then
+		local ch = player.Character
+		local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+		return hrp and hrp:IsA("BasePart") and hrp or nil
+	end
 	local niche = sell.Parent
 	local uid = niche and niche:GetAttribute("OwnerUserId")
 	if not uid or uid == 0 then return nil end
@@ -227,6 +233,12 @@ local function step(r, now: number, dt: number)
 			play(r, "sell")
 		end
 		r.amount = r.sell:GetAttribute("SellAmount") or 0
+	end
+	-- покупка в лавці Diamonds Shop (сервер збільшує BuySeq) — голем-продавець радіє монеті
+	local bseq = r.sell:GetAttribute("BuySeq")
+	if bseq and bseq ~= r.bseq then
+		if r.bseq ~= nil and ANIMS.coin then play(r, "coin") end
+		r.bseq = bseq
 	end
 	-- вибір анімації
 	local A = ANIMS[r.anim]
@@ -487,6 +499,15 @@ task.spawn(function()
 			for _, n in niches:GetChildren() do
 				local s = n:FindFirstChild("Sell")
 				if s and not recs[s] and s:FindFirstChild("Golem") and s:FindFirstChild("SellOrigin") then
+					local ok, err = pcall(setup, s) if not ok then warn("SellClient: " .. tostring(err)) end
+				end
+			end
+		end
+		-- лавки Diamonds / Events у кінці зали — ті самі анімації голема-продавця (вітання, монета при покупці)
+		local shops = workspace:FindFirstChild("Cave") and workspace.Cave:FindFirstChild("Shops")
+		if shops then
+			for _, s in shops:GetChildren() do
+				if not recs[s] and s:FindFirstChild("Golem") and s:FindFirstChild("SellOrigin") then
 					local ok, err = pcall(setup, s) if not ok then warn("SellClient: " .. tostring(err)) end
 				end
 			end
