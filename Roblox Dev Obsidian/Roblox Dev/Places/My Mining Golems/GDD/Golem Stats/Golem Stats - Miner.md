@@ -39,13 +39,13 @@ updated: 2026-10-25
 | wooden      | Wooden Golem      | Common    | 1    | 1                  | 0            | 1     | 1         | 1      | ні                 | перший голем, безкоштовний на будь-якій мутації |
 | stone       | Stone Golem       | Common    | 1    | 10                 | 150          | 2     | 1.05      | 1      | є (Stone Golem v2) |                                                 |
 | clay        | Clay Golem        | Common    | 1    | 15                 | 400          | 3     | 0.9       | 1.05   | ні                 | важкий, повільний                               |
-| gravel      | Gravel Golem      | Common    | 1    | 25                 | 850          | 3     | 1.2       | 0.95   | ні                 | легкий, швидкий                                 |
-| mossback    | Mossback Golem    | Common    | 1    | 40                 | 1400         | 5     | 1         | 1.05   | ні                 |                                                 |
-| copperhead  | Copperhead Golem  | Uncommon  | 1    | 75                 | 2100         | 6     | 1.1       | 1.05   | ні                 |                                                 |
-| flint       | Flint Golem       | Uncommon  | 1    | 120                | 4000         | 7     | 1.25      | 1      | ні                 | швидкий                                         |
-| rustbolt    | Rustbolt Golem    | Uncommon  | 1    | 200                | 12000        | 12    | 0.95      | 1.1    | ні                 | важкий                                          |
-| granite     | Granite Golem     | Uncommon  | 1    | 300                | 18500        | 15    | 1.05      | 1.15   | ні                 |                                                 |
-| lantern     | Lantern Golem     | Uncommon  | 1    | 500                | 29500        | 19    | 1.15      | 1.05   | ні                 |                                                 |
+| gravel      | Gravel Golem      | Common    | 1    | 25                 | 850          | 3     | 1.2       | 0.95   | є (Gravel Golem v1) | легкий, швидкий                                 |
+| mossback    | Mossback Golem    | Common    | 1    | 40                 | 1400         | 5     | 1         | 1.05   | є (Mossback Golem v1) |                                                 |
+| copperhead  | Copperhead Golem  | Uncommon  | 1    | 75                 | 2100         | 6     | 1.1       | 1.05   | є (Copperhead Golem v1) |                                                 |
+| flint       | Flint Golem       | Uncommon  | 1    | 120                | 4000         | 7     | 1.25      | 1      | є (Flint Golem v1) | швидкий                                         |
+| rustbolt    | Rustbolt Golem    | Uncommon  | 1    | 200                | 12000        | 12    | 0.95      | 1.1    | є (Rustbolt Golem v1) | важкий                                          |
+| granite     | Granite Golem     | Uncommon  | 1    | 300                | 18500        | 15    | 1.05      | 1.15   | є (Granite Golem v1) |                                                 |
+| lantern     | Lantern Golem     | Uncommon  | 1    | 500                | 29500        | 19    | 1.15      | 1.05   | є (Lantern Golem v1) | світиться (Neon)                                |
 | ironclad    | Ironclad Golem    | Rare      | 1    | 900                | 36000        | 25    | 1         | 1.15   | ні                 |                                                 |
 | quartzling  | Quartzling Golem  | Rare      | 1    | 1500               | 75000        | 50    | 1.35      | 0.9    | ні                 |                                                 |
 | tinker      | Tinker Golem      | Rare      | 1    | 2500               | 120000       | 90    | 1.2       | 1      | ні                 |                                                 |
