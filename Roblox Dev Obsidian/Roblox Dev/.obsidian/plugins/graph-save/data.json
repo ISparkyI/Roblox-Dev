@@ -167,8 +167,8 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Mutation Machine.md",
-      "x": 1131.4317626953125,
-      "y": -816.471923828125
+      "x": 1122.308349609375,
+      "y": -800.4757080078125
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Ores and Bars.md",
@@ -357,8 +357,8 @@
     },
     {
       "id": "Scripts/UI Hover/UI Hover.md",
-      "x": -463,
-      "y": -88
+      "x": -586.7843627929688,
+      "y": -27.14360237121582
     },
     {
       "id": "Style/GDD - 2D іконки.md",
@@ -499,6 +499,41 @@
       "id": "Places/My Mining Golems/GDD/GDD - Daily Rewards.md",
       "x": 858.9100952148438,
       "y": -505.1392517089844
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Copperhead Golem/Copperhead Golem.md",
+      "x": 797.7275390625,
+      "y": 1983.016357421875
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Flint Golem/Flint Golem.md",
+      "x": 58.12668228149414,
+      "y": 1905.0389404296875
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Granite Golem/Granite Golem.md",
+      "x": 420.19903564453125,
+      "y": 2049.987548828125
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Gravel Golem/Gravel Golem.md",
+      "x": 1752.31396484375,
+      "y": 1548.18701171875
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Lantern Golem/Lantern Golem.md",
+      "x": 428.6677551269531,
+      "y": 1689.384033203125
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Mossback Golem/Mossback Golem.md",
+      "x": 1110.0367431640625,
+      "y": 1949.804443359375
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Rustbolt Golem/Rustbolt Golem.md",
+      "x": -147.43692016601562,
+      "y": 1618.799560546875
     }
   ],
   "pinnedNodes": [
