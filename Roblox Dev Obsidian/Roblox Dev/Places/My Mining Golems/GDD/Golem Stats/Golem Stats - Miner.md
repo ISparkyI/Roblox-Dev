@@ -46,20 +46,28 @@ updated: 2026-10-25
 | rustbolt    | Rustbolt Golem    | Uncommon  | 1    | 200                | 12000        | 12    | 0.95      | 1.1    | є (Rustbolt Golem v1) | важкий                                          |
 | granite     | Granite Golem     | Uncommon  | 1    | 300                | 18500        | 15    | 1.05      | 1.15   | є (Granite Golem v1) |                                                 |
 | lantern     | Lantern Golem     | Uncommon  | 1    | 500                | 29500        | 19    | 1.15      | 1.05   | є (Lantern Golem v1) | світиться (Neon)                                |
-| ironclad    | Ironclad Golem    | Rare      | 1    | 900                | 36000        | 25    | 1         | 1.15   | ні                 |                                                 |
-| quartzling  | Quartzling Golem  | Rare      | 1    | 1500               | 75000        | 50    | 1.35      | 0.9    | ні                 |                                                 |
-| tinker      | Tinker Golem      | Rare      | 1    | 2500               | 120000       | 90    | 1.2       | 1      | ні                 |                                                 |
-| silverjaw   | Silverjaw Golem   | Rare      | 1    | 4000               | 250000       | 200   | 1.15      | 1.15   | ні                 |                                                 |
-| geode       | Geode Golem       | Epic      | 1    | 8000               | 1000000      | 310   | 1.1       | 1.2    | ні                 |                                                 |
-| amethyst    | Amethyst Golem    | Epic      | 1    | 15000              | 3000000      | 550   | 1.4       | 1.15   | ні                 |                                                 |
-| sapphire    | Sapphire Golem    | Epic      | 1    | 25000              | 7500000      | 920   | 1.25      | 1.2    | ні                 |                                                 |
-| obsidian    | Obsidian Golem    | Legendary | 1    | 50000              | 30000000     | 1200  | 1.1       | 1.35   | ні                 |                                                 |
-| magmaheart  | Magmaheart Golem  | Legendary | 3    | 100000             | 80000000     | 2400  | 1.5       | 1.25   | ні                 |                                                 |
-| ruby        | Ruby Golem        | Legendary | 3    | 175000             | 250000000    | 3400  | 1.3       | 1.4    | ні                 |                                                 |
-| frostforged | Frostforged Golem | Mythic    | 4    | 400000             | 1500000000   | 5200  | 1.45      | 1.35   | ні                 |                                                 |
-| platinum    | Platinum Golem    | Mythic    | 4    | 1000000            | 6000000000   | 7500  | 1.3       | 1.5    | ні                 |                                                 |
-| aurelian    | Aurelian Golem    | Divine    | 5    | 2500000            | 40000000000  | 9000  | 1.7       | 1.45   | ні                 |                                                 |
-| astral      | Astral Golem      | Celestial | 6    | 10000000           | 200000000000 | 12000 | 2         | 1.5    | ні                 |                                                 |
+| ironclad    | Ironclad Golem    | Rare      | 1    | 900                | 36000        | 25    | 1         | 1.15   | є (Ironclad Golem v1) | власний ящик-фортеця                         |
+| quartzling  | Quartzling Golem  | Rare      | 1    | 1500               | 75000        | 50    | 1.35      | 0.9    | є (Quartzling Golem v1) | ящик-жеода                               |
+| tinker      | Tinker Golem      | Rare      | 1    | 2500               | 120000       | 90    | 1.2       | 1      | є (Tinker Golem v2) | скринька механіка                           |
+| silverjaw   | Silverjaw Golem   | Rare      | 1    | 4000               | 250000       | 200   | 1.15      | 1.15   | є (Silverjaw Golem v2) | ящик-паща                              |
+| geode       | Geode Golem       | Epic      | 1    | 8000               | 1000000      | 310   | 1.1       | 1.2    | є (Geode Golem v1) | світні кристали (Neon)                       |
+| amethyst    | Amethyst Golem    | Epic      | 1    | 15000              | 3000000      | 550   | 1.4       | 1.15   | є (Amethyst Golem v1) | кристалічні крила (Neon)                  |
+| sapphire    | Sapphire Golem    | Epic      | 1    | 25000              | 7500000      | 920   | 1.25      | 1.2    | є (Sapphire Golem v2) | німб крутиться, самоцвіти (Neon)            |
+| obsidian    | Obsidian Golem    | Legendary | 1    | 50000              | 30000000     | 1200  | 1.1       | 1.35   | є (Obsidian Golem v1) | орбіта уламків, власні анімації (Neon)    |
+| magmaheart  | Magmaheart Golem  | Legendary | 3    | 100000             | 80000000     | 2400  | 1.5       | 1.25   | є (Magmaheart Golem v1) | серце пульсує, кратер, лава (Neon)       |
+| ruby        | Ruby Golem        | Legendary | 3    | 175000             | 250000000    | 3400  | 1.3       | 1.4    | є (Ruby Golem v1) | рапіра й мотика, шпилі «резонують» (Neon)    |
+| frostforged | Frostforged Golem | Mythic    | 4    | 400000             | 1500000000   | 5200  | 1.45      | 1.35   | є (Frostforged Golem v1) | шабля й льодоруб, сніг падає, горн пульсує (Neon) |
+| platinum    | Platinum Golem    | Mythic    | 4    | 1000000            | 6000000000   | 7500  | 1.3       | 1.5    | є (Platinum Golem v1) | фламберг і бур, гіроскоп навхрест (Neon) |
+| aurelian    | Aurelian Golem    | Divine    | 5    | 2500000            | 40000000000  | 9000  | 1.7       | 1.45   | є (Aurelian Golem v1) | хопеш і сонцекайло, справжнє світло й іскри, сонячний диск (Neon) |
+| astral      | Astral Golem      | Celestial | 6    | 10000000           | 200000000000 | 12000 | 2         | 1.5    | є (Astral Golem v1) | кінцівки на магічних суглобах, кільце Сатурна, осколковий клинок (Neon) |
+| coral       | Coral Golem       | Exclusive | 1    | Exclusive Case 88,9 % | 0         | 65 % best | 1.2    | 1.15   | є (Coral Golem v1) | ексклюзив кейсу #1: шкода = 0,65 × BestMinerDmg (носій і воїн теж 65 %), завжди Normal |
+| jade        | Jade Golem        | Exclusive | 1    | Exclusive Case 8 % | 0            | 100 % best | 1.35  | 1.2    | є (Jade Golem v1) | ексклюзив кейсу #2: шкода = 1,0 × BestMinerDmg (носій і воїн теж 100 %), диск «бі» обертається (Neon) |
+| storm       | Storm Golem       | Exclusive | 1    | Exclusive Case 2 % | 0            | 125 % best | 1.5   | 1.35   | є (Storm Golem v1) | ексклюзив кейсу #3: 1,25 × best для всіх класів, катана й молот-кайло, блискавки (Neon) |
+| phantom     | Phantom Golem     | Exclusive | 1    | Exclusive Case 1 % | 0            | 160 % best | 1.75  | 1.45   | є (Phantom Golem v1) | ексклюзив кейсу #4: 1,6 × best, напівпрозорі примарні деталі (fade), клеймор і коса |
+| chrono      | Chrono Golem      | Exclusive | 1    | Exclusive Case 0,1 % | 0          | 200 % best | 2.0   | 1.5    | є (Chrono Golem v1) | ексклюзив кейсу #5 (фінальний): 2,0 × best, «тіні часу» (echo), меч-стрілка й кірка-шестерня, аура ChronoAura |
+| honey       | Honey Golem       | Exclusive | 1    | Daily, день 14 (Miner) | 0       | 65 % best  | 1.15  | 1.05   | є (Honey Golem v1) | тижнева нагорода: 0,65 × best для всіх класів, бджілка ширяє (bob + sway) |
+| snow        | Snow Golem        | Exclusive | 1    | Daily, день 21 (Carrier) | 0     | 90 % best  | 1.2   | 1.1    | є (Snow Golem v1) | тижнева нагорода: 0,9 × best для всіх класів, шарф хитається (sway) |
+| cloud       | Cloud Golem       | Exclusive | 1    | Daily, день 28 (Miner) | 0       | 150 % best | 1.3   | 1.15   | є (Cloud Golem v1) | тижнева нагорода: 1,5 × best для всіх класів, веселка на спині, хмаринки-сателіти (bob + sway) |
 
 *Таблицю правив користувач 2026-10-25 (ціни, шкода, швидкість, мапи) — це джерело правди. Таблиці носія й воїна рахуються від неї. У коді — модуль [GolemCatalog](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FScripts%2FModules%2FGolemCatalog). Як побудована прогресія — у [GDD - Golems](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGDD%20-%20Golems) («Прогресія каталогу»).*
 
