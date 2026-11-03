@@ -6,7 +6,64 @@
   "hideUnresolved": false,
   "showOrphans": true,
   "collapse-color-groups": true,
-  "colorGroups": [],
+  "colorGroups": [
+    {
+      "query": "path:\"Places/My Mining Golems/3D Models/Golems\"",
+      "color": {
+        "a": 1,
+        "rgb": 15245882
+      }
+    },
+    {
+      "query": "path:\"Places/My Mining Golems/GDD\"",
+      "color": {
+        "a": 1,
+        "rgb": 4886754
+      }
+    },
+    {
+      "query": "path:\"Places/My Mining Golems/Scripts\"",
+      "color": {
+        "a": 1,
+        "rgb": 6079595
+      }
+    },
+    {
+      "query": "path:\"Places/My Mining Golems/3D Models\"",
+      "color": {
+        "a": 1,
+        "rgb": 13218904
+      }
+    },
+    {
+      "query": "path:\"Places/My Mining Golems/Interactive Objects\"",
+      "color": {
+        "a": 1,
+        "rgb": 10976219
+      }
+    },
+    {
+      "query": "path:\"Places/My Mining Golems/2D\"",
+      "color": {
+        "a": 1,
+        "rgb": 14839712
+      }
+    },
+    {
+      "query": "path:\"Places/My Mining Golems/Locations\"",
+      "color": {
+        "a": 1,
+        "rgb": 4176047
+      }
+    },
+    {
+      "query": "path:\"Places/_Place Template\"",
+      "color": {
+        "a": 1,
+        "rgb": 9211020
+      }
+    }
+  ],
   "collapse-display": false,
   "showArrow": false,
   "textFadeMultiplier": -1.5,
@@ -17,6 +74,6 @@
   "repelStrength": 0.768780487804878,
   "linkStrength": 0,
   "linkDistance": 30,
-  "scale": 0.38230109687698743,
+  "scale": 0.3823010968769858,
   "close": false
 }
