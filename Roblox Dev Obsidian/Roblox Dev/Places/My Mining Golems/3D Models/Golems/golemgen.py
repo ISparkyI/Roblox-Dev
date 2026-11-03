@@ -25,6 +25,7 @@ BASE_BONES = [
 class Golem:
     def __init__(self, colors, bones=None):
         self.colors = colors; self.blocks = []
+        self.fx = []  # унікальні рухи деталей: dict(kind, parts, pivot?, axis, speed, amp?, phase?, states?)
         self.bones = [list(b) for b in BASE_BONES]
         for n, pos in (bones or {}).items():
             for b in self.bones:
@@ -43,6 +44,99 @@ class Golem:
         return self.add(name, bone or parent["bone"], col, tuple(p), size, parent["R"] @ Rl, group=group or parent["group"], mirror=mirror)
     def item(self, name, grp, col, pos, R, s): return self.add(name, "Forearm_L", col, pos, s, R, group=grp)
 
+
+    # ---------- без щілин (з 01.11.2026, після відгуку: рукоять не досунута, дірки в ящику) ----------
+    def _find(self, grp, name):
+        for b in self.blocks:
+            if b["group"] == grp and b["name"] == name: return b
+    @staticmethod
+    def _slab(b, o, d):
+        lo = b["R"].T @ (o - b["pos"]); ld = b["R"].T @ d; h = b["s"] / 2; t0, t1 = -1e9, 1e9
+        for i in range(3):
+            if abs(ld[i]) < 1e-9:
+                if abs(lo[i]) > h[i]: return None
+            else:
+                a, c = sorted(((-h[i] - lo[i]) / ld[i], (h[i] - lo[i]) / ld[i])); t0, t1 = max(t0, a), min(t1, c)
+        return (t0, t1) if t0 <= t1 else None
+    def _grow(self, b, sgn, amt):  # подовжити блок уздовж його локальної Y на кінці sgn
+        b["s"] = b["s"] + np.array([0, amt, 0]); b["pos"] = b["pos"] + b["R"][:, 1] * sgn * amt / 2
+    def _unplane(self, E, others, keep=1, tol=0.02, inset=0.022):
+        """Після подовження: грані E, що лягли в одну площину з гранями сусідів (і перекриваються), зсуваємо всередину E."""
+        changed = True; n = 0
+        while changed and n < 12:
+            changed = False; n += 1
+            for O in others:
+                if O is E: continue
+                for k in range(3):
+                    e = E["R"][:, k]
+                    if not np.isclose(np.abs(O["R"].T @ e).max(), 1, atol=1e-3): continue
+                    ho = (np.abs(O["R"].T @ e) * O["s"]).sum() / 2; co = e @ (O["pos"] - E["pos"]); he = E["s"][k] / 2
+                    for sg in (1, -1):
+                        if min(abs(sg * he - (co + ho)), abs(sg * he - (co - ho))) < tol:
+                            # перекриття в площині? — перевіряємо checkом пари
+                            if any(set(h) == {E["name"], O["name"]} for h in self._pair_check(E, O)):
+                                E["s"] = E["s"] - np.eye(3)[k] * inset; E["pos"] = E["pos"] - e * sg * inset / 2; changed = True
+                                he = E["s"][k] / 2
+    def _pair_check(self, b1, b2):
+        hits = []
+        for n1, c1, q1 in self._faces(b1):
+            for n2, c2, q2 in self._faces(b2):
+                if abs(n1 @ n2 - 1) > 1e-4 or abs(n1 @ (c2 - c1)) > 0.02: continue
+                a = np.array([1,0,0]) if abs(n1[0]) < 0.9 else np.array([0,1,0])
+                u = np.cross(n1, a); u /= np.linalg.norm(u); v = np.cross(n1, u)
+                if Polygon([(p @ u, p @ v) for p in q1]).intersection(Polygon([(p @ u, p @ v) for p in q2])).area > 1e-3:
+                    hits.append((b1["name"], b2["name"]))
+        return hits
+    def seat_sword(self, grp="Sword", log=True):
+        """Руків'я заходить до центру гарди й навершя, лезо — до центру гарди (у грі не видно щілин)."""
+        g, guard, pom, blade = (self._find(grp, n) for n in ("SwordGrip", "SwordGuard", "SwordPommel", "SwordBlade"))
+        out = []
+        # руків'я — до центру гарди й навершя (+ зсув граней, що лягли врівень); лезо — лише до дотику з гардою
+        for part, tgt, sgn, touch, tag in ((g, guard, 1, False, "grip→guard"), (g, pom, -1, False, "grip→pommel"), (blade, guard, -1, True, "blade→guard")):
+            if part is None or tgt is None: continue
+            d = part["R"][:, 1]; L = part["s"][1] / 2; iv = self._slab(tgt, part["pos"], d)
+            if iv is None: continue
+            mid = (iv[0] + iv[1]) / 2
+            if touch: need = (iv[0] - L) if sgn > 0 else (-L - iv[1])
+            else: need = (mid + 0.026 - L) if sgn > 0 else (-L - (mid - 0.034))
+            if need > 0.001:
+                self._grow(part, sgn, need); out.append(f"{tag} +{need:.2f}")
+                if not touch: self._unplane(part, [b for b in self.blocks if b["group"] == grp])
+        if log and out: print(grp, "seated:", ", ".join(out))
+        return out
+    def close_gaps(self, grp="Box", max_gap=0.15, depth=0.07, log=True):
+        """Щілини між вирівняними блоками (≤ max_gap), не закриті іншим блоком (≥ 20 % перерізу відкрито), закриваються:
+        менший за перерізом блок подовжується рівно до дотику з сусідом. Якщо подовження проходить крізь інший блок
+        і кладе грані врівень (видимі площини, що перекриваються) — такий блок пропускаємо."""
+        bs = [b for b in self.blocks if b["group"] == grp]
+        def aligned(b): return np.all(np.isclose(np.abs(b["R"]).max(0), 1, atol=1e-3))
+        def ext(b): return np.abs(b["R"]) @ b["s"]
+        def inside(b, pt): return np.all(np.abs(b["R"].T @ (pt - b["pos"])) <= b["s"] / 2 + 0.003)
+        fixes = []
+        for _ in range(200):
+            done = False
+            for A, B in itertools.combinations([b for b in bs if aligned(b)], 2):
+                ea, eb = ext(A), ext(B); la, ha, lb, hb = A["pos"] - ea/2, A["pos"] + ea/2, B["pos"] - eb/2, B["pos"] + eb/2
+                g = np.maximum(la - hb, lb - ha); gx = [i for i in range(3) if g[i] > 0.001]
+                if len(gx) != 1 or g[gx[0]] > max_gap: continue
+                ax = gx[0]; o = [i for i in range(3) if i != ax]
+                if any(-g[i] < 0.04 for i in o): continue
+                first = ha[ax] < lb[ax]; gm = (ha[ax] + lb[ax]) / 2 if first else (hb[ax] + la[ax]) / 2
+                l1, h1 = max(la[o[0]], lb[o[0]]), min(ha[o[0]], hb[o[0]]); l2, h2 = max(la[o[1]], lb[o[1]]), min(ha[o[1]], hb[o[1]])
+                unc = 0
+                for u in np.linspace(0.02, 0.98, 7):
+                    for v in np.linspace(0.02, 0.98, 7):
+                        pt = np.zeros(3); pt[ax] = gm; pt[o[0]] = l1 + (h1 - l1) * u; pt[o[1]] = l2 + (h2 - l2) * v
+                        if not any(inside(c, pt) for c in bs if c is not A and c is not B): unc += 1
+                if unc < 10: continue  # < 20 % відкрито — щілину закриває інший блок
+                E, O, sg = (A, B, 1 if first else -1) if ea[o[0]] * ea[o[1]] <= eb[o[0]] * eb[o[1]] else (B, A, -1 if first else 1)
+                amt = g[ax]; li = int(np.argmax(np.abs(E["R"][ax, :])))  # рівно до дотику (грані «лоб у лоб» сховані)
+                E["s"] = E["s"] + np.eye(3)[li] * amt; E["pos"] = E["pos"] + np.eye(3)[ax] * sg * amt / 2
+                fixes.append(f"{E['name']}→{O['name']} {'XYZ'[ax]} {g[ax]:.2f}"); done = True; break
+            if not done: break
+        if log and fixes: print(grp, "gaps closed:", ", ".join(fixes))
+        return fixes
+
     # ---------- правило 0,1 ----------
     @staticmethod
     def _faces(b):
@@ -60,12 +154,52 @@ class Golem:
         for b1, b2 in itertools.combinations(bs, 2):
             for n1, c1, q1 in self._faces(b1):
                 for n2, c2, q2 in self._faces(b2):
-                    if abs(abs(n1 @ n2) - 1) > 1e-4 or abs(n1 @ (c2 - c1)) > 0.02: continue
+                    # лише грані врівень в один бік (n1·n2 = +1): «лоб у лоб» (−1) — дотик, грані сховані
+                    if abs(n1 @ n2 - 1) > 1e-4 or abs(n1 @ (c2 - c1)) > 0.02: continue
                     a = np.array([1,0,0]) if abs(n1[0]) < 0.9 else np.array([0,1,0])
                     u = np.cross(n1, a); u /= np.linalg.norm(u); v = np.cross(n1, u)
                     P1 = Polygon([(p @ u, p @ v) for p in q1]); P2 = Polygon([(p @ u, p @ v) for p in q2])
                     if P1.intersection(P2).area > 1e-3: hits.append((b1["name"], b2["name"]))
         return sorted(set(hits))
+    @staticmethod
+    def _obb_touch(b1, b2, tol=0.01):
+        """SAT: чи перетинаються / торкаються два блоки (з допуском tol)."""
+        A, B = b1["R"], b2["R"]; ea, eb = b1["s"] / 2, b2["s"] / 2; t = b2["pos"] - b1["pos"]
+        axes = [A[:, i] for i in range(3)] + [B[:, i] for i in range(3)]
+        for i in range(3):
+            for j in range(3):
+                c = np.cross(A[:, i], B[:, j])
+                if np.linalg.norm(c) > 1e-6: axes.append(c / np.linalg.norm(c))
+        for L in axes:
+            ra = sum(ea[k] * abs(A[:, k] @ L) for k in range(3)); rb = sum(eb[k] * abs(B[:, k] @ L) for k in range(3))
+            if abs(t @ L) > ra + rb + tol: return False
+        return True
+    def floating(self, group, allow=()):
+        """Блоки групи, що не торкаються жодного іншого блока тієї ж групи (висять у повітрі). allow — навмисно вільні."""
+        bs = [b for b in self.blocks if b["group"] == group]
+        return [b["name"] for b in bs if b["name"] not in allow and not any(self._obb_touch(b, c) for c in bs if c is not b)]
+    def visible_coplanar(self, group):
+        """Як check(), але лише ті збіги граней, ділянку яких не ховає третій блок (видимий z-fighting)."""
+        bs = [b for b in self.blocks if b["group"] == group]; out = []
+        def inside(b, pt): return np.all(np.abs(b["R"].T @ (pt - b["pos"])) < b["s"] / 2 - 0.002)
+        for b1, b2 in itertools.combinations(bs, 2):
+            hit = False
+            for n1, c1, q1 in self._faces(b1):
+                for n2, c2, q2 in self._faces(b2):
+                    if hit or abs(n1 @ n2 - 1) > 1e-4 or abs(n1 @ (c2 - c1)) > 0.02: continue
+                    a = np.array([1,0,0]) if abs(n1[0]) < 0.9 else np.array([0,1,0])
+                    u = np.cross(n1, a); u /= np.linalg.norm(u); v = np.cross(n1, u)
+                    I = Polygon([(p @ u, p @ v) for p in q1]).intersection(Polygon([(p @ u, p @ v) for p in q2]))
+                    if I.area <= 1e-3: continue
+                    x0, y0, x1, y1 = I.bounds; h = n1 @ c1
+                    for xu in np.linspace(x0, x1, 6):
+                        for yv in np.linspace(y0, y1, 6):
+                            from shapely.geometry import Point
+                            if not I.buffer(1e-6).contains(Point(xu, yv)): continue
+                            pt = xu * u + yv * v + h * n1
+                            if not any(inside(c, pt) for c in bs if c is not b1 and c is not b2): hit = True
+            if hit: out.append((b1["name"], b2["name"]))
+        return out
     def report(self):
         for g in (None, "Pickaxe", "Sword"):
             print(g or "Body", len([b for b in self.blocks if b["group"] == g]), "blocks; coplanar:", self.check(g))
@@ -74,11 +208,36 @@ class Golem:
         lo = np.min([b["pos"] - np.abs(b["R"]) @ b["s"] / 2 for b in allb], 0); hi = np.max([b["pos"] + np.abs(b["R"]) @ b["s"] / 2 for b in allb], 0)
         print("bounds", lo.round(2), hi.round(2), "size", (hi - lo).round(2), "tris", 12 * len(allb))
     def export(self, path, header):
+        # автоматично: руків'я / лезо досунуті, у ящику без щілин
+        if any(b["group"] == "Sword" for b in self.blocks): self.seat_sword()
+        if any(b["group"] == "Box" for b in self.blocks): self.close_gaps("Box")
+        for grp in ("Pickaxe", "Sword", "Box", None):
+            if any(b["group"] == grp for b in self.blocks):
+                fl = self.floating(grp, getattr(self, "free_parts", ()))
+                if fl: print("WARNING", grp or "Body", "floating (not attached):", fl)
+        for grp in ("Sword", "Box"):
+            if any(b["group"] == grp for b in self.blocks):
+                c = self.visible_coplanar(grp)
+                if c: print("WARNING", grp, "visible coplanar after gap fix:", c)
         f = lambda x: f"{x:.5g}"
         L = list(header) + ["return {", " colors={" + ",".join(f'{k}="{v}"' for k, v in self.colors.items()) + "},", " bones={"]
         for n, p, pos in self.bones:
             L.append(f'  {{name="{n}",parent={"nil" if p is None else chr(34)+p+chr(34)},pos=Vector3.new({",".join(f(x) for x in pos)})}},')
-        L += [" },", " blocks={"]
+        L += [" },"]
+        if self.fx:
+            vec = lambda v: "Vector3.new(" + ",".join(f(x) for x in v) + ")"
+            L.append(" fx={")
+            for x in self.fx:
+                kv = [f'kind="{x.get("kind","spin")}"', "parts={" + ",".join(f'"{n}"' for n in x["parts"]) + "}"]
+                if "pivot" in x: kv.append("pivot=" + vec(x["pivot"]))
+                kv.append("axis=" + vec(x.get("axis", (0, 0, 1))))
+                kv.append("speed=" + f(x.get("speed", 1)))
+                for k in ("amp", "phase"):
+                    if k in x: kv.append(f"{k}=" + f(x[k]))
+                if "states" in x: kv.append("states={" + ",".join(f"{k}={f(v)}" for k, v in x["states"].items()) + "}")
+                L.append("  {" + ",".join(kv) + "},")
+            L.append(" },")
+        L += [" blocks={"]
         for b in self.blocks:
             cf = ",".join(f(x) for x in list(b["pos"]) + list(b["R"].flatten()))
             g = f'group="{b["group"]}",' if b["group"] else ""
