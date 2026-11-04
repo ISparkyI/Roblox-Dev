@@ -139,8 +139,9 @@ local function upgrade(f: Model, p: Player, which: string)
 		if Cfg.autoOwned(p, f) then
 			p:SetAttribute("Set_AutoWorkshop", p:GetAttribute("Set_AutoWorkshop") == false)
 		else
-			if stageOf(f) < Cfg.AUTO_MIN_STAGE or invGet(p, "Money") < Cfg.AUTO_PRICE then return end
-			invAdd(p, "Money", -Cfg.AUTO_PRICE); f:SetAttribute("AutoLvl", 2)
+			local ap = Cfg.autoPrice(stageOf(f)) -- × множник цін мапи (03.11.2026)
+			if stageOf(f) < Cfg.AUTO_MIN_STAGE or invGet(p, "Money") < ap then return end
+			invAdd(p, "Money", -ap); f:SetAttribute("AutoLvl", 2)
 			p:SetAttribute("Set_AutoWorkshop", true)
 		end
 	end
@@ -410,7 +411,9 @@ function ForgeService.Start()
 				local ok, err = pcall(function()
 					local p = f.Parent and NicheService.GetOwner(f.Parent)
 					if not p or not DataService.IsLoaded(p) then return end
-					local on = Cfg.autoOwned(p, f) and p:GetAttribute("Set_AutoWorkshop") ~= false
+					local owned = Cfg.autoOwned(p, f)
+					if p:GetAttribute("AutoWorkshopOwned") ~= owned then p:SetAttribute("AutoWorkshopOwned", owned) end -- для SETTINGS (SettingsWindow / SettingsService)
+					local on = owned and p:GetAttribute("Set_AutoWorkshop") ~= false
 					if p:GetAttribute("AutoWorkshopOn") ~= on then p:SetAttribute("AutoWorkshopOn", on) end
 					if not on or f:GetAttribute("State") ~= "Working" then return end
 					local ORE = oresOf(f)

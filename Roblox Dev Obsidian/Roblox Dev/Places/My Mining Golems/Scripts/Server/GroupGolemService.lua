@@ -62,6 +62,10 @@ local function updateBest(p: Player)
 	-- найкраща місткість носія — Mushroom Golem-носій (нагорода Daily) має 75 % від неї (GolemCatalog.carrierShare)
 	local c = Catalog.bestCarrierCap(all)
 	if p:GetAttribute("BestCarrierCap") ~= c then p:SetAttribute("BestCarrierCap", c) end
+	-- воїн (warriorShare, големи Exclusive Case, 02.11.2026)
+	local wd, wh = Catalog.bestWarrior(all)
+	if p:GetAttribute("BestWarriorDmg") ~= wd then p:SetAttribute("BestWarriorDmg", wd) end
+	if p:GetAttribute("BestWarriorHp") ~= wh then p:SetAttribute("BestWarriorHp", wh) end
 end
 
 local function inGroup(p: Player): boolean

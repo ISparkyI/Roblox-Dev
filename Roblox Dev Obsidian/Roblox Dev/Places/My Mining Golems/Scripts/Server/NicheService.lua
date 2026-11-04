@@ -100,6 +100,9 @@ local function teleport(player: Player)
 	local cf = spawnCFrame(slot)
 	if not hrp or not cf then return end
 	local up = (hum and hum.HipHeight or 2) + hrp.Size.Y / 2 + 0.2
+	-- StreamingEnabled: спершу підвантажити місце призначення, інакше після телепорту світ підвантажується на очах (03.11.2026)
+	pcall(function() player:RequestStreamAroundAsync((cf + cf.UpVector * up).Position, 2) end)
+	if player.Character ~= char then return end
 	char:PivotTo(cf + cf.UpVector * up)
 	hrp.AssemblyLinearVelocity = Vector3.zero
 end

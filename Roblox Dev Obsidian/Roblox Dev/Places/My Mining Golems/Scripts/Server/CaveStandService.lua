@@ -245,6 +245,17 @@ function CaveStandService.MaxId(p: Player): number
 			for _, g in mm.slots do if type(g) == "table" and type(g.id) == "number" then m = math.max(m, g.id) end end
 		end
 	end
+	-- збережені секції DataService (03.11.2026): на сервері Marketplace сервіси печери й Mutation Machines не стартують, тож
+	-- CaveStandGolems / MutMachines немає — беремо id з усіх секцій (записи з kind і числовим id), щоб новий голем не взяв зайнятий id
+	local d = DataService.GetData(p)
+	if d and type(d.sections) == "table" then
+		local function scan(t: any, depth: number)
+			if depth > 6 or type(t) ~= "table" then return end
+			if type(t.id) == "number" and type(t.kind) == "string" then m = math.max(m, t.id) end
+			for _, v in t do if type(v) == "table" then scan(v, depth + 1) end end
+		end
+		scan(d.sections, 0)
+	end
 	return m
 end
 

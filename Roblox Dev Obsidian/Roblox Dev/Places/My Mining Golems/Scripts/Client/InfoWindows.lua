@@ -141,9 +141,7 @@ local function windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),

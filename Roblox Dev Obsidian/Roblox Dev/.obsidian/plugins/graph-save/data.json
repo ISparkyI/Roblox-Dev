@@ -22,8 +22,8 @@
     },
     {
       "id": "Style/GDD - Блики іконок.md",
-      "x": -869,
-      "y": -1110.5999755859375
+      "x": -1022.61962890625,
+      "y": -1111.1319580078125
     },
     {
       "id": "Style/Style.md",
@@ -352,8 +352,8 @@
     },
     {
       "id": "Places/My Mining Golems/Scripts/Client/My Mining Golems - Client.md",
-      "x": -37.099998474121094,
-      "y": -240.10000610351562
+      "x": -17.42867660522461,
+      "y": -199.5237579345703
     },
     {
       "id": "Places/My Mining Golems/Locations/Locations.md",
@@ -482,8 +482,8 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/Plan - Weekly Reward Golems.md",
-      "x": 261.79998779296875,
-      "y": -27
+      "x": 473.5722961425781,
+      "y": 179.00611877441406
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Quests and Index.md",
@@ -567,8 +567,8 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/Plan - Exclusive Case Golems.md",
-      "x": 226.5,
-      "y": -36.70000076293945
+      "x": 346.01971435546875,
+      "y": 256.110107421875
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Studio Scene.md",
@@ -617,8 +617,8 @@
     },
     {
       "id": "OREKO/Loading Screen/OSIRIUS Loading Screen.md",
-      "x": -723.7999877929688,
-      "y": -817.2000122070312
+      "x": -838.8729248046875,
+      "y": -925.8021240234375
     },
     {
       "id": "Effects/Effects.md",
@@ -682,8 +682,38 @@
     },
     {
       "id": "Mushroom Golem.md",
-      "x": 632.8578811592959,
-      "y": 394.73288036161165
+      "x": 632.85791015625,
+      "y": 394.7328796386719
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Maps 3-7 and Next Update.md",
+      "x": 288.210693359375,
+      "y": 153.1883087158203
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Map 3 Crystal Depths Prefab.md",
+      "x": 333.7756042480469,
+      "y": 132.68603515625
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Map Style Guide.md",
+      "x": 375.92315673828125,
+      "y": 109.90575408935547
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plans.md",
+      "x": 665.4809395694424,
+      "y": 15.522466625118255
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 2/Niche Stage 2.md",
+      "x": -594.2598876953125,
+      "y": 209.51084899902344
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 3/Niche Stage 3.md",
+      "x": -292.1651611328125,
+      "y": 336.04095458984375
     }
   ],
   "pinnedNodes": [

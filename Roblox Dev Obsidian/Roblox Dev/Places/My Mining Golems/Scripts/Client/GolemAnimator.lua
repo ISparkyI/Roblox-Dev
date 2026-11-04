@@ -1,5 +1,8 @@
 --!strict
--- PlotGolem animator (копія StoneGolem animator v2 + LOD, Carry, синхронний Mine для плотів).
+-- PlotGolem animator v3.3 (копія StoneGolem animator v2 + LOD, Carry, синхронний Mine для плотів).
+-- v3.8 (03.11.2026, телефони): власного PreRender немає — крок реєструється в Shared/GolemAnimRunner (один PreRender на всіх,
+--   LOD за відстанню до гравця/камери, поза екраном рідше, бюджет големів на кадр); далеко (low) — без міміки обличчя;
+--   Size очей/зіниць пишемо лише коли змінився (раніше — щокадру в кожного голема).
 -- 27.10.2026: предмети в руці (Pickaxe / Sword) — окремі префаби, їдуть за кулаком (атрибут FistRel), блоки group з GolemData пропускаються.
 -- StoneGolem animator v2 (клієнтський). Кліпи Idle / Walk / Run / Face (порт з golem_rig.py) + Mine (удар кіркою).
 -- Керування атрибутами моделі:
@@ -8,6 +11,14 @@
 --   Face   = true/false   (кліпання/брови поверх будь-якого кліпу)
 --   AnimSpeed = 1         (множник швидкості відтворення)
 --   WalkSpeedThreshold / RunSpeedThreshold — пороги для Auto (стадів/с)
+-- v3 (01.11.2026): унікальні анімації голема з GolemData (без них поведінка як у v2):
+--   D.fx    = { { kind = "spin"|"bob"|"sway"|"pulse"|"drift", parts = {"Halo1", …}, pivot = Vector3 (од. моделі; без нього — центр деталей),
+--                 axis = Vector3, speed = рад/с, amp = рад (sway) або од. моделі (bob), phase = рад, states = { Mine = 2, Carry = 0.5 } } }
+--             окремі деталі крутяться / гойдаються / пливуть поверх кліпу; states — множник швидкості за станом.
+--             v3.2: "pulse" — деталь «дихає» розміром: Size × (1 + amp·sin), amp — частка (0,12 = ±12 %).
+--             v3.3: "drift" — деталь рівномірно пливе від +amp до −amp уздовж осі й повертається на початок (падіння снігу).
+--   D.poses = { Idle|Walk|Run|Mine|Carry = function(p, pose, rot, state) -> pose }  — власні пози кліпів
+--             (p — фаза 0..2π; Mine: удар лишається в MINE_HIT, бо його чекає сервер).
 local RunService = game:GetService("RunService")
 local model = script.Parent :: Model
 local root = model:WaitForChild("Root") :: BasePart
@@ -43,16 +54,66 @@ for _, b in D.blocks do
 	-- предмети в руці (group Pickaxe / Sword) — окремі префаби PlotAssets/<StonePickaxe…>, їх чіпляє GolemCatalog.applyClassItems
 	-- (див. «предмет у руці» нижче); тут лише тіло
 	if b.group then continue end
-	local part = model:WaitForChild(b.name) :: BasePart
+	-- v3.1: деталі, якої немає в моделі, не чекаємо вічно (інакше весь голем стоїть) — пропускаємо з попередженням
+	local found = model:FindFirstChild(b.name) or model:WaitForChild(b.name, 3)
+	if not (found and found:IsA("BasePart")) then
+		warn(("[GolemAnimator] %s: немає деталі %s — пропускаю"):format(model.Name, b.name))
+		continue
+	end
+	local part = found :: BasePart
 	local bone = boneByName[b.bone]
 	-- блок задається або центром c + нахилом rz, або повним CFrame cf (координати моделі в стані спокою)
 	local offset = if b.cf then b.cf.Position - bone.pos else b.c - bone.pos
 	local rotCF = if b.cf then b.cf.Rotation else CFrame.Angles(0, 0, b.rz)
 	table.insert(blocks, {
 		part = part, bone = bone.idx, offset = offset,
-		rot = rotCF, size = b.s, scaled = FACE_SCALED[b.bone] == true,
+		rot = rotCF, size = b.s, scaled = FACE_SCALED[b.bone] == true, alpha = part.Transparency,
 	})
 	table.insert(parts, part)
+end
+
+-- ---------- v3: унікальні рухи деталей (D.fx) ----------
+type Fx = { kind: string, axis: Vector3, speed: number, amp: number, phase: number, states: { [string]: number }?, ph: number }
+local fxList: { Fx } = {}
+local fxOf: { [number]: { fx: Fx, piv: Vector3 } } = {}
+if type(D.fx) == "table" then
+	for _, f in D.fx do
+		local fx: Fx = { kind = f.kind or "spin", axis = (f.axis or Vector3.new(0, 0, 1)).Unit, speed = f.speed or 1,
+			amp = f.amp or 0, phase = f.phase or 0, states = f.states, ph = 0 }
+		local idx: { number } = {}
+		local sum, n = Vector3.zero, 0
+		for i, blk in blocks do
+			if table.find(f.parts, blk.part.Name) then
+				table.insert(idx, i)
+				sum += blk.offset + bones[blk.bone].pos
+				n += 1
+			end
+		end
+		if n > 0 then
+			local pivot = f.pivot or sum / n
+			for _, i in idx do fxOf[i] = { fx = fx, piv = pivot - bones[blocks[i].bone].pos } end
+			table.insert(fxList, fx)
+		end
+	end
+end
+-- v3.7 (Chrono): «тіні часу» — деталі з D.echo.parts беруть пози кісток із затримкою D.echo.delay (с)
+local ECHO = { of = {} :: { [number]: boolean }, delay = 0, hist = {} :: { any } }
+if type(D.echo) == "table" then
+	ECHO.delay = D.echo.delay or 0.15
+	for i, blk in blocks do if table.find(D.echo.parts, blk.part.Name) then ECHO.of[i] = true end end
+end
+local function fxMove(fx: Fx, S: number, sc: Vector3): CFrame
+	if fx.kind == "pulse" or fx.kind == "fade" then return CFrame.identity end
+	if fx.kind == "drift" then -- v3.3: пливе від +amp до −amp уздовж осі й повертається на початок (сніжинки падають)
+		local t = ((fx.ph + fx.phase) % (2 * math.pi)) / (2 * math.pi)
+		return CFrame.new(fx.axis * (fx.amp * (1 - 2 * t)) * S * sc)
+	end
+	if fx.kind == "bob" then
+		return CFrame.new(fx.axis * (fx.amp * math.sin(fx.ph + fx.phase)) * S * sc)
+	elseif fx.kind == "sway" then
+		return CFrame.fromAxisAngle(fx.axis, fx.amp * math.sin(fx.ph + fx.phase))
+	end
+	return CFrame.fromAxisAngle(fx.axis, fx.ph + fx.phase)
 end
 
 -- ---------- кліпи (порт з golem_rig.py) ----------
@@ -211,8 +272,8 @@ local blendT, BLEND = 1, 0.25
 local clock = 0
 local lastPos = root.Position
 local smoothSpeed = 0
--- [Plot] LOD: далекі големи оновлюються 4 рази на секунду
-local LOD_DIST, lodAcc = 150, 0
+-- v3.8: LOD і бюджет кадру — у спільному Shared/GolemAnimRunner
+local Runner = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("GolemAnimRunner"))
 -- [Plot] Carry: руки тримають ящичок перед собою
 local function holdPose(a: Pose): Pose
 	local o = table.clone(a)
@@ -237,15 +298,20 @@ local function pickState(dt: number): string
 	return "Idle"
 end
 
+local POSES = if type(D.poses) == "table" then D.poses else nil
 local function sample(name: string): Pose
 	local c = CLIPS[name]
-	return c.fn(2 * math.pi * ((clock % c.T) / c.T))
+	local p = 2 * math.pi * ((clock % c.T) / c.T)
+	local pose = c.fn(p)
+	local ov = POSES and POSES[name]
+	if ov then pose = ov(p, pose, rot, name) or pose end
+	return pose
 end
 
 -- ---------- предмет у руці ----------
 -- Дочірні моделі Pickaxe / Sword (клон префаба, ставить GolemCatalog.applyClassItems): кожна деталь має атрибут FistRel —
 -- CFrame відносно деталі-кулака (Hand, за замовчуванням Fist_L) при масштабі Scale0; предмет їздить за кулаком.
-type Item = { part: BasePart, rel: CFrame, s0: number, hand: number }
+type Item = { part: BasePart, rel: CFrame, s0: number, hand: number, wob: Vector3?, ws: number, wp: number }
 local items: { Item } = {}
 local itemParts: { BasePart } = {}
 local itemCfs: { CFrame } = {}
@@ -264,7 +330,8 @@ local function rebuildItems()
 				for _, d in g:GetDescendants() do
 					local rel = d:GetAttribute("FistRel")
 					if d:IsA("BasePart") and typeof(rel) == "CFrame" then
-						table.insert(items, { part = d, rel = rel, s0 = s0, hand = hand })
+						local wa = d:GetAttribute("WobbleAxis") -- v3.4: деталь предмета хитається вздовж осі (у системі кулака), напр. Astral
+						table.insert(items, { part = d, rel = rel, s0 = s0, hand = hand, wob = if typeof(wa) == "Vector3" then wa * ((d:GetAttribute("WobbleAmp") :: number?) or 0.1) else nil, ws = (d:GetAttribute("WobbleSpeed") :: number?) or 3, wp = (d:GetAttribute("WobblePhase") :: number?) or 0 })
 						table.insert(itemParts, d)
 						table.insert(itemCfs, d.CFrame)
 					end
@@ -281,14 +348,8 @@ local boneCF: { CFrame } = table.create(#bones, CFrame.identity)
 local boneSc: { Vector3 } = table.create(#bones, Vector3.one)
 local cfs: { CFrame } = table.create(#parts, CFrame.identity)
 
-RunService.PreRender:Connect(function(dt)
+local function step(dt: number, low: boolean)
 	if not model.Parent then return end
-	local cam = workspace.CurrentCamera
-	if cam and (cam.CFrame.Position - root.Position).Magnitude > LOD_DIST then
-		lodAcc += dt
-		if lodAcc < 0.25 then return end
-		dt, lodAcc = lodAcc, 0
-	end
 	clock += dt * ((model:GetAttribute("AnimSpeed") :: number?) or 1)
 	local st = pickState(dt)
 	if st ~= current then
@@ -312,11 +373,22 @@ RunService.PreRender:Connect(function(dt)
 	end
 
 	local a = sample(current)
-	if model:GetAttribute("Carry") then a = holdPose(a) end
+	local carrying = model:GetAttribute("Carry") == true
+	if carrying then
+		a = holdPose(a)
+		local ov = POSES and POSES.Carry
+		if ov then a = ov(2 * math.pi * ((clock % 2.4) / 2.4), a, rot, current) or a end
+	end
+	for _, fx in fxList do
+		local st = fx.states
+		local m = if st then (if carrying and st.Carry then st.Carry else (st[current] or 1)) else 1
+		fx.ph = (fx.ph + dt * fx.speed * m) % (2 * math.pi)
+	end
 	local b = if blendT < 1 then sample(previous) else nil
-	local face = if model:GetAttribute("Face") ~= false then sample("Face") else nil
+	local face = if not low and model:GetAttribute("Face") ~= false then sample("Face") else nil
 	local S = UNIT * model:GetScale()
 
+	local hipY = 0 -- v3.5: зсув Hips по Y не переноситься на ноги — стопи стоять на землі
 	for i, bone in bones do
 		local name = bone.name
 		local pa = a[name] or (face and face[name])
@@ -334,6 +406,7 @@ RunService.PreRender:Connect(function(dt)
 				end
 			end
 		end
+		if name == "Hips" then hipY = t.Y elseif name == "Thigh_R" or name == "Thigh_L" then t -= Vector3.new(0, hipY, 0) end
 		local local_ = (bone.rest + t) * S
 		if bone.parentIdx then
 			local pi = bone.parentIdx
@@ -345,12 +418,30 @@ RunService.PreRender:Connect(function(dt)
 		end
 	end
 
+	local echoCF = boneCF
+	if ECHO.delay > 0 then
+		local now = os.clock()
+		table.insert(ECHO.hist, { t = now, cf = table.clone(boneCF) })
+		while #ECHO.hist > 2 and ECHO.hist[2].t <= now - ECHO.delay do table.remove(ECHO.hist, 1) end
+		echoCF = ECHO.hist[1].cf
+	end
 	local base = root.CFrame * FLIP
 	for i, blk in blocks do
 		local sc = boneSc[blk.bone]
-		cfs[i] = base * boneCF[blk.bone] * CFrame.new(blk.offset * S * sc) * blk.rot
+		local fe = fxOf[i]
+		if fe then
+			local pv = fe.piv * S * sc
+			cfs[i] = base * boneCF[blk.bone] * CFrame.new(pv) * fxMove(fe.fx, S, sc) * CFrame.new(blk.offset * S * sc - pv) * blk.rot
+		else
+			cfs[i] = base * (if ECHO.of[i] then echoCF else boneCF)[blk.bone] * CFrame.new(blk.offset * S * sc) * blk.rot
+		end
 		if blk.scaled then
-			blk.part.Size = blk.size * S * sc
+			local ns = blk.size * S * sc
+			if ns ~= (blk :: any).last then (blk :: any).last = ns; blk.part.Size = ns end
+		elseif fe and fe.fx.kind == "pulse" then
+			blk.part.Size = blk.size * S * sc * (1 + fe.fx.amp * math.sin(fe.fx.ph + fe.fx.phase))
+		elseif fe and fe.fx.kind == "fade" then -- v3.6: прозорість мерехтить (примарні деталі)
+			blk.part.Transparency = math.clamp((blk.alpha or 0) + fe.fx.amp * (0.5 + 0.5 * math.sin(fe.fx.ph + fe.fx.phase)), 0, 0.95)
 		end
 	end
 	workspace:BulkMoveTo(parts, cfs, Enum.BulkMoveMode.FireCFrameChanged)
@@ -358,7 +449,8 @@ RunService.PreRender:Connect(function(dt)
 		local k = model:GetScale()
 		for i, it in items do
 			local r = it.rel
-			itemCfs[i] = cfs[it.hand] * CFrame.new(r.Position * (k / it.s0)) * r.Rotation
+			local off = if it.wob then it.wob * (k * math.sin(os.clock() * it.ws + it.wp)) else Vector3.zero
+			itemCfs[i] = cfs[it.hand] * CFrame.new(r.Position * (k / it.s0) + off) * r.Rotation
 		end
 		workspace:BulkMoveTo(itemParts, itemCfs, Enum.BulkMoveMode.FireCFrameChanged)
 	end
@@ -382,4 +474,5 @@ RunService.PreRender:Connect(function(dt)
 		end
 		pendingHit:SetAttribute("HitTime", os.clock())
 	end
-end)
+end
+Runner.add(model, root, step)

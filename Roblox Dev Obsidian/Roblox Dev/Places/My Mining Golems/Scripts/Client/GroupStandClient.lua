@@ -94,7 +94,7 @@ local function windowFrame(parent, x, y, w, h)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1")) end end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local content = frame(win, 0, 0, w, h, nil, { BackgroundTransparency = 1, ZIndex = 3 })
 	return win, content
 end
@@ -147,34 +147,49 @@ local title = label(pop, 70, WIN_Y - 58, 900, 110, 96, "GROUP REWARD", WHITE, 10
 local tg = new("UIGradient", {}, title)
 local closeBtn = makeButton(pop, WIN_X + WIN_W - 86, WIN_Y - 42, 103, 103, { shadowDy = 10, color = "red", icon = StyleA.ASSETS.stylea_icon_x, iconPad = -0.05, z = 7 })
 
--- ліва картка: 3D-голем
-local card = frame(content, 46, 70, 400, 470, C("2a2148"), { ZIndex = 4, ClipsDescendants = true })
-corner(card, 14); stroke(card, INK, 5)
-new("UIGradient", { Rotation = 90, Color = cseq({ { 0, "5a3a7a" }, { 1, "22182f" } }) }, card)
-local glow = frame(card, 50, 110, 300, 300, C("ff5a5a"), { ZIndex = 4, BackgroundTransparency = 0.8 }); corner(glow, 150)
-local vp = new("ImageLabel", { BackgroundTransparency = 1, Position = UDim2.fromOffset(30, 70), Size = UDim2.fromOffset(340, 340), ZIndex = 5 }, card)
-local exTag = frame(card, 110, 16, 180, 44, C("ff5a5a"), { ZIndex = 6 }); corner(exTag, 10); stroke(exTag, INK, 4)
-label(exTag, 0, 0, 180, 44, 26, "EXCLUSIVE", WHITE, 3, { ZIndex = 7, TextXAlignment = Enum.TextXAlignment.Center })
-label(card, 0, 410, 400, 54, 38, "MUSHROOM GOLEM", C("ffd0c8"), 5, { ZIndex = 6, TextXAlignment = Enum.TextXAlignment.Center })
+-- ліва картка: 3D-голем у нашому стилі (сіра рамка як у вікна + темна вітрина), за големом крутяться промені
+local CARD_X, CARD_Y, CARD_W, CARD_H = 40, 56, 464, 500
+local card = frame(content, CARD_X, CARD_Y, CARD_W, CARD_H, WHITE, { ZIndex = 4 })
+corner(card, 16); stroke(card, INK, 5)
+new("UIGradient", { Color = cseq(RIM), Rotation = 90 }, card)
+local show = frame(card, 12, 12, CARD_W - 24, CARD_H - 24, C("2a2148"), { ZIndex = 4, ClipsDescendants = true })
+corner(show, 12); stroke(show, INK, 3)
+new("UIGradient", { Rotation = 90, Color = cseq({ { 0, "5a3a7a" }, { 1, "22182f" } }) }, show)
+-- промені: 12 смуг через центр, яскраві біля голема й згасають до країв; повільно крутяться
+local rays = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(500, 500),
+	BackgroundTransparency = 1, ZIndex = 4 }, show)
+for i = 0, 11 do
+	local r = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(500, 60),
+		Rotation = i * 15, BorderSizePixel = 0, BackgroundColor3 = i % 2 == 0 and C("ff8a78") or C("ffd77a"), ZIndex = 4 }, rays)
+	new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.28, 0.72),
+		NumberSequenceKeypoint.new(0.5, 0.18), NumberSequenceKeypoint.new(0.72, 0.72), NumberSequenceKeypoint.new(1, 1) }) }, r)
+end
+-- голем рівно по центру вітрини
+local vp = new("ImageLabel", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.485),
+	Size = UDim2.fromOffset(400, 400), ZIndex = 5 }, show)
+local exTag = frame(show, (CARD_W - 24 - 190) / 2, 14, 190, 46, C("ff5a5a"), { ZIndex = 6 }); corner(exTag, 10); stroke(exTag, INK, 4)
+label(exTag, 0, 0, 190, 46, 28, "EXCLUSIVE", WHITE, 3, { ZIndex = 7, TextXAlignment = Enum.TextXAlignment.Center })
+label(show, 0, CARD_H - 24 - 66, CARD_W - 24, 56, 40, "MUSHROOM GOLEM", C("ffd0c8"), 5, { ZIndex = 6, TextXAlignment = Enum.TextXAlignment.Center })
+RunService.RenderStepped:Connect(function(dt) if show.AbsoluteSize.X > 0 and gui.Enabled then rays.Rotation = (rays.Rotation + dt * 12) % 360 end end)
 
 -- праворуч: що дає і як отримати
-local RX = 486
-local perkBox = frame(content, RX, 70, 508, 150, C("14161a"), { ZIndex = 4, BackgroundTransparency = 0.35 }); corner(perkBox, 14); stroke(perkBox, INK, 4)
+local RX, RW = 530, 464
+local perkBox = frame(content, RX, 70, RW, 150, C("14161a"), { ZIndex = 4, BackgroundTransparency = 0.35 }); corner(perkBox, 14); stroke(perkBox, INK, 4)
 label(perkBox, 22, 30, 300, 90, 84, "+50%", C("7ef05a"), 8, { ZIndex = 5 })
-label(perkBox, 236, 35, 260, 80, 30, "of your\nBEST MINER", WHITE, 4, { ZIndex = 5, TextWrapped = true })
+label(perkBox, 232, 35, 220, 80, 30, "of your\nBEST MINER", WHITE, 4, { ZIndex = 5, TextWrapped = true })
 -- рядок «Right now: … dmg» прибрано (рішення користувача)
 
 local steps = {}
 local STEP_TXT = { "Join the group", "Like the game", "Claim your golem!" }
 for i = 1, 3 do
 	local y = 236 + (i - 1) * 62
-	local row = frame(content, RX, y, 508, 52, C("14161a"), { ZIndex = 4, BackgroundTransparency = 0.5 }); corner(row, 12)
+	local row = frame(content, RX, y, RW, 52, C("14161a"), { ZIndex = 4, BackgroundTransparency = 0.5 }); corner(row, 12)
 	local num = frame(row, 8, 6, 40, 40, C("ffcf4a"), { ZIndex = 5 }); corner(num, 20); stroke(num, INK, 3)
 	local nl = label(num, 0, 0, 40, 40, 26, tostring(i), WHITE, 3, { ZIndex = 6, TextXAlignment = Enum.TextXAlignment.Center })
-	label(row, 62, 0, 420, 52, 30, STEP_TXT[i], WHITE, 4, { ZIndex = 5 })
+	label(row, 62, 0, RW - 80, 52, 30, STEP_TXT[i], WHITE, 4, { ZIndex = 5 })
 	steps[i] = { num = num, nl = nl }
 end
-local actBtn = makeButton(content, RX, 444, 508, 96, { shadowDy = 8, color = "orange", text = "JOIN GROUP", textSize = 46, z = 5,
+local actBtn = makeButton(content, RX, 444, RW, 96, { shadowDy = 8, color = "orange", text = "JOIN GROUP", textSize = 46, z = 5,
 	canClick = function() return not ownsMushroom() end })
 
 -- ===== стан =====
@@ -235,7 +250,7 @@ local function open()
 	animToken += 1
 	local my = animToken
 	fitWin()
-	if not vpSet then vpSet = true; pcall(ItemVP.set, vp, ItemVP.golemKey(KIND, "miner"), 1.1) end
+	if not vpSet then vpSet = true; pcall(ItemVP.set, vp, ItemVP.golemKey(KIND, "miner"), 1.0) end -- на 15% менше, щоб не вилазив за кадр
 	refresh()
 	backdrop.Visible = false; modalRoot.Visible = true
 	popScale.Scale = 0.85 * WIN_SCALE
@@ -280,22 +295,29 @@ local function hook(s: Instance)
 		local bb = Instance.new("BillboardGui")
 		bb.Name = "GroupBestTag"
 		bb.Adornee = root
-		bb.Size = UDim2.fromScale(7, 1.6)
-		bb.StudsOffsetWorldSpace = Vector3.new(0, top + 1.1, 0)
+		bb.Size = UDim2.fromScale(13, 4.4)
+		bb.StudsOffsetWorldSpace = Vector3.new(0, top + 2.5, 0) -- нижній рядок (+50% BEST) лишається там само, де був
 		bb.LightInfluence = 0
 		bb.MaxDistance = 70
 		bb.ResetOnSpawn = false
-		local tl = Instance.new("TextLabel")
-		tl.BackgroundTransparency = 1
-		tl.Size = UDim2.fromScale(1, 1)
-		tl.FontFace = HEAVY
-		tl.TextScaled = true
-		tl.Text = "+50% BEST"
-		tl.TextColor3 = C("7ef05a")
-		local st = Instance.new("UIStroke")
-		st.Color = INK; st.Thickness = 3; st.LineJoinMode = Enum.LineJoinMode.Round
-		st.Parent = tl
-		tl.Parent = bb
+		local function line(text, y, h, color, stroke)
+			local l = Instance.new("TextLabel")
+			l.BackgroundTransparency = 1
+			l.Position = UDim2.fromScale(0, y); l.Size = UDim2.fromScale(1, h)
+			l.FontFace = HEAVY
+			l.TextScaled = true
+			l.Text = text
+			l.TextColor3 = color
+			local s = Instance.new("UIStroke")
+			s.Color = INK; s.Thickness = stroke; s.LineJoinMode = Enum.LineJoinMode.Round
+			s.Parent = l
+			l.Parent = bb
+			return l
+		end
+		-- над бонусом: EXCLUSIVE червоним (як рідкість Exclusive), умова — білим і великим
+		line("EXCLUSIVE REWARD", 0, 0.25, C("ff5a5a"), 3.5)
+		line("Join the group & like the game", 0.26, 0.32, C("ffffff"), 3)
+		line("+50% BEST", 0.6, 0.4, C("7ef05a"), 3.5)
 		bb.Parent = playerGui
 		e.tag = bb
 		m.Destroying:Connect(function() if e.tag == bb then bb:Destroy(); e.tag = nil end end)

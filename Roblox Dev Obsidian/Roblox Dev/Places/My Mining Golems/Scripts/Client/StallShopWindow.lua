@@ -112,9 +112,7 @@ local function windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),
@@ -178,7 +176,7 @@ local tIcon = new("ImageLabel", { BackgroundTransparency = 1, ScaleType = Enum.S
 local titleShadow = textAt(pop, TITLE_X, 50 + 9, 900, 104, "", INK, 11, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
 local title = textAt(pop, TITLE_X, 50, 900, 104, "", WHITE, 10, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
 local titleGrad = new("UIGradient", { Rotation = 0 }, title)
-local PAL = { dia = { C("e0f6ff"), C("6fd2ff"), C("2a7fe0"), C("6fd2ff") }, event = { C("ffe0f6"), C("ff7fc4"), C("b04ce0"), C("ff7fc4") } }
+local PAL = { dia = { C("e0f6ff"), C("6fd2ff"), C("2a7fe0"), C("6fd2ff") }, event = { C("ffe2e2"), C("ff6b6b"), C("d42a2a"), C("ff6b6b") } } -- Boss Shop — червоний (03.11.2026)
 local mode = "dia"
 RunService.Heartbeat:Connect(function()
 	if not modalRoot.Visible then return end
@@ -213,8 +211,8 @@ local cardsHolder = frame(content, 0, 0, WIN_W, WIN_H, nil, { BackgroundTranspar
 local soon = frame(content, 40, 160, WIN_W - 80, 420, C("14161a"), { BackgroundTransparency = 0.35, ZIndex = 4, Visible = false })
 corner(soon, 16); stroke(soon, INK, 4)
 local soonT = label(soon, 0, 120, WIN_W - 80, 130, 120, "COMING SOON", WHITE, 10, { ZIndex = 6 })
-new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C("ffe0f6"), C("ff7fc4")) }, soonT)
-label(soon, 0, 260, WIN_W - 80, 50, 34, "Event items arrive with the next events!", SUB_TXT, 4, { ZIndex = 6, FontFace = XBOLD })
+new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C("ffe2e2"), C("ff5a5a")) }, soonT)
+label(soon, 0, 260, WIN_W - 80, 50, 34, "Boss rewards arrive soon!", SUB_TXT, 4, { ZIndex = 6, FontFace = XBOLD })
 
 local cards = {} -- [id] = card
 local function potDef(key: string?): any
@@ -374,7 +372,7 @@ local function refresh()
 		refreshCards()
 	else
 		local nx = st and tonumber(st:GetAttribute("EventNextAt")) or 0
-		timerText.Text = 'NEW ITEMS IN <font color="#ff9ae0">' .. fmtLeft(nx - now) .. "</font>"
+		timerText.Text = 'NEW ITEMS IN <font color="#ff6b6b">' .. fmtLeft(nx - now) .. "</font>"
 		balText.Text = NF.full(tonumber(player:GetAttribute("Diamonds")) or 0)
 	end
 end
@@ -396,7 +394,7 @@ local isOpen, dismissed, openShop = false, false, nil
 local animToken = 0
 local function setMode(m)
 	mode = m
-	local txt = m == "dia" and "DIAMONDS SHOP" or "EVENTS SHOP"
+	local txt = m == "dia" and "DIAMONDS SHOP" or "BOSS SHOP" -- лавка EventShop перейменована на Boss Shop (03.11.2026)
 	title.Text = txt; titleShadow.Text = txt
 	tIcon.Image = m == "dia" and DIA_ICON or EVENT_ICON; tIconS.Image = tIcon.Image
 	cardsHolder.Visible = m == "dia"
@@ -439,7 +437,9 @@ end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.Escape)
 
 -- у колі якої лавки стоїть гравець
 local function nearest(): (Model?, number)
-	local shops = workspace:FindFirstChild("Cave") and workspace.Cave:FindFirstChild("Shops")
+	-- лавки переїхали в Cave/Hub/Shops (старий шлях Cave/Shops — запасний)
+	local cave = workspace:FindFirstChild("Cave")
+	local shops = cave and ((cave:FindFirstChild("Hub") and cave.Hub:FindFirstChild("Shops")) or cave:FindFirstChild("Shops"))
 	local char = player.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not (shops and hrp) then return nil, math.huge end

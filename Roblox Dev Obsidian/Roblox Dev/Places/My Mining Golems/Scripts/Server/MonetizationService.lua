@@ -56,6 +56,8 @@ function MonetizationService.GrantProduct(p: Player, key: string): boolean
 			-- як після купівлі на підставці ролу: голем одразу в хотбарі (хотбар повний — лише в інвентарі)
 			if okA and added and Inv.Pin then pcall(Inv.Pin, p, "Golem_" .. gid) end
 		end
+	elseif key == "MarketSlots" then -- +3 слоти лотів на маркеті, один раз (03.11.2026)
+		p:SetAttribute("Pass_MarketSlots", true)
 	elseif key == "ExtraStorage" then
 		p:SetAttribute("ExtraSlots", ((tonumber(p:GetAttribute("ExtraSlots")) or 0) :: number) + d.slots)
 	elseif d.skipMin then -- тайм-скіп: дохід за хвилину × хвилини
@@ -66,6 +68,15 @@ function MonetizationService.GrantProduct(p: Player, key: string): boolean
 		p:SetAttribute("SkipGain", add); p:SetAttribute("SkipT", os.clock()) -- клієнт показує «+$…»
 	elseif d.diamonds then -- пакет діамантів
 		p:SetAttribute("Diamonds", ((tonumber(p:GetAttribute("Diamonds")) or 0) :: number) + d.diamonds)
+	elseif d.cases then -- Exclusive Cases (03.11.2026): клас — вибраний у магазині перед оплатою (атрибут CaseBuyCls), інакше Exclusive (випадковий)
+		local cls = p:GetAttribute("CaseBuyCls")
+		local ck = (cls == "miner" and "Miner") or (cls == "carrier" and "Carrier") or (cls == "warrior" and "Warrior") or "Exclusive"
+		if not Items.case(ck) then ck = "Exclusive" end
+		local a = "Case_" .. ck
+		p:SetAttribute(a, ((tonumber(p:GetAttribute(a)) or 0) :: number) + d.cases)
+		-- куплений кейс одразу в руці (новий слот хотбара; хотбар повний — лише в інвентарі), 03.11.2026
+		local okI, Inv = pcall(require, script.Parent:FindFirstChild("InventoryService"))
+		if okI and Inv and Inv.Give then pcall(Inv.Give, p, a) end
 	elseif d.luckRoll then -- Lucky Roll: +1 рол з удачею ×luckRoll
 		local a = "LuckRoll" .. d.luckRoll
 		p:SetAttribute(a, ((tonumber(p:GetAttribute(a)) or 0) :: number) + 1)
@@ -148,6 +159,11 @@ end
 local shopBusy: { [Player]: boolean } = {}
 -- ("BuyTickets", ключ геймпаса) — геймпас за тікети; ("BuyTier") — наступний ступінь x2 Money за тікети (ціна ступеня × 1,25)
 local function onShop(p: Player, action: any, key: any): any
+	-- клас кейса перед вікном оплати (SHOP → CASES, 03.11.2026); ProcessReceipt бере його з атрибута CaseBuyCls
+	if action == "CaseClass" then
+		if key == "miner" or key == "carrier" or key == "warrior" then p:SetAttribute("CaseBuyCls", key); return { ok = true } end
+		return { ok = false }
+	end
 	if shopBusy[p] or not DataService.IsLoaded(p) then return { ok = false } end
 	local price, grant
 	if action == "BuyTickets" and type(key) == "string" then
@@ -159,7 +175,7 @@ local function onShop(p: Player, action: any, key: any): any
 		grant = function() p:SetAttribute("Pass_" .. key, true); p:SetAttribute("PassOff_" .. key, nil) end
 	elseif action == "BuyProduct" and type(key) == "string" then
 		local d = MonCfg.Products[key]
-		if not d or d.diamonds then return { ok = false } end -- діаманти — лише за Robux
+		if not d or d.diamonds then return { ok = false } end -- діаманти — лише за Robux; кейси — і за тікети (03.11.2026, клас — CaseBuyCls)
 		if d.once and p:GetAttribute("Pass_" .. key) == true then return { ok = false, err = "owned" } end
 		price = MonCfg.ticketPrice(d.robux)
 		grant = function() MonetizationService.GrantProduct(p, key) end

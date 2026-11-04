@@ -4,6 +4,11 @@
 -- і велика цифра під ним 3 → 2 → 1 → «...»,
 -- потім Remotes/MarketplaceTP. Вийшов з кола — відлік скасовується (банер ховається). Після спроби — треба вийти з кола,
 -- щоб відлік почався знову. Місця ще немає (HubConfig.MARKETPLACE_PLACE_ID = 0) — тост «Marketplace is coming soon!».
+-- Режим маркету (HubConfig.isMarket, 03.11.2026): коло — Workspace/Marketplace/Floor/«Back To Cave» (MARKET_BACK_R), напис «TELEPORTING TO CAVE IN»,
+--   таблички немає.
+-- Маркет (03.11.2026): коло HOME — Marketplace/Floor/HomeRing (як SELL, зелене; зона — та сама «Back To Cave»);
+--   синє коло INDEX у центрі (Floor/IndexRing) — зайшов → відкривається Index (UIEvents/HUDButton "Index"), вийшов і зайшов — знову;
+--   частина HUD тут не потрібна і ховається (HIDE_TEXT, Counter_Rebirths, TeleportHUD, ціна x2 Money).
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -17,7 +22,9 @@ local function ui(name: string): BindableEvent?
 	local b = f and f:FindFirstChild(name)
 	return (b and b:IsA("BindableEvent")) and b or nil
 end
-local TITLE = "TELEPORTING TO MARKETPLACE IN"
+local MARKET = Cfg.isMarket()
+local TITLE = MARKET and "TELEPORTING TO CAVE IN" or "TELEPORTING TO MARKETPLACE IN"
+local RING_R = MARKET and Cfg.MARKET_BACK_R or Cfg.MARKET_RING_R
 -- один рядок: text = "" — напис TITLE, інакше велика цифра (замінює напис)
 local function banner(text: string, sound: string?)
 	local b = ui("Countdown")
@@ -34,6 +41,11 @@ local function toast(text: string, color: string, sound: string?)
 end
 
 local function center(): BasePart?
+	if MARKET then
+		local m = workspace:FindFirstChild("Marketplace")
+		local c = m and m:FindFirstChild("Back To Cave", true)
+		return (c and c:IsA("BasePart")) and c or nil
+	end
 	local cave = workspace:FindFirstChild("Cave")
 	local hub = cave and cave:FindFirstChild("Hub")
 	local m = hub and hub:FindFirstChild("Marketplace")
@@ -47,7 +59,7 @@ local function inRing(): boolean
 	local hum = ch and ch:FindFirstChildOfClass("Humanoid")
 	if not (c and hrp and hum and hum.Health > 0) then return false end
 	local d = hrp.Position - c.Position
-	return Vector2.new(d.X, d.Z).Magnitude <= Cfg.MARKET_RING_R and d.Y > -2 and d.Y < 8
+	return Vector2.new(d.X, d.Z).Magnitude <= RING_R and d.Y > -2 and d.Y < 8
 end
 
 -- стан: idle → counting (у колі) → done (спроба була, чекаємо виходу з кола)
@@ -98,6 +110,71 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
+-- ===== режим маркету: коло INDEX і зайвий HUD =====
+if MARKET then
+	local inIdx = false
+	RunService.Heartbeat:Connect(function()
+		local m = workspace:FindFirstChild("Marketplace")
+		local ring = m and m:FindFirstChild("IndexRing", true)
+		local c = ring and ring:FindFirstChild("RingCenter")
+		local ch = player.Character
+		local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+		local inside = false
+		if c and hrp then
+			local d = hrp.Position - c.Position
+			inside = Vector2.new(d.X, d.Z).Magnitude <= Cfg.MARKET_RING_R and d.Y > -2 and d.Y < 8
+		end
+		if inside and not inIdx then
+			local b = ui("HUDButton")
+			if b then b:Fire("Index") end
+		end
+		inIdx = inside
+	end)
+
+	-- зайвий HUD: кнопки з цими написами, лічильник ребіртів, ціна над x2 Money, весь TeleportHUD (додому — коло HOME)
+	local HIDE_TEXT = { Shop = true, Quests = true, Index = true, ["x2 Money"] = true, Rebirth = true, Daily = true, ["NEXT BOSS"] = true, Boss = true }
+	local pg = player:WaitForChild("PlayerGui")
+	local hooked: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+	local function keepHidden(o: GuiObject)
+		o.Visible = false
+		if hooked[o] then return end
+		hooked[o] = true
+		o:GetPropertyChangedSignal("Visible"):Connect(function() if o.Visible then o.Visible = false end end)
+	end
+	local function firstText(o: Instance): string?
+		for _, d in o:GetDescendants() do
+			if d:IsA("TextLabel") and d.Text ~= "" then return d.Text end
+		end
+		return nil
+	end
+	local function sweep()
+		local tp = pg:FindFirstChild("TeleportHUD")
+		if tp and tp:IsA("ScreenGui") then tp.Enabled = false end
+		local hud = pg:FindFirstChild("MainHUD")
+		local f = hud and hud:FindFirstChild("Frame")
+		if not f then return end
+		local money: GuiObject? = nil
+		for _, c in f:GetChildren() do
+			if c:IsA("GuiObject") then
+				local t = firstText(c)
+				if c.Name == "Counter_Rebirths" or (t and HIDE_TEXT[t]) then keepHidden(c) end
+				if t == "x2 Money" then money = c end
+			end
+		end
+		if money then -- ціна наступного ступеня — окрема рамка над кнопкою
+			local mp, ms = money.AbsolutePosition, money.AbsoluteSize
+			for _, c in f:GetChildren() do
+				if c:IsA("GuiObject") and c ~= money and not hooked[c] then
+					local p, s = c.AbsolutePosition, c.AbsoluteSize
+					local cx = p.X + s.X / 2
+					if cx > mp.X and cx < mp.X + ms.X and p.Y < mp.Y and p.Y + s.Y > mp.Y - 80 then keepHidden(c) end
+				end
+			end
+		end
+	end
+	task.spawn(function() while true do pcall(sweep); task.wait(1) end end)
+end
+
 -- ===== табличка «MARKETPLACE»: золотий перелив + білий відблиск (як SELL / WORKSHOP) =====
 do
 	local PAL = { Color3.fromHex("fff3b0"), Color3.fromHex("ffd23a"), Color3.fromHex("ff9a1f"), Color3.fromHex("ffd23a") }
@@ -130,7 +207,7 @@ do
 		tw.Completed:Connect(function() sg.Offset = Vector2.new(-1.3, 0) end)
 		nextAt = os.clock() + 1
 	end
-	task.spawn(function() while true do hook(); task.wait(2) end end)
+	if not MARKET then task.spawn(function() while true do hook(); task.wait(2) end end) end
 	RunService.Heartbeat:Connect(function()
 		if not (title and title.Parent and grad) then return end
 		local phase = -(os.clock() / 4)

@@ -150,7 +150,7 @@ local function buildPanel(board: BasePart, face: Enum.NormalId, index: number)
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
 	local studs = frame(panel, 0, 0, pw, ph, nil, { BackgroundTransparency = 1, ZIndex = 1 })
-	for cx = 0, nx - 1 do for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92")) end end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, BLACK, { ZIndex = 2, BackgroundTransparency = 0.35 })
 	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(1, 0.25) }) }, shade)
 	local ct = frame(win, 16, 16, pw, ph, nil, { BackgroundTransparency = 1, ZIndex = 3 })
@@ -221,10 +221,17 @@ local function golemOnPad(entry, rec)
 	if k < 0.999 then m:ScaleTo(m:GetScale() * k) end
 	local pad = entry.pad
 	local top = pad.Position + Vector3.new(0, pad.Size.Y / 2, 0)
-	local side = entry.machine:GetPivot().RightVector -- обличчям убік проходу
+	local side = entry.machine:GetPivot().RightVector
 	local up = GolemModel.footOffset(m)
 	local pos = top + Vector3.new(0, up, 0)
-	m:PivotTo(CFrame.lookAt(pos, pos + side))
+	-- обличчям уздовж конвеєра: големи на слотах дивляться на камеру, готовий на виході — далі по ходу (від камери)
+	local look = side
+	if entry.center then
+		local d = Vector3.new(entry.center.X - pos.X, 0, entry.center.Z - pos.Z)
+		if entry.outward then d = -d end
+		if d.Magnitude > 0.05 then look = d.Unit end
+	end
+	m:PivotTo(CFrame.lookAt(pos, pos + look))
 	m:SetAttribute("Mut", rec.mut)
 	-- табличка: мутація і назва
 	local root = m:FindFirstChild("Root") or m.PrimaryPart
@@ -275,6 +282,7 @@ local function applyPrompts(M, m)
 		elseif type(rec) == "table" then setPrompt(e.prompt, true, full and "INVENTORY FULL" or "TAKE", full and "gray" or "blue", full)
 		elseif g then
 			if table.find(decode("PlotPlaced", {}), gid) then setPrompt(e.prompt, true, "ON PLOT", "gray", true)
+			elseif table.find(Catalog.EXCLUSIVES or {}, Catalog.id(g.kind) or g.kind) then setPrompt(e.prompt, true, "EXCLUSIVE", "gray", true) -- ексклюзиви не мутуються
 			elseif Catalog.mut(g.mut) >= MutCfg.MAX_MUT then setPrompt(e.prompt, true, "MAX MUTATION", "gray", true)
 			elseif other and not MutCfg.same(other, { kind = Catalog.id(g.kind) or g.kind, cls = Catalog.cls(g.cls), mut = Catalog.mut(g.mut) }) then
 				setPrompt(e.prompt, true, "NOT THE SAME", "gray", true)
@@ -347,6 +355,17 @@ local function animOut(M, m)
 				local start = chamberPoint(M, final.Position.Y)
 				g:PivotTo(CFrame.new(start))
 				ride(g, start, final.Position)
+				-- плавно розвернутись обличчям уздовж конвеєра (як після постановки)
+				local from = g.Parent and g:GetPivot()
+				if from then
+					local t0 = os.clock()
+					while g.Parent do
+						local k = math.min(1, (os.clock() - t0) / 0.3)
+						g:PivotTo(from:Lerp(final, k * k * (3 - 2 * k)))
+						if k >= 1 then break end
+						RunService.Heartbeat:Wait()
+					end
+				end
 				if g.Parent then g:PivotTo(final) end
 			end
 			task.wait(0.12)
@@ -401,13 +420,14 @@ local function setup(machine: Model)
 		local tc = core:WaitForChild("TunnelCeil", 10)
 		M.center = tc and tc.Position
 	end
+	for _, e in M.slots do e.center = M.center end -- напрям конвеєра для големів на слотах
 	-- вихід: готовий голем стоїть тут, CLAIM
 	local outM = machine:WaitForChild("Output", 10)
 	if outM then
 		local pad = outM:WaitForChild("Pad", 10)
 		local cb = outM:WaitForChild("ClaimButton", 10)
 		M.claim = cb and cb:WaitForChild("MutClaimPrompt", 10)
-		if pad then M.out = { machine = machine, slot = outM, pad = pad } end
+		if pad then M.out = { machine = machine, slot = outM, pad = pad, center = M.center, outward = true } end
 	end
 	local board = machine:WaitForChild("PanelBoard", 10)
 	M.panels = board and { buildPanel(board, Enum.NormalId.Right, index), buildPanel(board, Enum.NormalId.Left, index) } or {}
@@ -421,6 +441,13 @@ local function setup(machine: Model)
 			Color = ColorSequence.new(C("c58bff")), Transparency = NumberSequence.new(0.1, 1) }, M.orb)
 	end
 	M.nextBolt = os.clock() + math.random() * 2
+	-- звуки котушки: тихі й тільки поблизу (3D-звук на антені реактора)
+	local sfx = RS:WaitForChild("MutationSfx", 10)
+	local host = M.antenna or M.orb
+	if sfx and host then
+		local function mk(name) local t = sfx:FindFirstChild(name); if t then local s = t:Clone(); s.Parent = host; return s end end
+		M.hum = mk("Hum"); M.zapS = mk("ZapSmall"); M.zapB = mk("ZapBig")
+	end
 	machines[index] = M
 end
 
@@ -509,6 +536,9 @@ RunService.Heartbeat:Connect(function(dt)
 			if busy and math.random() < 0.5 then
 				local tip2 = M.tips[math.random(1, #M.tips)]
 				task.delay(0.08, function() bolt(tip2.Position, M.antenna.Position) end)
+				if M.zapB then M.zapB.PlaybackSpeed = 0.92 + math.random() * 0.16; M.zapB:Play() end   -- великий розряд
+			elseif M.zapS then
+				M.zapS.PlaybackSpeed = 0.9 + math.random() * 0.2; M.zapS:Play()                         -- мала блискавка
 			end
 			M.nextBolt = clock + (busy and (0.4 + math.random() * 1.2) or (1.5 + math.random() * 3))
 		end
@@ -522,6 +552,11 @@ RunService.Heartbeat:Connect(function(dt)
 	local nextT = MonCfg.MUT_SPEED_TIERS[tier + 1]
 	for i, M in machines do
 		local m = st[tostring(i)]
+		-- сталий гул — тільки поки йде мутація (скасування або завершення його зупиняють)
+		if M.hum then
+			local running = m and m.job ~= nil and MutCfg.progress(m.job, t) < 1
+			if running and not M.hum.IsPlaying then M.hum:Play() elseif not running and M.hum.IsPlaying then M.hum:Stop() end
+		end
 		local r = firstRec(m)
 		local n = count(m)
 		local done = isDone(m)

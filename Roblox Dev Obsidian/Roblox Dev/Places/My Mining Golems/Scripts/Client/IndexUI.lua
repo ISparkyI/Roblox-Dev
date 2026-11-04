@@ -85,17 +85,29 @@ for _, id in Catalog.ORDER do
 	if g and g.rarity ~= "Exclusive" then table.insert(GOLEMS, g) end
 end
 local PAGE = #GOLEMS
-local PER_CLASS = PAGE * NMUT
-local TOTAL = PAGE * #CLS * NMUT
+-- 04.11.2026: лічильники враховують і ексклюзиви (лише сторінка Normal кожного класу): клас = 24 × 8 + 9, усе = × 3 класи
+local PER_CLASS = PAGE * NMUT + #(Catalog.EXCLUSIVES or {})
+local TOTAL = PER_CLASS * #CLS
 
--- руда мапи 1: HP і шанс спавну — PlotConfig, ціна й переплавка — ForgeConfig
+-- руда мап 1–6 (03.11.2026; була лише мапа 1): HP і шанс спавну — PlotConfig.INDEX_ORES, ціна й переплавка — ForgeConfig.
+-- Мапа 7 — наступне оновлення, тут її немає.
+-- усе про вкладки мап — в одній таблиці (ліміт 200 локальних змінних у скрипті): names, cur (вибрана мапа), tabs, hdr
+local OM = { names = { "Mossy Grotto", "Rusty Mine", "Crystal Depths", "Magma Caverns", "Frozen Abyss", "Void Core" }, cur = 1, tabs = {}, hdr = nil }
 local ORES = {}
-for n, o in PlotCfg.ORES do
-	local f = nil
-	for _, x in Forge.ORES do if x.key == o.key then f = x end end
+for n, o in PlotCfg.INDEX_ORES or PlotCfg.ORES do
+	local f = Forge.oreDef and Forge.oreDef(o.key) or nil
 	table.insert(ORES, { key = o.key, hp = o.hp, odds = o.odds, price = f and f.price or 0, smelt = f ~= nil and Forge.canSmelt(f),
 		tone = (Items.ORE_TONE and Items.ORE_TONE[o.key]) or (f and f.color) or Color3.new(1, 1, 1), chance = PlotCfg.oreChance(o.key),
-		reward = oreReward(n) })
+		reward = oreReward(n), stage = o.stage or 1, ik = "ore:" .. o.key, vp = "Ore_" .. o.key, name = o.key, ore = o.key })
+end
+-- оброблена руда (03.11.2026, вкладка Crafted): злиток / огранований кристал кожної руди, що плавиться; ключ "bar:<Key>" (IndexService)
+for n, o in PlotCfg.INDEX_ORES or PlotCfg.ORES do
+	local f = Forge.oreDef and Forge.oreDef(o.key) or nil
+	if f and Forge.canSmelt(f) then
+		table.insert(ORES, { key = "Bars_" .. o.key, prod = Forge.productOf(o.key), price = math.floor(f.price * Forge.BAR_MULT + 1e-6), orePrice = f.price,
+			tone = f.bar or f.color, reward = oreReward(n), stage = o.stage or 1, ik = "bar:" .. o.key, vp = "Bars_" .. o.key,
+			name = Forge.productName(o.key), ore = o.key, chance = 0 })
+	end
 end
 
 -- ===== константи макета (одиниці дизайну; вікно 980 × 528 як INVENTORY) =====
@@ -229,9 +241,7 @@ local function windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),
@@ -350,6 +360,9 @@ local function font(hex: string, t: string): string return '<font color="#' .. h
 local function L(t) return font("9aa3ad", t) end
 local function statRich(id: string, cls: string, k: number): string
 	local s = Catalog.stats(id, cls, k)
+	-- 04.11.2026: ексклюзив — сила залежить від найкращого голема гравця, тож пишемо «65% BEST», а не стати
+	local bt = Catalog.bestText and Catalog.bestText(id, cls)
+	if bt then return font("ffd23a", bt) .. " · " .. L("Speed") .. " " .. spd(s.speed) end
 	if cls == "carrier" then return L("Capacity") .. " " .. s.cap .. " · " .. L("Speed") .. " " .. spd(s.speed) .. " · " .. money(s.price) end
 	if cls == "warrior" then
 		return L("Damage") .. " " .. fmt(s.dmg) .. " · " .. L("HP") .. " " .. short(s.hp) .. " · " .. L("Speed") .. " " .. spd(s.speed) .. " · " .. money(s.price)
@@ -364,7 +377,7 @@ local found, claimed = {}, {}
 local function keyOf(id: string, cls: string, k: number): string return id .. ":" .. cls .. ":" .. k end
 local function oreKey(key: string): string return "ore:" .. key end
 local ORE_BY_KEY = {}
-for _, o in ORES do ORE_BY_KEY[o.key] = o end
+for _, o in ORES do ORE_BY_KEY[o.key] = o; ORE_BY_KEY[o.ik] = o end
 local function decodeAttr(attr: string): { any }
 	local v = player:GetAttribute(attr)
 	if type(v) ~= "string" or v == "" then return {} end
@@ -380,15 +393,18 @@ end
 local function claimable(k: string): boolean return found[k] == true and not claimed[k] end
 -- нагорода за запис: голем — за мутацією (REWARD), руда — oreReward(n)
 local function rewardOf(k: string): number
-	if string.sub(k, 1, 4) == "ore:" then
-		local o = ORE_BY_KEY[string.sub(k, 5)]
+	if string.sub(k, 1, 4) == "ore:" or string.sub(k, 1, 4) == "bar:" then
+		local o = ORE_BY_KEY[k]
 		return o and o.reward or 0
 	end
+	local g = Catalog.get(string.match(k, "^(%w+):"))
+	if g and g.rarity == "Exclusive" then return Catalog.EXCLUSIVE_INDEX_REWARD or 100 end -- ексклюзив — 100 (03.11.2026)
 	return REWARD[(tonumber(string.match(k, ":(%d+)$")) or 0) + 1] or 0
 end
 local function pageCount(cls: string, k: number): number
 	local n = 0
 	for _, g in GOLEMS do if found[keyOf(g.id, cls, k)] then n += 1 end end
+	if k == 0 then for _, id in Catalog.EXCLUSIVES or {} do if found[keyOf(id, cls, 0)] then n += 1 end end end
 	return n
 end
 local function classCount(cls: string): number
@@ -419,19 +435,27 @@ local function totals(): (number, number)
 				if claimed[key] then d += REWARD[k + 1] end
 			end
 		end
+		for _, id in Catalog.EXCLUSIVES or {} do -- ексклюзиви: лише Normal, нагорода — Catalog.EXCLUSIVE_INDEX_REWARD
+			local key = keyOf(id, c[1], 0)
+			if found[key] then n += 1 end
+			if claimed[key] then d += Catalog.EXCLUSIVE_INDEX_REWARD or 100 end
+		end
 	end
 	return n, d
 end
 -- відкрито руди, забрано діамантів за руду, можна забрати
-local function oreCount(): (number, number, number)
-	local n, d, c = 0, 0, 0
+-- raw: true — лише руда, false — лише оброблена, nil — усе; 4-й результат — скільки всього записів
+local function oreCount(raw: boolean?): (number, number, number, number)
+	local n, d, c, t = 0, 0, 0, 0
 	for _, o in ORES do
-		local k = oreKey(o.key)
+		if raw ~= nil and (o.prod == nil) ~= raw then continue end
+		t += 1
+		local k = o.ik
 		if found[k] then n += 1 end
 		if claimed[k] then d += o.reward end
 		if claimable(k) then c += 1 end
 	end
-	return n, d, c
+	return n, d, c, t
 end
 -- усі незабрані: кількість і діаманти
 local function pendingAll(): (number, number)
@@ -530,7 +554,7 @@ local function setBadge(b, n: number)
 end
 
 -- ===== розділи вгорі: Golems / Ores / Bosses =====
-local SECT = { { "golems", "Golems", ICON.golems }, { "ores", "Ores", ICON.ores }, { "bosses", "Bosses", ICON.bosses } }
+local SECT = { { "golems", "Golems", ICON.golems }, { "ores", "Resources", ICON.ores }, { "bosses", "Bosses", ICON.bosses } }
 local sectBtns, sectBadges = {}, {}
 local SECT_X, SECT_W, SECT_H = 465, 140, 44 -- праворуч від заголовка з іконкою (не накладаються), ліворуч від X
 -- іконка в «safe area»: відступ ≈ 10 % висоти кнопки з усіх боків, по центру по вертикалі, не виходить за рамку
@@ -545,7 +569,9 @@ for i, spec in SECT do
 	local b = makeGroupButton(content, SECT_X + (i - 1) * (SECT_W + 10), 20, SECT_W, SECT_H, { name = "Sect_" .. spec[1], shadowDy = 5, color = "gray", z = 6, shine = false })
 	b.onClick = function() if section ~= spec[1] then section = spec[1]; render(true) end end
 	local ix = safeIcon(b.group, spec[3], SECT_H, 6) + 6
-	fitText(textAt(b.group, ix, SECT_H / 2 - 1, SECT_W - ix - 6, 22, spec[2], WHITE, 2.4, { TextXAlignment = LEFT, ZIndex = 5 }), 22, 15)
+	-- напис вписується в кнопку (Resources довший за інші): TextScaled з максимумом 22 (TextFits до першого кадру не працює)
+	local st = textAt(b.group, ix, SECT_H / 2 - 1, SECT_W - ix - 10, 22, spec[2], WHITE, 2.4, { TextXAlignment = LEFT, ZIndex = 5, TextScaled = true })
+	new("UITextSizeConstraint", { MaxTextSize = 22, MinTextSize = 12 }, st)
 	sectBtns[spec[1]] = b
 	sectBadges[spec[1]] = makeBadge(b.group, SECT_W - 6, 2, 8)
 end
@@ -567,10 +593,15 @@ for i, spec in CLS do
 	t.b.onClick = function() if cls ~= k then cls = k; render(true) end end
 	clsTabs[k] = t
 end
-local mapTab = makeTab("Map_1", 1, ICON.ores, "Map 1")
-mapTab.hold.Position = UDim2.fromOffset(TX + 10, tabY(1))
-mapTab.b:setColor("blue")
-mapTab.hold.Visible = false
+-- вкладки мап (розділ Ores, 03.11.2026): 6 низьких кнопок «Map N» + «x / 3», вибрана — синя
+-- одна вкладка «All Maps» (руда всіх мап — одним списком справа, мапи відділені заголовками-плашками)
+-- розділ Resources (03.11.2026): дві вкладки — Raw Ores (руда) і Crafted (злитки й ограновані кристали з Workshop); OM.raw — вибрана перша
+OM.raw = true
+OM.tab = makeTab("Raw", 1, ICON.ores, "Raw Ores")
+OM.tab2 = makeTab("Crafted", 2, StyleA.ASSETS.forge_bar_iron_v2 or ICON.ores, "Crafted")
+OM.tabs[1] = OM.tab
+OM.tabs[2] = OM.tab2
+for _, t in OM.tabs do t.hold.Visible = false end
 
 -- ===== колекція ліворуч унизу: загальний прогрес і забрані діаманти =====
 local coll = cardBg(content, TX, IY, TW, IH, 3)
@@ -921,16 +952,38 @@ do
 end
 
 -- ===== руда (розділ Ores): група «Map 1» і картки =====
-local oreArea = frame(content, GX, CH_Y, GW, IY - 10 - CH_Y, nil, { Name = "OreGrid", BackgroundTransparency = 1, Visible = false, ZIndex = 2 })
-local oreCnt = groupHeader(oreArea, GP, C("7fd0ff"), "Map 1")
-local ORE_S, ORE_G = 140, 18 -- руди мало — картки більші
+-- один список, що гортається: для кожної мапи — плашка «Map N · Назва» з лічильником і 3 картки руди (03.11.2026)
+local oreArea = new("ScrollingFrame", { Name = "OreGrid", Position = UDim2.fromOffset(GX, CH_Y), Size = UDim2.fromOffset(GW + 14, GY + GH_FULL - CH_Y),
+	BackgroundTransparency = 1, BorderSizePixel = 0, ScrollingDirection = Enum.ScrollingDirection.Y, ScrollBarThickness = 6,
+	ScrollBarImageColor3 = C("c8ff6a"), ScrollBarImageTransparency = 0.25, VerticalScrollBarInset = Enum.ScrollBarInset.None,
+	ElasticBehavior = Enum.ElasticBehavior.Never, Visible = false, ZIndex = 2 }, content)
+-- другий список — оброблена руда (вкладка Crafted), така сама розкладка
+OM.barArea = oreArea:Clone()
+OM.barArea.Name = "CraftedGrid"
+OM.barArea.Parent = content
+local ORE_S, ORE_G = 128, 16
 local oreCards = {}
-for i, o in ORES do
-	local c = makeCard(oreArea, GP + 4 + ((i - 1) % 4) * (ORE_S + ORE_G), GP + HDR_H + 12 + math.floor((i - 1) / 4) * (ORE_S + ORE_G), "Ore_" .. o.key, false, ORE_S)
-	c.ore = o
-	oreCards[i] = c
+OM.cnts, OM.bcnts = {}, {}
+for _, raw in { true, false } do
+	local area = raw and oreArea or OM.barArea
+	local y = GP
+	for m = 1, #OM.names do
+		local hdr = groupHeader(area, y, C(raw and "7fd0ff" or "ffb15c"), "Map " .. m .. " · " .. OM.names[m])
+		if raw then OM.cnts[m] = hdr else OM.bcnts[m] = hdr end
+		local j = 0
+		for i, o in ORES do
+			if o.stage == m and (o.prod == nil) == raw then
+				j += 1
+				local c = makeCard(area, GP + 4 + (j - 1) * (ORE_S + ORE_G), y + HDR_H + 10, o.vp, false, ORE_S)
+				c.ore = o
+				oreCards[i] = c
+			end
+		end
+		y += HDR_H + 10 + ORE_S + ORE_G
+	end
+	textAt(area, 0, y + 6, GW, 17, raw and "New ores appear on the next maps" or "Smelt ore in the Workshop to discover", WHITE, 2.2, { ZIndex = 2 })
+	area.CanvasSize = UDim2.fromOffset(0, y + 30)
 end
-textAt(oreArea, 0, IY - 10 - CH_Y - 22, GW, 17, "New ores appear on the next maps", WHITE, 2.2, { ZIndex = 2 })
 
 -- ===== картка вибраного запису внизу =====
 -- у масці InfoClip (обрізає по низу вікна): виїжджає знизу / ховається вниз, верх картки йде за низом сітки (applyCardT).
@@ -1020,7 +1073,7 @@ renderGrid = function(resetScroll: boolean)
 	for id, c in cards do
 		local g = c.g
 		local k = keyOf(id, cls, mut)
-		c.set({ found = found[k] == true, claim = claimable(k) and REWARD[mut + 1] or nil, sel = sel == id, tone = Catalog.rarityColor(g.rarity),
+		c.set({ found = found[k] == true, claim = claimable(k) and rewardOf(k) or nil, sel = sel == id, tone = Catalog.rarityColor(g.rarity),
 			name = g.name, icon = Catalog.icon(id), vp = ItemVP.golemKey(id, cls),
 			odds = g.rarity == "Exclusive" and Catalog.howToGet(id, cls, true) or oddsTxt(id, mut), mut = mut })
 	end
@@ -1029,17 +1082,38 @@ renderGrid = function(resetScroll: boolean)
 end
 
 local function renderOres()
-	local n = oreCount()
-	local done = n == #ORES
-	oreCnt.Text = (done and (CHECK .. " ") or "") .. n .. " / " .. #ORES
-	oreCnt.TextColor3 = done and RING or SUB_TXT
+	-- лічильники по мапах: відкрито / всього, скільки можна забрати
+	for _, raw in { true, false } do
+		local mf, mt, mc = {}, {}, {}
+		for _, o in ORES do
+			if (o.prod == nil) == raw then
+				local k = o.ik
+				mt[o.stage] = (mt[o.stage] or 0) + 1
+				if found[k] then mf[o.stage] = (mf[o.stage] or 0) + 1 end
+				if claimable(k) then mc[o.stage] = (mc[o.stage] or 0) + 1 end
+			end
+		end
+		local all, allT, allC = 0, 0, 0
+		for m, lbl in (raw and OM.cnts or OM.bcnts) do
+			local n, tot = mf[m] or 0, mt[m] or 0
+			all += n; allT += tot; allC += mc[m] or 0
+			local done = tot > 0 and n == tot
+			lbl.Text = (done and (CHECK .. " ") or "") .. n .. " / " .. tot
+			lbl.TextColor3 = done and RING or SUB_TXT
+		end
+		local t = raw and OM.tab or OM.tab2
+		t.c.Text = all .. " / " .. allT .. " found"
+		setBadge(t.badge, allC)
+		local on = raw == OM.raw
+		t.b:setColor(on and "blue" or "gray")
+		t.hold.Position = UDim2.fromOffset(on and TX + 10 or TX, tabY(t.i))
+	end
 	for _, c in oreCards do
 		local o = c.ore
-		local k = oreKey(o.key)
-		c.set({ found = found[k] == true, claim = claimable(k) and o.reward or nil, sel = selOre == o.key, tone = o.tone, name = o.key,
-			icon = ICON[o.key] or ICON.ores, vp = "Ore_" .. o.key, odds = pct(o.chance) })
+		local k = o.ik
+		c.set({ found = found[k] == true, claim = claimable(k) and o.reward or nil, sel = selOre == o.key, tone = o.tone, name = o.name,
+			icon = ICON[o.ore] or ICON.ores, vp = o.vp, odds = o.prod and (o.prod == "Cut" and "GEM" or "BAR") or pct(o.chance) })
 	end
-	mapTab.c.Text = n .. " / " .. #ORES .. " found"
 end
 
 local function infoCommon(isFound: boolean, tone: Color3)
@@ -1062,15 +1136,24 @@ renderInfo = function()
 	if section == "ores" then
 		local o = selOre and ORE_BY_KEY[selOre]
 		if not o then return end
-		local k = oreKey(o.key)
+		local k = o.ik
 		local isFound = found[k] == true
-		infoIcon.Image = ICON[o.key] or ICON.ores
-		ItemVP.set(infoIcon, "Ore_" .. o.key, 1.13)
+		infoIcon.Image = ICON[o.ore] or ICON.ores
+		ItemVP.set(infoIcon, o.vp, 1.13)
 		infoCommon(isFound, o.tone)
-		infoName.Text = isFound and o.key or "???"
+		infoName.Text = isFound and o.name or "???"
 		fitText(infoName, 26, 18)
-		infoSub.Text = font(o.tone:ToHex(), "Ore") .. " · Map 1"
+		infoSub.Text = font(o.tone:ToHex(), o.prod and (o.prod == "Cut" and "Gem" or "Bar") or "Ore") .. " · Map " .. (o.stage or 1)
 		infoMut.Visible = false; MutationText.clear(infoMut)
+		if o.prod then -- оброблена руда: з чого робиться і ціна; справа — «за руду» (ціна × BAR_MULT)
+			infoStat.Text = isFound and (L("From") .. " " .. o.ore .. " · " .. L("Sell") .. " " .. money(o.price)) or L("Smelt ore in the Workshop to reveal")
+			oddsTitle.Text = "VALUE"
+			oddsTx.Text = "x" .. tostring(Forge.BAR_MULT)
+			oddsTx.TextColor3 = isFound and WHITE or C("c9ced4")
+			fitText(oddsTx, 26, 18)
+			rewardLine(k, o.reward)
+			return
+		end
 		if isFound then
 			infoStat.Text = L("HP") .. " " .. o.hp .. " · " .. L("Ore") .. " " .. money(o.price) .. " · "
 				.. (o.smelt and (L("Bar") .. " " .. money(math.floor(o.price * Forge.BAR_MULT + 1e-6))) or L("Can't smelt"))
@@ -1108,7 +1191,7 @@ renderInfo = function()
 	oddsTx.Text = ex and Catalog.howToGet(g.id, cls) or oddsTxt(g.id, mut)
 	oddsTx.TextColor3 = isFound and WHITE or C("c9ced4")
 	fitText(oddsTx, 26, 18)
-	rewardLine(k, REWARD[mut + 1])
+	rewardLine(k, rewardOf(k))
 end
 
 -- вибрана картка має бути видно після того, як сітка стала нижчою
@@ -1127,6 +1210,8 @@ local function applyCardT()
 	info.Position = UDim2.fromOffset(6, 6 + t * INFO_SLIDE)
 	infoClip.Visible = t < 0.995
 	setGridH(GH + t * INFO_SLIDE)
+	oreArea.Size = UDim2.fromOffset(GW + 14, GY + GH + t * INFO_SLIDE - CH_Y) -- список руди — до низу вікна, коли картка схована
+	OM.barArea.Size = oreArea.Size
 	local c = cardTw and sel and section == "golems" and cards[sel]
 	if c then ensureVisible(c) end
 end
@@ -1155,7 +1240,8 @@ local function updateClaims()
 	setBadge(sectBadges.golems, gN)
 	local _, _, oN = oreCount()
 	setBadge(sectBadges.ores, oN)
-	setBadge(mapTab.badge, oN)
+	local _ = oN -- бейджі вкладок мап — у renderOres (по кожній мапі)
+	if section == "ores" then renderOres() end
 	for k, t in clsTabs do setBadge(t.badge, classClaim(k)) end
 	for i, ch in chips do
 		local n = pageClaim(cls, i - 1)
@@ -1262,7 +1348,13 @@ for _, c in oreCards do
 		renderOres()
 		applySelection()
 	end
-	c.onClaim = function() claimOne(oreKey(c.ore.key), c) end
+	c.onClaim = function() claimOne(c.ore.ik, c) end
+end
+for _, t in OM.tabs do
+	t.b.onClick = function()
+		local raw = t == OM.tab
+		if OM.raw ~= raw then OM.raw = raw; selOre = nil; render(true) end
+	end
 end
 
 render = function(animate: boolean?)
@@ -1273,17 +1365,19 @@ render = function(animate: boolean?)
 	chipSF.Visible = gol
 	claimAllBtn.group.Visible = gol or ore
 	for _, t in clsTabs do t.hold.Visible = gol end
-	oreArea.Visible = ore; mapTab.hold.Visible = ore
+	oreArea.Visible = ore and OM.raw
+	OM.barArea.Visible = ore and not OM.raw
+	for _, t in OM.tabs do t.hold.Visible = ore end
 	coll.Visible = gol or ore
 	soon.Visible = not (gol or ore)
 	if not gol then vsb.Visible = false end
 	updateClaims()
 	if ore then
 		renderOres()
-		local n, d = oreCount()
-		collTitle.Text = "All Ores"
-		collTxt.Text = n .. " / " .. #ORES
-		collFill.Size = UDim2.fromOffset(math.max(6, 198 * n / math.max(1, #ORES)), 24)
+		local n, d, _, tot = oreCount(OM.raw)
+		collTitle.Text = OM.raw and "All Ores" or "All Crafted"
+		collTxt.Text = n .. " / " .. tot
+		collFill.Size = UDim2.fromOffset(math.max(6, 198 * n / math.max(1, tot)), 24)
 		collIcon.Image = ICON.diamond
 		collD.Text = "+" .. d .. " " .. L("earned")
 		applySelection()
@@ -1300,10 +1394,11 @@ render = function(animate: boolean?)
 		local k = i - 1
 		local on = k == mut
 		local n = pageCount(cls, k)
+		local pt = k == 0 and PAGE + #(Catalog.EXCLUSIVES or {}) or PAGE -- Normal — разом з ексклюзивами
 		ch.ring.Visible = on
 		setGlow(ch.glow, ch.color, on and GLOW_CHIP_ON or GLOW_CHIP_OFF)
-		ch.ct.Text = n == PAGE and (CHECK .. " " .. n .. "/" .. PAGE) or (n .. "/" .. PAGE)
-		ch.ct.TextColor3 = n == PAGE and RING or (on and WHITE or MUTED)
+		ch.ct.Text = n == pt and (CHECK .. " " .. n .. "/" .. pt) or (n .. "/" .. pt)
+		ch.ct.TextColor3 = n == pt and RING or (on and WHITE or MUTED)
 		ch.root.ZIndex = on and 5 or 4
 	end
 	if sel and mut ~= 0 and cards[sel] and cards[sel].group.excl then sel = nil end -- ексклюзиви — лише на Normal
@@ -1406,8 +1501,11 @@ local function inside(o: GuiObject, p: Vector2, top: number?): boolean
 	local a, s = o.AbsolutePosition, o.AbsoluteSize
 	return p.X >= a.X and p.X <= a.X + s.X and p.Y >= a.Y - (top or 0) and p.Y <= a.Y + s.Y
 end
+-- 03.11.2026 (рішення користувача): Index закривається ЛИШЕ хрестиком (і Esc). Клік поза вікном більше не закриває:
+-- на телефоні, коли Index відкривався зоною, гравець відпускав палець з джойстика — і вікно одразу закривалось.
+OM.closeOnBackdrop = false -- у таблиці OM (ліміт 200 локальних змінних у скрипті)
 backdrop.InputBegan:Connect(function(inp)
-	if not isPress(inp) then return end
+	if not OM.closeOnBackdrop or not isPress(inp) then return end
 	-- закриває лише клік ПОЗА вікном (заголовок INDEX і X над рамкою — теж вікно). Без + GetGuiInset(): inp.Position
 	-- і AbsolutePosition в одному просторі (з поправкою клік біля низу вікна — картка внизу — помилково закривав Index)
 	local p = Vector2.new(inp.Position.X, inp.Position.Y)

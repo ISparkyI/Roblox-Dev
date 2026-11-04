@@ -50,6 +50,9 @@ local TweenService = game:GetService("TweenService")
 local StyleA = {}
 
 StyleA.ASSETS = {
+	-- плитки студів (03.11.2026, оптимізація): сіра RGBA-плитка з прозорим фоном, фарбується ImageColor3 (StyleA.studTile)
+	stud_tile = "rbxassetid://99595704863044",       -- студ табел / вікон: тінь + верх + світлий край (рівні сірого 0.62 / 0.85 / 0.98)
+	stud_tile_card = "rbxassetid://130649959399734", -- студ карток табел: тінь + верх без краю (0.62 / 0.85)
 	-- 9-slice основи (без візерунка й напису)
 	stylea_base_green = "rbxassetid://73269138650834",
 	stylea_base_gray = "rbxassetid://103290422229133",
@@ -106,6 +109,28 @@ local function sounds()
 	end
 	return uiSounds
 end
+-- фон зі студів ОДНІЄЮ картинкою (03.11.2026): заміна циклів stud() з тисячами Frame + UICorner + UIStroke.
+-- fill — колір верху студа (як у stud()); тінь і край виходять самі (×0.73 / ×1.15). cell — крок сітки в px.
+-- card = true — плитка без краю (студи карток). Повертає ImageLabel (перефарбування: StyleA.studTint).
+function StyleA.studTint(img: ImageLabel, fill: Color3)
+	img.ImageColor3 = Color3.new(math.min(1, fill.R / 0.85), math.min(1, fill.G / 0.85), math.min(1, fill.B / 0.85))
+end
+function StyleA.studTile(parent: Instance, x: number, y: number, w: number, h: number, cell: number, fill: Color3, props: { [string]: any }?, card: boolean?): ImageLabel
+	local img = Instance.new("ImageLabel")
+	img.Name = "Studs"
+	img.BackgroundTransparency = 1
+	img.BorderSizePixel = 0
+	img.Position = UDim2.fromOffset(x, y)
+	img.Size = UDim2.fromOffset(w, h)
+	img.Image = card and ASSETS.stud_tile_card or ASSETS.stud_tile
+	img.ScaleType = Enum.ScaleType.Tile
+	img.TileSize = UDim2.fromOffset(cell, cell)
+	StyleA.studTint(img, fill)
+	if props then for k, v in props do (img :: any)[k] = v end end
+	img.Parent = parent
+	return img
+end
+
 function StyleA.tap()
 	local s = sounds()
 	if s then s.play("tap", 0.08) end

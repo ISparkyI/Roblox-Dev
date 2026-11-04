@@ -12,7 +12,7 @@ local Config = {}
 --   robux — ціна в Robux (ПРОПОЗИЦІЯ, у Creator Hub ставити ту саму); за тікети — ticketPrice(robux) = robux × 1,25, вгору до цілого;
 --   icon — іконка картки й «падаючих» іконок фону; tone — колір підсвітки картки.
 -- Що дає кожен (де працює):
---   VIP         — x1.5 Money назавжди (MultiService, рядок VIP у TOTAL MULTI)
+--   VIP         — x1.5 Money назавжди (MultiService, рядок VIP у TOTAL MULTI) + 2 слоти лотів на маркеті (HubConfig.marketSlots)
 --   Lucky       — x2 Roll Luck: рідкісні големи й мутації (RollService, поверх Roll Luck і подій)
 --   AutoEquip   — Auto Equip Best: найкращі големи самі стають на плоти; перемикач у SETTINGS (PlotService, SettingsService)
 --   FastForge   — кузня плавить у 2 рази швидше (ForgeService)
@@ -21,7 +21,7 @@ local Config = {}
 --   RollStand1 / RollStand2 — +1 підставка ролу кожен (RollConfig.totalStands, точки Point6 / Point7)
 Config.Passes = {
 	VIP = { id = 2057519489, robux = 149, order = 1, featured = true, name = "VIP", icon = "rbxassetid://111200556390804", tone = "ffd23a",
-		desc = "x1.5 Money forever on every sale. VIP crown in TOTAL MULTI. Stacks with all other multipliers!" },
+		desc = "x1.5 Money forever on every sale and +2 Marketplace listing slots. VIP crown in TOTAL MULTI!" },
 	Lucky = { id = 2058155578, robux = 79, order = 2, name = "x2 Roll Luck", icon = "rbxassetid://116109725516204", tone = "7ef05a",
 		desc = "Double Roll Luck forever: rare golems drop 2x more often." },
 	MutLucky = { id = 2060446843, robux = 99, order = 2.5, name = "x2 Mutation Luck", icon = "rbxassetid://90173095287975", tone = "8fe3ff",
@@ -92,6 +92,12 @@ Config.Products = {
 	--   наступне смикання важеля бере найсильніший з наявних, RollService). Ціни — пропозиція.
 	LuckRoll10 = { id = 3723335158, robux = 49, luckRoll = 10 },
 	LuckRoll99 = { id = 3723335193, robux = 249, luckRoll = 99 },
+	-- Exclusive Cases (SHOP → CASES, 03.11.2026; лише Robux, багаторазові): +cases кейсів класу, вибраного в магазині
+	--   (ShopAction "CaseClass" → атрибут CaseBuyCls перед вікном оплати): Case_Miner / Case_Carrier / Case_Warrior; класу немає — Case_Exclusive.
+	CaseX1 = { id = 3727960215, robux = 249, cases = 1 },
+	CaseX5 = { id = 3727960291, robux = 999, cases = 5 },
+	-- +3 слоти лотів на маркеті (03.11.2026): один раз → Pass_MarketSlots (HubConfig.marketSlots); купується у вікні My Listed Golems (MarketUI)
+	MarketSlots = { id = 3727988663, robux = 79, once = true, mktSlots = 3 },
 	-- Diamonds (SHOP → DIAMONDS, багаторазові, лише за Robux): +diamonds до атрибута Diamonds. Кількості — від користувача (28.10.2026),
 	--   вигода рахується відносно Dia1 (diamondBonus). Ціни в R$ — пропозиція.
 	Dia1 = { id = 3723335234, robux = 25, diamonds = 100 },

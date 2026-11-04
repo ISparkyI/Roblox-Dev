@@ -69,12 +69,29 @@ Config.POOL = {
 	{ kind = "luckroll", w = 3 },     -- x10 Lucky Roll, малий шанс
 	{ kind = "luckroll99", w = 1 },   -- x99 Lucky Roll, дуже малий шанс
 }
-Config.GOLEM7 = { kind = "golem", key = "mushroom", cls = "carrier" } -- кожен 7-й день (потім — ексклюзивні големи)
+Config.GOLEM7 = { kind = "golem", key = "mushroom", cls = "carrier" } -- запасний (якщо голема циклу ще немає в каталозі)
+-- тижневий цикл (03.11.2026): дні 7 / 14 / … / 49 — 7 големів, далі по колу (56 — знову Mushroom Carrier).
+-- Лише Miner і Carrier; воїнів — в Boss Shop (пізніше). GDD — Plan - Weekly Reward Golems.
+Config.WEEKLY = {
+	{ key = "mushroom", cls = "carrier" }, -- день 7
+	{ key = "honey", cls = "miner" },      -- 14
+	{ key = "snow", cls = "carrier" },     -- 21
+	{ key = "cloud", cls = "miner" },      -- 28
+	{ key = "honey", cls = "carrier" },    -- 35
+	{ key = "snow", cls = "miner" },       -- 42
+	{ key = "cloud", cls = "carrier" },    -- 49
+}
+function Config.weekly(n: number): any
+	local e = Config.WEEKLY[((math.floor(n / 7) - 1) % #Config.WEEKLY) + 1]
+	local okC, Catalog = pcall(require, game:GetService("ReplicatedStorage").Shared.GolemCatalog)
+	if not e or not (okC and Catalog.GOLEMS[e.key]) then return table.clone(Config.GOLEM7) end
+	return { kind = "golem", key = e.key, cls = e.cls }
+end
 
 function Config.isSeventh(n: number): boolean return n % 7 == 0 end
 function Config.reward(seed: number, n: number): any
 	if n == 1 then return { kind = "potion", key = "Money", n = 1 } end
-	if Config.isSeventh(n) then return table.clone(Config.GOLEM7) end
+	if Config.isSeventh(n) then return Config.weekly(n) end
 	local r = Random.new((math.floor(seed) * 7919 + n * 104729) % 2147483647)
 	local e = pick(r, Config.POOL)
 	if e.kind == "skip" then return { kind = "skip", key = pick(r, Config.SKIPS).key } end
@@ -104,7 +121,11 @@ function Config.label(rw: any, MonCfg: any?): string
 	if rw.kind == "potionpack" then return "Potion Pack" end
 	if rw.kind == "luckroll" then return "x10 Lucky Roll" end
 	if rw.kind == "luckroll99" then return "x99 Lucky Roll" end
-	if rw.kind == "golem" then return "Mushroom Golem" end
+	if rw.kind == "golem" then
+		local okC, Catalog = pcall(require, game:GetService("ReplicatedStorage").Shared.GolemCatalog)
+		local g = okC and Catalog.GOLEMS[rw.key]
+		return (g and g.name) or "Golem"
+	end
 	return "?"
 end
 

@@ -133,9 +133,7 @@ local function windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),
@@ -293,6 +291,8 @@ local function makeWindow(spec)
 	end
 	function W.open()
 		if W.isOpen then return end
+		-- 04.11.2026: на маркеті налаштувань немає (кнопку прибрано, MainHUD)
+		if spec.key == "Settings" and require(RS:WaitForChild("Shared"):WaitForChild("HubConfig")).isMarket() then return end
 		W.isOpen = true
 		WindowManager.opened(spec.key) -- одне вікно на екрані: інші закриваються
 		animToken += 1
@@ -361,7 +361,7 @@ end
 -- =====================================================================
 local SoundService = game:GetService("SoundService")
 local Lighting = game:GetService("Lighting")
-local DEF = { Music = 100, Sfx = 100, HidePlayers = false, Auras = true, LowGfx = false, AutoEquip = true, AutoRoll = true, AutoBuy = true, FastRoll = true, AutoCollect = true, RollMuts = 0, RollRars = 0, RollMinDmg = 0, Tag = "" }
+local DEF = { Music = 100, Sfx = 100, HidePlayers = false, Auras = true, LowGfx = false, AutoEquip = true, AutoRoll = true, AutoBuy = true, FastRoll = true, AutoCollect = true, AutoWorkshop = true, RollMuts = 0, RollRars = 0, RollMinDmg = 0, Tag = "" }
 local pending = {} -- локальні значення, ще не підтверджені сервером
 local function val(k: string): any
 	if pending[k] ~= nil then return pending[k] end
@@ -647,6 +647,51 @@ local function passToggle(order: number, key: string, title: string, sub: string
 end
 passToggle(7, "AutoCollect", "AUTO COLLECT", "Crates empty into your inventory by themselves")
 passToggle(8, "FastRoll", "FAST ROLL", "Faster lever and rolls")
+-- AUTO WORKSHOP (04.11.2026): геймпас або куплена картка Workshop (AutoWorkshopOwned від ForgeService) — ON / OFF (Set_AutoWorkshop);
+-- інакше ціна геймпаса, клік — вікно покупки
+do
+	local r = row(10, "AUTO WORKSHOP", "Workshop smelts ore from your inventory by itself")
+	local b = makeGroupButton(r, CW - TG_W - 16, (ROW_H - TG_H) / 2 - 2, TG_W, TG_H, { name = "Toggle", shadowDy = 5, color = "green", text = "", textSize = 24, z = 5 })
+	local pp = passPrice(b, "AutoWorkshop")
+	local function owned() return player:GetAttribute("Pass_AutoWorkshop") == true or player:GetAttribute("AutoWorkshopOwned") == true end
+	local function refresh()
+		if not owned() then pp.show(true); return end
+		pp.show(false)
+		local on = val("AutoWorkshop")
+		b:setColor(on and "green" or "red"); b:setText(on and "ON" or "OFF")
+	end
+	b.onClick = function()
+		if not owned() then pp.buy(); return end
+		send("AutoWorkshop", not val("AutoWorkshop")); refresh()
+	end
+	refresh()
+	refreshers.AutoWorkshop = refresh
+	player:GetAttributeChangedSignal("Pass_AutoWorkshop"):Connect(refresh)
+	player:GetAttributeChangedSignal("AutoWorkshopOwned"):Connect(refresh)
+end
+-- AUTO SELL (04.11.2026): геймпас або куплена картка на табло плоту (PlotConfig.autoSellOwned) — ON / OFF головного перемикача
+-- (Set_AutoSell; Remotes/AutoSellAction "Master", як кнопка у вікні AutoSellWindow); інакше ціна геймпаса, клік — вікно покупки.
+-- Які предмети продавати — як і раніше, у вікні Auto Sell (кнопка SETTINGS на картці табло).
+do
+	local PlotCfgS = require(Shared:WaitForChild("PlotConfig"))
+	local r = row(11, "AUTO SELL", "Ore and bars sell as soon as you get them")
+	local b = makeGroupButton(r, CW - TG_W - 16, (ROW_H - TG_H) / 2 - 2, TG_W, TG_H, { name = "Toggle", shadowDy = 5, color = "green", text = "", textSize = 24, z = 5 })
+	local pp = passPrice(b, "AutoSell")
+	local function owned() return PlotCfgS.autoSellOwned(player) end
+	local function on() return player:GetAttribute("Set_AutoSell") ~= false end
+	local function refresh()
+		if not owned() then pp.show(true); return end
+		pp.show(false)
+		b:setColor(on() and "green" or "red"); b:setText(on() and "ON" or "OFF")
+	end
+	b.onClick = function()
+		if not owned() then pp.buy(); return end
+		local ev = RS:FindFirstChild("Remotes") and RS.Remotes:FindFirstChild("AutoSellAction")
+		if ev then ev:FireServer("Master", not on()) end
+	end
+	refresh()
+	for _, a in { "Pass_AutoSell", "PlotLv", "Set_AutoSell" } do player:GetAttributeChangedSignal(a):Connect(refresh) end
+end
 -- AUTO ROLL: з геймпасом (Pass_AutoRoll) — ON / OFF (Set_AutoRoll); без нього — сіра GAMEPASS, клік відкриває SHOP
 do
 	local r = row(9, "AUTO ROLL", "The roll lever pulls itself")

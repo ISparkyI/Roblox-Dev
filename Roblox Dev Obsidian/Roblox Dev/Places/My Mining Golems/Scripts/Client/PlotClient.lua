@@ -30,12 +30,30 @@ local ASSETS = RS:WaitForChild("PlotAssets")
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
 local INK = Color3.fromHex("040435")
 local LOD = 160
+local GOLEM_FAR = 90 -- 03.11.2026: далі — корінь голема оновлюється 4 р/с
 
 local player = Players.LocalPlayer
 local function now(): number return workspace:GetServerTimeNow() end
 local function camPos(): Vector3
 	local c = workspace.CurrentCamera
 	return c and c.CFrame.Position or Vector3.zero
+end
+-- 04.11.2026 (телефони): анімації руди (ріст, руйнування, стаки на підлозі, перельоти шматків) — лише поблизу персонажа:
+--   своя ніша — до ORE_OWN_NEAR стадів, чужа — до ORE_FOREIGN_NEAR, далека ніша (NicheLOD: LODNear = false) — ніколи.
+--   Далі руда просто з'являється / зникає / лежить без руху (сервер усе одно рахує сам).
+local ORE_OWN_NEAR, ORE_FOREIGN_NEAR = 80, 40
+local function fxNear(pos: Vector3, inst: Instance?): boolean
+	local ch = player.Character
+	local hrp = ch and ch:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not hrp then return false end
+	local x: Instance? = inst
+	while x and x.Parent and x:GetAttribute("OwnerUserId") == nil do x = x.Parent end
+	local own = true
+	if x and x.Parent then
+		if x:GetAttribute("LODNear") == false then return false end
+		own = x:GetAttribute("OwnerUserId") == player.UserId
+	end
+	return (hrp.Position - pos).Magnitude <= (if own then ORE_OWN_NEAR else ORE_FOREIGN_NEAR)
 end
 
 local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("PlotConfig"))
@@ -54,7 +72,10 @@ local CHUNK_TPL: { [string]: BasePart } = {}
 do
 	local pf = RS:FindFirstChild("Prefabs")
 	local fp = pf and pf:WaitForChild("ForgeProps", 5)
-	for _, key in { "Coal", "Copper", "Iron", "Tin", "Silver", "Gold" } do -- руда мап 1–2 (29.10.2026)
+	local okF, FCfg = pcall(require, RS:WaitForChild("Shared"):WaitForChild("ForgeConfig"))
+	local keys = {}
+	if okF then for _, o in FCfg.ALL_ORES do table.insert(keys, o.key) end else keys = { "Coal", "Copper", "Iron", "Tin", "Silver", "Gold" } end
+	for _, key in keys do -- руда всіх мап з ForgeConfig (03.11.2026; було лише мапи 1–2)
 		local n = "Chunk" .. key
 		local u = fp and fp:FindFirstChild(n)
 		if u and u:IsA("BasePart") then CHUNK_TPL[key] = u end
@@ -66,15 +87,37 @@ local chunkVisOf: { [BasePart]: { key: string, part: BasePart } } = setmetatable
 local function chunkVis(anchor: BasePart, key: string?, maxDim: number, parent: Instance, jitter: boolean?)
 	local e = chunkVisOf[anchor]
 	if not key or not CHUNK_TPL[key] then
-		if e and e.part.Parent then e.part.Transparency = 1 end
+		if e and e.part.Parent then
+			e.part.Transparency = 1
+			for _, d in e.part:GetDescendants() do if d:IsA("BasePart") then d.Transparency = 1 end end
+		end
 		return
 	end
 	if not e or e.key ~= key or not e.part.Parent then
 		if e then e.part:Destroy() end
-		local u = CHUNK_TPL[key]:Clone()
+		local tpl = CHUNK_TPL[key]
+		local u = tpl:Clone()
 		local sz = u.Size
-		u.Size = sz * (maxDim / math.max(sz.X, sz.Y, sz.Z))
+		local f = maxDim / math.max(sz.X, sz.Y, sz.Z)
+		u.Size = sz * f
 		u.Anchored = true; u.CanCollide = false; u.CanQuery = false; u.CanTouch = false
+		-- складений шматок (Emberite — кірка, Eclipsium — корона): діти на WeldConstraint — масштаб і місце як у шаблоні
+		local sd, cd = tpl:GetDescendants(), u:GetDescendants()
+		for i, d in cd do
+			if d:IsA("WeldConstraint") then d.Enabled = false end
+		end
+		for i, d in cd do
+			local s = sd[i]
+			if d:IsA("BasePart") and s and s:IsA("BasePart") then
+				local rel = tpl.CFrame:ToObjectSpace(s.CFrame)
+				d.Size = s.Size * f
+				d.CFrame = u.CFrame * (rel - rel.Position + rel.Position * f)
+				d.CanCollide = false; d.CanQuery = false; d.CanTouch = false
+			end
+		end
+		for i, d in cd do
+			if d:IsA("WeldConstraint") then d.Enabled = true end
+		end
 		u.Name = "ChunkVis"
 		u.Parent = parent
 		-- jitter (ящичок носія): як у ящику плоту — випадковий поворот у всіх осях (±25° нахил, будь-який поворот навколо Y);
@@ -83,7 +126,10 @@ local function chunkVis(anchor: BasePart, key: string?, maxDim: number, parent: 
 		e = { key = key, part = u, off = off }
 		chunkVisOf[anchor] = e
 	end
-	e.part.Transparency = 0
+	if e.part.Transparency ~= 0 then
+		e.part.Transparency = 0
+		for _, d in e.part:GetDescendants() do if d:IsA("BasePart") then d.Transparency = 0 end end
+	end
 	e.part.CFrame = anchor.CFrame * (e.off or CFrame.identity)
 end
 
@@ -212,6 +258,13 @@ local function updateGolems(dt: number)
 	local t = now()
 	local cam = camPos()
 	for m, g in golems do
+		-- 03.11.2026 (телефони): далекі големи (інші ніші) — корінь рухаємо 4 рази на секунду, а не щокадру
+		local gdt = dt
+		if (cam - g.root.Position).Magnitude > GOLEM_FAR then
+			local acc = ((g :: any).acc or 0) + dt
+			if acc < 0.25 then (g :: any).acc = acc; continue end
+			(g :: any).acc = 0; gdt = acc
+		end
 		local from = m:GetAttribute("MoveFrom")
 		local to = m:GetAttribute("MoveTo")
 		if typeof(from) ~= "Vector3" or typeof(to) ~= "Vector3" then continue end
@@ -227,9 +280,8 @@ local function updateGolems(dt: number)
 			if typeof(look) == "Vector3" then dir = look - pos end
 		end
 		if dir and Vector3.new(dir.X, 0, dir.Z).Magnitude > 0.05 then
-			g.yaw = lerpAngle(g.yaw, math.atan2(-dir.X, -dir.Z), math.min(1, dt * 10))
+			g.yaw = lerpAngle(g.yaw, math.atan2(-dir.X, -dir.Z), math.min(1, gdt * 10))
 		end
-		local far = (cam - pos).Magnitude > LOD
 		local cf = CFrame.new(pos) * CFrame.Angles(0, g.yaw, 0)
 		g.root.CFrame = cf
 		-- ящичок носія ставить аніматор голема — між кулаками (PlotGolemAnimator, Carry)
@@ -519,11 +571,24 @@ local function addOre(m: Model)
 	if not m:IsA("Model") then return end
 	-- HP-бар
 	local bb, segs, txt = hpBar(m)
+	-- висота бару рахується від ВЕРХУ руди відносно Adornee і щоразу, коли бар з'являється (03.11.2026): при вході в гру
+	-- руда ще не довантажена / росте, і габарит тоді менший — бар сидів у середині або зміщений у першій руді
+	local function placeBar()
+		local base = (bb.Adornee :: BasePart?) or m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart")
+		if not base then return end
+		if bb.Adornee ~= base then bb.Adornee = base end
+		local ok, cf, size = pcall(m.GetBoundingBox, m)
+		if not ok then return end
+		local top = cf.Position.Y + size.Y / 2
+		bb.StudsOffsetWorldSpace = Vector3.new(cf.Position.X - base.Position.X, top - base.Position.Y + 1.1, cf.Position.Z - base.Position.Z)
+	end
 	local function hp()
 		local h = (m:GetAttribute("HP") :: number?) or 0
 		local mx = math.max(1, (m:GetAttribute("MaxHP") :: number?) or 1)
 		local k = math.clamp(h / mx, 0, 1)
-		bb.Enabled = h < mx and h > 0
+		local on = h < mx and h > 0
+		if on and not bb.Enabled then placeBar() end
+		bb.Enabled = on
 		-- шкода мутації буває дрібною (2.4) — HP показуємо з одним знаком, без хвоста float
 		local hr = math.floor(h * 10 + 0.5) / 10
 		txt.Text = (hr == math.floor(hr) and string.format("%d", hr) or string.format("%.1f", hr)) .. " HP"
@@ -545,7 +610,7 @@ local function addOre(m: Model)
 	-- ріст (стадії, див. growOre); далі LOD або вже вирослу руду — показуємо одразу
 	local gt0, gdur = m:GetAttribute("GrowT0"), m:GetAttribute("GrowDur")
 	if type(gt0) == "number" and type(gdur) == "number" and gdur > 0 and now() - gt0 < gdur + 0.35
-		and (camPos() - m:GetPivot().Position).Magnitude < LOD then
+		and fxNear(m:GetPivot().Position, m) then
 		growOre(m, gt0, gdur)
 	end
 	-- руйнування
@@ -554,6 +619,7 @@ local function addOre(m: Model)
 		bb.Enabled = false
 		if not broke and m:GetAttribute("Broken") then broke = true; playBreak(m) end
 		local pivot = m:GetPivot()
+		if not fxNear(pivot.Position, m) then return end -- далеко: без уламків і стискання
 		local _, size = m:GetBoundingBox()
 		local center = pivot.Position + Vector3.new(0, size.Y * 0.35, 0)
 		HitChips.spawn(m, center, { count = 14, speed = 10, lift = 12 })
@@ -610,6 +676,7 @@ local function addStack(m: Model)
 	-- зникнення: час вийшов — стискається на місці; підібрав гравець — летить до нього
 	local function vanish(toPlayer: Player?)
 		stacks[m] = nil
+		if not fxNear(s.base.Position, m) then return end -- далеко: без анімації, сервер просто прибере
 		local parts = {}
 		for _, d in m:GetDescendants() do if d:IsA("BasePart") then table.insert(parts, { p = d, cf = d.CFrame, size = d.Size }) end end
 		local t0 = os.clock()
@@ -641,12 +708,35 @@ local function addStack(m: Model)
 	end)
 	m:GetAttributeChangedSignal("AddT"):Connect(function()
 		local af = m:GetAttribute("AddFrom")
-		if typeof(af) == "Vector3" and (camPos() - s.base.Position).Magnitude < LOD then
+		if typeof(af) == "Vector3" and fxNear(s.base.Position, m) then
 			flyChunk((m:GetAttribute("Ore") :: string?) or "Coal", af, s.base.Position, 0.45)
 			task.delay(0.45, function() s.bump = os.clock() end)
 		end
 	end)
 	m.AncestryChanged:Connect(function() if not m:IsDescendantOf(workspace) then stacks[m] = nil end end)
+end
+
+-- 04.11.2026: стак руди на підлозі далі DROP_SHOW стадів від персонажа зовсім не видно (деталі, світло, частинки,
+--   напис ×N) — менше роботи телефону; ближче — з'являється знову
+local DROP_SHOW = 50
+local function hideStack(m: Model, s: S, on: boolean)
+	local st = s :: any
+	if (st.gone == true) == on then return end
+	st.gone = on
+	if on then
+		st.off = {}
+		for _, d in m:GetDescendants() do
+			if d:IsA("BasePart") then d.LocalTransparencyModifier = 1
+			elseif (d:IsA("Light") or d:IsA("ParticleEmitter") or d:IsA("BillboardGui") or d:IsA("Beam")) and (d :: any).Enabled then
+				(d :: any).Enabled = false; table.insert(st.off, d)
+			end
+		end
+	else
+		for _, d in m:GetDescendants() do if d:IsA("BasePart") then d.LocalTransparencyModifier = 0 end end
+		for _, d in st.off or {} do if d.Parent then (d :: any).Enabled = true end end
+		st.off = nil
+		s.hidden = nil -- блимання перед зникненням перерахується
+	end
 end
 
 local FLY = 0.5
@@ -658,7 +748,15 @@ local function updateStacks()
 	local cam = camPos()
 	table.clear(cfs); table.clear(list)
 	for m, s in stacks do
-		if (cam - s.base.Position).Magnitude > LOD then continue end
+		local sa = s :: any
+		if clock >= (sa.chk or 0) then
+			sa.chk = clock + 0.5
+			local ch = player.Character
+			local hrp = ch and ch:FindFirstChild("HumanoidRootPart") :: BasePart?
+			hideStack(m, s, not hrp or (hrp.Position - s.base.Position).Magnitude > DROP_SHOW)
+			sa.near = fxNear(s.base.Position, m)
+		end
+		if sa.gone or not sa.near then continue end
 		local cf: CFrame
 		local age = t - s.born
 		if s.from and age < FLY then
@@ -837,7 +935,10 @@ local function fitCollect()
 	local depth = (pos - cam.CFrame.Position):Dot(cam.CFrame.LookVector)
 	if depth < 2 then cholder.Visible = false; return end
 	local pxPerStud = cam.ViewportSize.Y / (2 * depth * math.tan(math.rad(cam.FieldOfView) / 2))
-	cscale.Scale = math.min(CB_SW * pxPerStud / CB_W, 6)
+	-- 04.11.2026: кроками по 5 % (кожен новий масштаб = новий розмір шрифту; щокадру — мерехтіння літер на телефонах)
+	local sc = math.min(CB_SW * pxPerStud / CB_W, 6)
+	sc = math.max(0.05, math.floor(sc * 20 + 0.5) / 20)
+	if cscale.Scale ~= sc then cscale.Scale = sc end
 	cholder.Visible = true
 end
 RunService:BindToRenderStep("PlotCollectFit", Enum.RenderPriority.Camera.Value + 2, fitCollect)
@@ -855,6 +956,7 @@ key.Size = UDim2.fromOffset(30, 30); key.Position = UDim2.fromOffset(-6 - 8, -8 
 key.BorderSizePixel = 0; key.FontFace = HEAVY; key.TextScaled = true; key.Text = "E"; key.TextColor3 = Color3.new(1, 1, 1); key.ZIndex = 8
 local ks = Instance.new("UIStroke"); ks.Color = Color3.fromHex("14161a"); ks.Thickness = 2.5; ks.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ks.Parent = key
 key.Parent = cbtn.root
+require(RS:WaitForChild("Shared"):WaitForChild("KeyHint")).bind(key) -- 04.11.2026: E лише з клавіатурою й мишкою
 local near: CR? = nil
 local function doCollect()
 	if not near then return end
@@ -920,6 +1022,13 @@ local function updateCollect()
 			lastEmpty = empty
 			cbtn:setColor(if empty then "gray" else "green")
 			cbtn:setText(if empty then "EMPTY" else "COLLECT")
+			-- 04.11.2026 (рішення користувача): EMPTY — темно-сірий напис без обводки (білий на світло-сірій кнопці не видно)
+			local lb = cbtn.label :: TextLabel?
+			if lb then
+				lb.TextColor3 = if empty then Color3.fromHex("4a4f5c") else Color3.new(1, 1, 1)
+				local st = lb:FindFirstChildOfClass("UIStroke")
+				if st then st.Transparency = if empty then 1 else 0 end
+			end
 		end
 	end
 end

@@ -7,6 +7,7 @@
 --   таймер до оновлення (щоденні — північ UTC, тижневі — понеділок 00:00 UTC), CLAIM ALL.
 -- Праворуч — картки квестів: назва, смуга прогресу «34 / 60» (час — «1h 05m / 2h 00m»), нагорода (діамант + число або назва),
 --   кнопка CLAIM (зелена — можна забрати; сіра — ще ні, DONE / MAXED — забрано, SOON — ще немає системи). Не влазить — прокрутка.
+-- Нагорода-предмет (q.case, спеціальні квести, 04.11.2026): іконка кейса (ItemViewport, PNG) + назва; Claim → Case_<case> в інвентар.
 -- Червоний лічильник на кнопці Quests у HUD — скільки нагород можна забрати.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -23,6 +24,7 @@ local WindowFit = require(Shared:WaitForChild("WindowFit"))
 local CurrencyFly = require(Shared:WaitForChild("CurrencyFly")) -- діаманти нагород летять до HUD
 local UISounds = require(Shared:WaitForChild("UISounds"))
 local WindowManager = require(Shared:WaitForChild("WindowManager"))
+local ItemVP = require(Shared:WaitForChild("ItemViewport")) -- 04.11.2026: іконка кейса-нагороди (спеціальний квест)
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -130,9 +132,7 @@ local function windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),
@@ -428,6 +428,11 @@ local function claimable(): (number, number)
 	for _, q in Q.weekly or {} do if cardState("weekly", q) == "claim" then w += 1 end end
 	return d, w
 end
+local function claimableSpecial(): number
+	local n = 0
+	for _, q in (Q and Q.special) or {} do if cardState("special", q) == "claim" then n += 1 end end
+	return n
+end
 
 local cards = {}
 local function clearCards()
@@ -466,7 +471,21 @@ local function fillCard(c, kind: string, q)
 	c.fill.Size = UDim2.fromOffset(BAR_W * k, BAR_H)
 	c.fillGrad.Color = cseq(st == "done" and DONE or GOLD)
 	c.progLbl.Text = st == "done" and "COMPLETED" or ((st == "soon" and kind ~= "special") and "COMING SOON" or progText(q, isTime))
-	if type(q.reward) == "number" then
+	if q.case then -- кейс: іконка (PNG з атласу) + назва
+		c.rIcon.Visible = true
+		c.rIcon.Image = ""
+		-- кейс ліворуч від кнопки (на всю висоту картки), назва — над кнопкою, вписується в її ширину
+		c.rIcon.Position = UDim2.fromOffset(c.RX - 84, 10)
+		c.rIcon.Size = UDim2.fromOffset(76, 76)
+		ItemVP.set(c.rIcon, "Case_" .. tostring(q.case), 1.2)
+		c.rText.Position = UDim2.fromOffset(c.RX - 4, c.rText.Position.Y.Offset)
+		c.rText.Size = UDim2.fromOffset(148, c.rText.Size.Y.Offset)
+		c.rText.TextXAlignment = Enum.TextXAlignment.Center
+		c.rText.TextScaled = true
+		if not c.rText:FindFirstChildOfClass("UITextSizeConstraint") then new("UITextSizeConstraint", { MaxTextSize = 22 }, c.rText) end
+		c.rText.Text = tostring(q.reward)
+		c.rText.TextColor3 = C("ffd23a")
+	elseif type(q.reward) == "number" then
 		c.rIcon.Visible = true
 		c.rText.Position = UDim2.fromOffset(c.RX + 52, c.rText.Position.Y.Offset)
 		c.rText.Size = UDim2.fromOffset(90, c.rText.Size.Y.Offset)
@@ -489,7 +508,7 @@ local function fillCard(c, kind: string, q)
 	b.onClick = function()
 		if st ~= "claim" then return end
 		b.enabled = false
-		local res = call("Claim", kind == "daily" and { kind = "daily", i = q.i } or { kind = "weekly", key = q.key })
+		local res = call("Claim", kind == "daily" and { kind = "daily", i = q.i } or { kind = kind == "special" and "special" or "weekly", key = q.key })
 		if res and res.ok then
 			UISounds.play("claim", 0.1)
 			-- діаманти нагороди летять до лічильника в HUD (від іконки нагороди, якщо вона є)
@@ -507,9 +526,10 @@ render = function(resetScroll: boolean?)
 		t.hold.Position = UDim2.fromOffset(TX + (sel and 14 or 0), t.hold.Position.Y.Offset)
 	end
 	local d, w = claimable()
-	setBadge(tabs.daily.badge, d); setBadge(tabs.weekly.badge, w)
-	claimAll:setColor((d + w) > 0 and "green" or "gray")
-	claimAll.enabled = (d + w) > 0
+	local sp = claimableSpecial()
+	setBadge(tabs.daily.badge, d); setBadge(tabs.weekly.badge, w); setBadge(tabs.special.badge, sp)
+	claimAll:setColor((d + w + sp) > 0 and "green" or "gray")
+	claimAll.enabled = (d + w + sp) > 0
 	local items = Q and Q[tab] or {}
 	local key = tab .. ":" .. #items .. ":" .. tostring(Q and Q.day) .. ":" .. tostring(Q and Q.week)
 	if key ~= shownKey then
@@ -557,7 +577,7 @@ end
 local hudBadge = nil
 local function updateHud()
 	local d, w = claimable()
-	setBadge(hudBadge, d + w)
+	setBadge(hudBadge, d + w + claimableSpecial())
 end
 task.spawn(function()
 	local hud = playerGui:WaitForChild("MainHUD", 60)

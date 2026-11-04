@@ -6,6 +6,8 @@
 --   темний контур (8 силуетів, зсунутих на OUTLINE px) + сама модель. Модель більша за картинку (SCALE).
 --   ImageTransparency / ImageColor3 мітки повторюються на моделі (сірий і напівпрозорий «порожній» слот).
 --   Якщо моделі немає (зілля, голем без моделі…) — ItemVP ховається і працює звичайна картинка.
+-- PNG (04.11.2026): якщо для моделі є запечена іконка в Shared/IconAtlas і атлас завантажено — «ItemVP» це ImageLabel з атласу
+--   (без 3D); інакше як раніше. Нові моделі без іконки — 3D.
 -- Големи: ключ "GolemVP:<ID>:<клас>" (M.golemKey) — модель з каталогу (Shared/GolemCatalog, поле model → PlotAssets/<model>),
 --   стоїть у 3/4 обличчям до камери; майнер — з кіркою, носій — без кірки, з ящичком біля ніг. Контур — 4 силуети (не 8: модель важка).
 
@@ -22,6 +24,9 @@ local MODELS: { [string]: string } = {
 	Bars_Tin = "BarTin", Bars_Silver = "BarSilver", Bars_Gold = "BarGold",
 	-- зілля (v2, 28.10.2026) — 3D-моделі з Prefabs/IconModels (колба з рідиною, різниться лише колір)
 	Pot_Luck = "Icon:PotionLuck", Pot_Speed = "Icon:PotionSpeed", Pot_Money = "Icon:PotionMoney", Pot_Strength = "Icon:PotionStrength",
+	-- кейси (02.11.2026) — зменшена копія ExclusiveCase без ефектів (Prefabs/IconModels/ExclusiveCase)
+	Case_Exclusive = "Icon:ExclusiveCase",
+	Case_Miner = "Icon:ExclusiveCase", Case_Carrier = "Icon:ExclusiveCase", Case_Warrior = "Icon:ExclusiveCase", -- кейси за класом (03.11.2026)
 }
 -- Моделі-іконки (v2): ключ "Icon:<ім'я>" — Model з ReplicatedStorage/Prefabs/IconModels (зілля, конюшина, магазинні іконки).
 -- Ракурс — атрибути моделі: Yaw / Pitch (градуси, камера спереду, з боку −Z), Fit (більше — менша), Up (зсув прицілу вгору, частка висоти).
@@ -40,6 +45,20 @@ local VIEW: { [string]: { number } } = {
 	ChunkTin = { 30, 30, 0.82, 0.08, nil, 0.05 }, ChunkSilver = { 30, 30, 0.82, -0.03, { 90, 0, 0 } }, ChunkGold = { 30, 30, 0.82, 0.03 },
 	BarTin = { 32, 34, 1.08, 0.02 }, BarSilver = { 32, 34, 1.08, 0.02 }, BarGold = { 32, 34, 1.08, 0.02 },
 }
+-- 04.11.2026: моделі, що вилазили за кадр (видно на PNG-іконках) — трохи далі (FIT більше) і без зсуву вгору
+VIEW.ChunkQuartz = { 30, 30, 1.02, 0 }; VIEW.ChunkAmethyst = { 30, 30, 0.97, 0 }; VIEW.ChunkObsidian = { 30, 30, 0.94, 0.02 }
+VIEW.ChunkVoidstone = { 30, 30, 1.02, 0 }; VIEW.ChunkEclipsium = { 30, 30, 1.1, 0 }
+VIEW.CutQuartz = { 30, 26, 1.1, 0 }; VIEW.CutFrostite = { 30, 26, 1.1, 0 }
+-- мапи 3–7 (03.11.2026): шматок Chunk<Руда> і продукт — злиток Bar<Руда> або огранований кристал Cut<Руда> (ForgeConfig product);
+-- у інвентарі продукт — ключ Bars_<Руда>. Ракурс — як у злитків / шматків мапи 2.
+for _, e in { { "Quartz", "Cut" }, { "Amethyst", "Cut" }, { "Sapphire", "Cut" }, { "Obsidian", "Cut" }, { "Ruby", "Cut" }, { "Emberite", "Bar" },
+	{ "Frostite", "Cut" }, { "Platinum", "Bar" }, { "Celestium", "Cut" }, { "Voidstone", "Cut" }, { "Starmetal", "Bar" }, { "Eclipsium", "Cut" },
+	{ "Toxite", "Cut" }, { "Uranite", "Bar" }, { "Venomite", "Cut" } } do
+	MODELS["Ore_" .. e[1]] = "Chunk" .. e[1]
+	MODELS["Bars_" .. e[1]] = e[2] .. e[1]
+	VIEW["Chunk" .. e[1]] = VIEW["Chunk" .. e[1]] or { 30, 30, 0.82, 0.04 }
+	VIEW[e[2] .. e[1]] = VIEW[e[2] .. e[1]] or (e[2] == "Bar" and { 32, 34, 1.08, 0.02 } or { 30, 26, 0.9, 0.03 })
+end
 local FOV = 26
 local SCALE = 1.45 -- розмір моделі відносно ImageLabel (у плитках PNG мала поля)
 local FIT = 0.8    -- 1 = модель уписана в сферу; менше — ближче
@@ -217,16 +236,42 @@ local function viewport(parent: Instance, tpl: BasePart, name: string, z: number
 	part.Anchored = true
 	local rv = (VIEW[name] or {})[5]
 	part.CFrame = rv and CFrame.Angles(math.rad(rv[1]), math.rad(rv[2]), math.rad(rv[3])) or CFrame.new(0, 0, 0)
+	-- складені шматки (Emberite — кірка, Eclipsium — корона): деталі-діти на WeldConstraint; у ViewportFrame фізики немає,
+	-- тож ставимо їх вручну відносно головної деталі (як у шаблоні)
+	local parts = { part }
+	local reach = part.Size.Magnitude / 2
+	for _, d in tpl:GetDescendants() do
+		if d:IsA("BasePart") then
+			local rel = tpl.CFrame:ToObjectSpace(d.CFrame)
+			reach = math.max(reach, rel.Position.Magnitude + d.Size.Magnitude / 2)
+		end
+	end
+	for _, d in part:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			table.insert(parts, d)
+		end
+	end
+	do -- позиції дітей: відповідність за порядком (імена повторюються)
+		local sd = tpl:GetDescendants()
+		local cd = part:GetDescendants()
+		for k, d in cd do
+			local s = sd[k]
+			if d:IsA("BasePart") and s and s:IsA("BasePart") then d.CFrame = part.CFrame * tpl.CFrame:ToObjectSpace(s.CFrame) end
+		end
+	end
 	if silhouette then
-		local u = part :: any
-		if u:IsA("UnionOperation") then u.UsePartColor = true end
-		part.Color = Color3.new(0, 0, 0); part.MaterialVariant = ""; part.Material = Enum.Material.SmoothPlastic
+		for _, p in parts do
+			local u = p :: any
+			if u:IsA("UnionOperation") then u.UsePartColor = true end
+			p.Color = Color3.new(0, 0, 0); p.MaterialVariant = ""; p.Material = Enum.Material.SmoothPlastic
+		end
 	end
 	part.Parent = vp
 	local cam = Instance.new("Camera")
 	cam.FieldOfView = FOV
 	local v = VIEW[name] or { 30, 30, FIT, 0 }
-	local r = part.Size.Magnitude / 2
+	local r = reach
 	local dist = r / math.sin(math.rad(FOV / 2)) * (v[3] or FIT)
 	local dir = (CFrame.Angles(0, math.rad(v[1]), 0) * CFrame.Angles(-math.rad(v[2]), 0, 0)).LookVector
 	cam.CFrame = CFrame.lookAt(-dir * dist, Vector3.zero)
@@ -256,9 +301,47 @@ local function build(label: GuiObject, name: string): Frame?
 	return box
 end
 
+-- ===== запечені PNG (04.11.2026): Shared/IconAtlas — 145 іконок в атласах; є іконка й атлас завантажено — ImageLabel замість 3D =====
+local Atlas = require(RS.Shared:WaitForChild("IconAtlas"))
+local pngOf: { [string]: { number } } = {}
+for k, e in Atlas.MAP do pngOf[MODELS[k] or k] = e end -- ключ → ім'я моделі (як у set): ChunkCoal, Icon:ExclusiveCase, GolemVP:…
+local function pngEntry(name: string): ({ number }?, string?)
+	local e = pngOf[name]
+	local id = e and Atlas.ATLAS[e[1]]
+	if e and id and id ~= "" then return e, id end
+	return nil, nil
+end
+local function buildPng(label: GuiObject, name: string, e: { number }, id: string, golem: boolean): ImageLabel
+	local v = VIEW[name] or {}
+	local box = Instance.new("ImageLabel")
+	box.Name = "ItemVP"
+	box.BackgroundTransparency = 1
+	box.Image = id
+	box.ImageRectOffset = Vector2.new(e[2], e[3])
+	box.ImageRectSize = Vector2.new(Atlas.CELL, Atlas.CELL)
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.fromScale(0.5 - (v[6] or 0), 0.5 - (v[4] or 0)) -- як рамка 3D (руда трохи вище)
+	box.ZIndex = label.ZIndex
+	box:SetAttribute("Model", name)
+	box:SetAttribute("Png", true)
+	-- 04.11.2026: картинка завжди квадратна (у неквадратній рамці PNG розтягувався — големи «сплюснуті»)
+	local ar = Instance.new("UIAspectRatioConstraint")
+	ar.AspectRatio = 1
+	ar.AspectType = Enum.AspectType.FitWithinMaxSize
+	ar.Parent = box
+	if golem then box:SetAttribute("Golem", true) end
+	box.Parent = label
+	return box
+end
+
 local bound: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
 local function sync(label: ImageLabel, box: Frame)
+	if box:IsA("ImageLabel") then -- PNG: прозорість і колір мітки (сірий / чорний силует «???») — на саму картинку
+		box.ImageTransparency = label.ImageTransparency
+		box.ImageColor3 = label.ImageColor3
+		return
+	end
 	for _, v in box:GetChildren() do
 		if v:IsA("ViewportFrame") then
 			v.ImageTransparency = label.ImageTransparency
@@ -277,7 +360,9 @@ function M.set(label: ImageLabel, key: string?, scale: number?)
 		return
 	end
 	label.Image = "" -- стара PNG-картинка більше не показується
-	if box and box:GetAttribute("Model") ~= name then box:Destroy(); box = nil end
+	local pe, pid = pngEntry(name :: string)
+	if box and (box:GetAttribute("Model") ~= name or (pe ~= nil) ~= (box:GetAttribute("Png") == true)) then box:Destroy(); box = nil end
+	if not box and pe and pid then box = buildPng(label, name :: string, pe, pid, g ~= nil) :: any end
 	if not box then
 		local ic = iconSpec(name)
 		if ic then box = buildIcon(label, name :: string, ic)
@@ -286,6 +371,7 @@ function M.set(label: ImageLabel, key: string?, scale: number?)
 	if not box then return end
 	box.Visible = true
 	local s = scale or SCALE
+	if box:IsA("ImageLabel") then s *= Atlas.PAD_K end
 	box.Size = UDim2.fromScale(s, s)
 	sync(label, box)
 	if not bound[label] then

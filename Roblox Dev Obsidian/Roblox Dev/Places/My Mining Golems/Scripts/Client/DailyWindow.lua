@@ -109,9 +109,7 @@ local function windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),
@@ -282,7 +280,7 @@ local function build()
 		local col, row = (i - 1) % COLS, (i - 1) // COLS
 		local x, y = col * (TW + TG) + TW / 2, row * (TH + TG) + TH / 2
 		local seventh = Cfg.isSeventh(n)
-		local hidden = i > VISIBLE
+		local hidden = i > VISIBLE and not seventh -- тижневі големи (7/14/21/28) видно завжди (02.11.2026)
 		local t = frame(grid, x, y, TW, TH, WHITE, { AnchorPoint = Vector2.new(0.5, 0.5), ZIndex = 5, ClipsDescendants = true })
 		local sc = new("UIScale", {}, t)
 		vgrad(t, seventh and { { 0, "ffe27a" }, { 1, "b07a06" } } or { { 0, "3a4049" }, { 1, "1b1e23" } })

@@ -138,9 +138,7 @@ local function windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),
@@ -366,7 +364,7 @@ local function fc(hex: string, t: string): string return '<font color="#' .. hex
 local GOLD, GREEN, PURPLE, BLUE, ORANGE, PINK, LIME = "ffd23a", "7ef05a", "c99bff", "6fd2ff", "ff9a4a", "ff7fc4", "b8ff5a"
 -- колір виділення контрастує з кольором картки (зелене на зеленій картці не читається)
 local DESC = {
-	VIP = { fc(LIME, "x1.5 Money") .. " from every sale", fc(ORANGE, "VIP") .. " nametag above your head", "Stacks with " .. fc(BLUE, "all other boosts") },
+	VIP = { fc(LIME, "x1.5 Money") .. " from every sale", fc(BLUE, "+2") .. " Marketplace listing slots", fc(ORANGE, "VIP") .. " nametag above your head" },
 	Lucky = { fc(GOLD, "x2 Roll Luck") .. " forever", "Rare golems " .. fc(GOLD, "2x") .. " more often" },
 	MutLucky = { fc("ffb3f0", "x2 Mutation Luck") .. " forever", "Mutations " .. fc("ffb3f0", "2x") .. " more often" },
 	AutoEquip = { "Auto-equips " .. fc(GOLD, "best golems"), "Toggle it in Settings" },
@@ -1069,6 +1067,171 @@ do
 	-- квадратні картки, 3 у ряд (висота = ширина)
 	grid(rest, 3, math.floor((CW - 2 * GX) / 3) + 28, "square") -- +28: місце під більшу кнопку з ціною
 end
+-- CASES (03.11.2026): Exclusive Case — 3D-кейс зліва, 5 ексклюзивних големів кейсу в клітинках (назва над клітинкою, «N% BEST» у ній,
+-- шанс під нею), перемикач класу MINER / CARRIER / WARRIOR унизу ліворуч (міняє моделі големів, колір картки й клас кейса),
+-- кнопки x1 / x5 (Developer Products MonetizationConfig.Products.CaseX1 / CaseX5, лише Robux). Перед оплатою клас іде на сервер
+-- (ShopAction "CaseClass" → атрибут CaseBuyCls): куплені кейси — Case_Miner / Case_Carrier / Case_Warrior (ItemConfig.CASES).
+local REFRESH_HOOKS = {} -- додаткове оновлення в refreshAll (ціни кейсів Robux / тікети)
+header("CASES")
+do
+	local CH = 300
+	local CLS = {
+		{ key = "miner", label = "MINER", tone = "ff9a4a", tile = "orange", icon = "rbxassetid://72243061675485", case = "Miner" },
+		{ key = "carrier", label = "CARRIER", tone = "5cc8ff", tile = "blue", icon = "rbxassetid://133110323029733", case = "Carrier" },
+		{ key = "warrior", label = "WARRIOR", tone = "ff5c6e", tile = "red", icon = "rbxassetid://81730174326768", case = "Warrior" },
+	}
+	local cur = CLS[1]
+	local pool = {}
+	for _, id in Catalog.EXCLUSIVES or {} do
+		local g = Catalog.get(id)
+		if g and g.exclusive == "case" and (tonumber(g.caseChance) or 0) > 0 then table.insert(pool, g) end
+	end
+	local CHANCE_COL = { "ffffff", "7ef05a", "6fd2ff", "c99bff", "ffd23a" }
+	local function pct(x: number): string return string.format("%g", math.floor(x * 1000 + 0.5) / 10) .. "%" end
+	local P = 12
+	local w = CW
+	local holder = new("Frame", { Name = "Card_Cases", BackgroundTransparency = 1, Position = UDim2.fromOffset(PADX - P, y - P),
+		Size = UDim2.fromOffset(w + 2 * P, CH + 8 + 2 * P), ZIndex = 1 }, list)
+	frame(holder, P, P + 8, w, CH, BLACK, { Name = "Shadow", BackgroundTransparency = 0.6, ZIndex = 1 })
+	local card = frame(holder, P, P, w, CH, WHITE, { Name = "Card", ZIndex = 2, ClipsDescendants = true })
+	local grad = new("UIGradient", { Rotation = 90 }, card)
+	stroke(card, INK, 4)
+	local pattern = new("ImageLabel", { Name = "Pattern", BackgroundTransparency = 1, ImageTransparency = 0.15, ScaleType = Enum.ScaleType.Tile,
+		TileSize = UDim2.fromOffset(PATTERN_TILE, PATTERN_TILE), Size = UDim2.fromOffset(w, CH), ZIndex = 1 }, card)
+	local shade = frame(card, 0, 0, w, CH, BLACK, { Name = "Shade", ZIndex = 1 })
+	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.85),
+		NumberSequenceKeypoint.new(1, 0.6) }) }, shade)
+
+	-- ліва частина: назва, 3D-кейс, «You have», перемикач класу
+	local LWD = 236
+	local left = slotBg(card, 14, 14, LWD, CH - 28, 3)
+	left.BackgroundTransparency = 0.35
+	local title = textAt(card, 14, 26, LWD, 26, "", WHITE, 3, { ZIndex = 6 })
+	local titleGrad = new("UIGradient", { Rotation = 90 }, title)
+	local caseImg = new("ImageLabel", { Name = "CaseModel", BackgroundTransparency = 1, Image = "", ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(14 + LWD / 2, 122), Size = UDim2.fromOffset(242, 242), ZIndex = 5 }, card)
+	ItemViewport.set(caseImg, "Icon:ExclusiveCase", 1)
+	do -- камери трохи далі (×1.28): кейс цілком у вьюпорті, краї (самоцвіти) не обрізаються
+		local box = caseImg:FindFirstChild("ItemVP")
+		for _, vp in box and box:GetChildren() or {} do
+			local cam = vp:IsA("ViewportFrame") and vp.CurrentCamera
+			local m = vp:FindFirstChildWhichIsA("Model")
+			if cam and m then
+				local c = m:GetBoundingBox().Position
+				local pos, look = cam.CFrame.Position, cam.CFrame.LookVector
+				local target = pos + look * (c - pos):Dot(look)
+				cam.CFrame = CFrame.lookAt(target + (pos - target) * 1.28, target)
+			end
+		end
+	end
+	local have = textAt(card, 14, 212, LWD, 15, "", C(GOLD), 2, { ZIndex = 6, FontFace = XBOLD })
+	local clsBtns = {}
+	local BW, BH, BG = 66, 46, 9
+	local bx0 = 14 + (LWD - (3 * BW + 2 * BG)) / 2
+	for i, cl in CLS do
+		local b = makeGroupButton(card, bx0 + (i - 1) * (BW + BG), CH - 14 - BH - 12, BW, BH, { name = "Cls_" .. cl.label, shadowDy = 4, color = "gray", z = 7,
+			icon = cl.icon, iconPad = 0.06 })
+		clsBtns[i] = b
+	end
+
+	-- права частина: 5 клітинок з големами
+	local RX = 14 + LWD + 18
+	local RW = w - RX - 16
+	local CS = 104
+	local GAPC = math.floor((RW - #pool * CS) / math.max(1, #pool - 1))
+	local cx0 = RX + math.floor((RW - (#pool * CS + (#pool - 1) * GAPC)) / 2)
+	local cells = {}
+	for i, g in pool do
+		local x = cx0 + (i - 1) * (CS + GAPC)
+		local nm = textAt(card, x - 8, 30, CS + 16, 16, g.name, WHITE, 2.2, { ZIndex = 6 })
+		nm.TextScaled = true
+		new("UITextSizeConstraint", { MaxTextSize = 16, MinTextSize = 10 }, nm)
+		local cell = slotBg(card, x, 44, CS, CS, 4)
+		local glow = new("UIStroke", { Color = C(CHANCE_COL[i] or "ffffff"), Thickness = 2, Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border },
+			frame(cell, 3, 3, CS - 6, CS - 6, nil, { BackgroundTransparency = 1, ZIndex = 4 }))
+		local best = textAt(cell, 0, 12, CS, 13, "", C(GOLD), 2, { ZIndex = 7, FontFace = XBOLD })
+		local m = new("ImageLabel", { Name = "Golem", BackgroundTransparency = 1, Image = "", ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(CS / 2, CS / 2 + 8), Size = UDim2.fromOffset(CS - 22, CS - 22), ZIndex = 5 }, cell)
+		textAt(card, x, 44 + CS + 16, CS, 22, pct(g.caseChance), C(CHANCE_COL[i] or "ffffff"), 2.6, { ZIndex = 6 })
+		cells[i] = { g = g, best = best, m = m, glow = glow }
+	end
+
+	-- кнопки x1 / x5 (праворуч унизу)
+	local function priceBtn(key: string, label: string, x: number, bw: number, bh: number)
+		local d = MonCfg.Products[key]
+		local b = makeGroupButton(card, x, CH - 18 - bh, bw, bh, { name = "Buy_" .. key, shadowDy = 5, color = "green", z = 7 })
+		local row = new("Frame", { Name = "PriceRow", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(bw / 2, bh / 2 - 3),
+			Size = UDim2.fromOffset(0, bh), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 8 }, b.group)
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder }, row)
+		local q = new("TextLabel", { BackgroundTransparency = 1, FontFace = HEAVY, TextSize = 30, TextColor3 = C(GOLD), Text = label,
+			Size = UDim2.fromOffset(0, bh), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 0, ZIndex = 9 }, row)
+		stroke(q, INK, 3, 0, true)
+		local ic = new("ImageLabel", { BackgroundTransparency = 1, Image = ICON.robux, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(math.floor(bh * 0.5), math.floor(bh * 0.5)),
+			LayoutOrder = 1, ZIndex = 8 }, row)
+		local t = new("TextLabel", { BackgroundTransparency = 1, FontFace = HEAVY, TextSize = 38, TextColor3 = WHITE, Text = NF.full(d and d.robux or 0),
+			Size = UDim2.fromOffset(0, bh), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 2, ZIndex = 9 }, row)
+		stroke(t, INK, 3.4, 0, true)
+		-- за тікети (03.11.2026): ціна ×1,25 (MonetizationConfig.ticketPrice), ShopAction "BuyProduct"
+		table.insert(REFRESH_HOOKS, function()
+			local tix = currency == "tickets"
+			ic.Image = tix and ICON.ticket or ICON.robux
+			t.Text = NF.full(tix and MonCfg.ticketPrice(d and d.robux or 0) or (d and d.robux or 0))
+		end)
+		b.onClick = function()
+			if currency == "tickets" and d then
+				if tickets() < MonCfg.ticketPrice(d.robux) then shakeGroup(b.group); denySound(); return end
+				b.enabled = false
+				shopCall("CaseClass", cur.key)
+				local res = shopCall("BuyProduct", key)
+				if res and res.ok then UISounds.play("purchase", 0.1) else denySound() end
+				b.enabled = true
+				return
+			end
+			if not d or (d.id or 0) == 0 then
+				shakeGroup(b.group)
+				balance.Text = "Cases are coming soon!"
+				return
+			end
+			shopCall("CaseClass", cur.key)
+			do -- покупка для себе: скасувати ціль подарунка (GiftService)
+				local r = RS:FindFirstChild("Remotes")
+				local rf = r and r:FindFirstChild("GiftAction")
+				if rf then pcall(rf.InvokeServer, rf, "Clear") end
+			end
+			pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, player, d.id)
+		end
+		return b
+	end
+	local PBW, PBH = 262, 74
+	local pbx = RX + RW - (2 * PBW + 16)
+	priceBtn("CaseX1", "x1", pbx, PBW, PBH)
+	priceBtn("CaseX5", "x5", pbx + PBW + 16, PBW, PBH)
+
+	local function apply()
+		local tone = C(cur.tone)
+		grad.Color = cseq({ { 0, tone:Lerp(WHITE, 0.08):ToHex() }, { 0.55, tone:Lerp(BLACK, 0.3):ToHex() }, { 1, tone:Lerp(BLACK, 0.55):ToHex() } })
+		local A = StyleA.ASSETS
+		pattern.Image = A["stylea_tile_" .. cur.tile] or A["stylea_tile_" .. cur.tile .. "_half"] or A.stylea_tile_gray
+		title.Text = string.upper(cur.label) .. " CASE"
+		titleGrad.Color = cseq({ { 0, "ffffff" }, { 1, cur.tone } })
+		for i, b in clsBtns do b:setColor(CLS[i] == cur and CLS[i].tile or "gray") end
+		for _, c in cells do
+			ItemViewport.set(c.m, ItemViewport.golemKey(c.g.id, cur.key), 1.15)
+			c.best.Text = Catalog.bestText(c.g.id, cur.key) or ""
+		end
+		local n = tonumber(player:GetAttribute("Case_" .. cur.case)) or 0
+		have.Text = n > 0 and ("You have: " .. n) or "Opens from your inventory"
+	end
+	for i, b in clsBtns do
+		b.onClick = function()
+			if cur ~= CLS[i] then cur = CLS[i]; UISounds.play("tap", 0.08); apply() end
+		end
+	end
+	apply()
+	for _, cl in CLS do player:GetAttributeChangedSignal("Case_" .. cl.case):Connect(function() if cl == cur then apply() end end) end
+	y += CH + GY + 8
+end
 -- 3. Bundles, 4. Products, 5. Coming Soon (заготовки)
 -- MUTATION SPEED (Fast Mutations) з магазину прибрано (28.10.2026): картка з'явиться біля Mutation Machine; логіка (MUT_SPEED_TIERS,
 -- MutSpeedTier, ProcessReceipt) лишається.
@@ -1177,6 +1340,7 @@ local function refreshAll()
 	swTickets:setColor(currency == "tickets" and "yellow" or "gray")
 	balance.Text = currency == "tickets" and ("You have " .. NF.full(tickets()) .. " Tickets · price ×1.25") or "Pay with Robux or switch to Tickets"
 	for _, c in cards do refreshCard(c) end
+	for _, f in REFRESH_HOOKS do pcall(f) end
 end
 swRobux.onClick = function() if currency ~= "robux" then currency = "robux"; refreshAll() end end
 swTickets.onClick = function() if currency ~= "tickets" then currency = "tickets"; refreshAll() end end
@@ -1212,6 +1376,7 @@ end
 local TABS = {
 	{ "MONEY MULTIPLIER", "MONEY", "rbxassetid://103015355952567" },
 	{ "GAMEPASSES", "PASSES", "rbxassetid://111200556390804" },
+	{ "CASES", "CASES", "rbxassetid://107241982376806" }, -- 03.11.2026
 	{ "LUCKY ROLLS", "LUCKY", "rbxassetid://" .. (LUCK10_ICON_ID or "116109725516204") },
 	{ "BUNDLES", "BUNDLES", "rbxassetid://104193388781391" },
 	{ "TICKETS", "TICKETS", ICON.ticket },
@@ -1220,7 +1385,7 @@ local TABS = {
 }
 do
 	local pop = content.Parent and content.Parent.Parent
-	local TAB_W, TAB_H, TAB_GAP, HID = 118, 60, 8, 18 -- HID — скільки сховано під рамкою вікна
+	local TAB_W, TAB_H, TAB_GAP, HID = 118, 56, 6, 18 -- 03.11.2026: 8 закладок (+CASES) — нижчі, щоб вмістились -- HID — скільки сховано під рамкою вікна
 	local y0 = WY + 30
 	local tabs = {}
 	local active = nil

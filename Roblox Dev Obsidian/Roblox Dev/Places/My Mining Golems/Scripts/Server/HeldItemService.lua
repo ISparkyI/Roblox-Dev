@@ -49,6 +49,18 @@ local PROP_TUNE: { [string]: { rot: CFrame, scale: number } } = {
 	BarGold = { rot = CFrame.Angles(0, math.rad(90), 0), scale = 0.75 },
 	ChunkSilver = { rot = CFrame.Angles(math.rad(90), 0, 0), scale = 1 }, -- у паку стоїть «на ребрі»
 }
+-- мапи 3–7 (03.11.2026): шматок і продукт (злиток Bar… або огранований кристал Cut…) — з ForgeConfig
+do
+	local ForgeCfg = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ForgeConfig"))
+	for _, o in ForgeCfg.ALL_ORES do
+		PROPS["Ore_" .. o.key] = PROPS["Ore_" .. o.key] or ("Chunk" .. o.key)
+		if ForgeCfg.canSmelt(o) then
+			local m = ForgeCfg.productModel(o.key)
+			PROPS["Bars_" .. o.key] = PROPS["Bars_" .. o.key] or m
+			if string.sub(m, 1, 3) == "Bar" and not PROP_TUNE[m] then PROP_TUNE[m] = { rot = CFrame.Angles(0, math.rad(90), 0), scale = 0.75 } end
+		end
+	end
+end
 local FIG_HEIGHT = 1.6                            -- висота фігурки голема, стад (маленька фігурка на долоні)
 local FIG_YAW = math.rad(0)                       -- поворот фігурки (0 — дивиться туди ж, куди гравець)
 local FIG_FWD = 0.25                              -- фігурка трохи далі від тіла, стад
@@ -169,12 +181,15 @@ local function infoBoard(adornee: BasePart, top: number, g: any, cls: string, mu
 	local mu = Catalog.mutation(mut)
 	if mut > 0 then
 		-- множник — рівно M з каталогу (MUTATIONS[].power): «x1.25» … «x25» (до 2 знаків) (27.10.2026)
-		local ml = text(bb, 1, 0.15, mu.key .. " [x" .. (string.format("%.2f", mu.power or 1):gsub("0+$", ""):gsub("%.$", "")) .. "]", mu.color, XBOLD)
+		local ml = text(bb, 0, 0.15, mu.key .. " [x" .. (string.format("%.2f", mu.power or 1):gsub("0+$", ""):gsub("%.$", "")) .. "]", mu.color, XBOLD)
 		-- градієнт з анімацією — на клієнті: StarterPlayerScripts/MutationTextClient знаходить мітки з атрибутом MutationText
 		-- і викликає Shared/MutationText.apply; тут лише атрибут і базовий колір (mu.color)
 		ml.Name = "Mutation"
 		ml:SetAttribute("MutationText", mut)
 	end
+	-- ексклюзив: «65% BEST» над рідкістю (02.11.2026)
+	local bt = Catalog.bestText and Catalog.bestText(g.id, cls)
+	if bt then text(bb, 1, 0.15, bt, Catalog.BEST_COLOR, HEAVY).Name = "Best" end
 	text(bb, 2, 0.17, g.rarity, Catalog.rarityColor(g.rarity), XBOLD)
 	text(bb, 3, 0.22, g.name, Color3.new(1, 1, 1), HEAVY)
 	-- p — власник: динамічні стати (Mushroom Golem = частка BestMinerDmg) рахуються від нього; оновлює onPlayer
@@ -193,7 +208,8 @@ local function labelInfo(key: string): (string?, Color3?)
 		return k, Items.ORE_TONE[k]
 	elseif string.sub(key, 1, 5) == "Bars_" then
 		local k = string.sub(key, 6)
-		return k .. " Bar", Items.ORE_TONE[k]
+		local okF, F = pcall(require, game:GetService("ReplicatedStorage").Shared.ForgeConfig)
+		return (okF and F.productName(k)) or (k .. " Bar"), Items.ORE_TONE[k] -- «Cut Quartz» для кристалів
 	end
 	return nil, nil
 end
@@ -332,7 +348,7 @@ local function onPlayer(p: Player)
 	end)
 	-- кількість предмета в руці змінилась — оновити підпис
 	p.AttributeChanged:Connect(function(name)
-		if name == "BestMinerDmg" then -- динамічний голем у руці: оновити стат на табличці
+		if name == "BestMinerDmg" or name == "BestCarrierCap" or name == "BestWarriorDmg" or name == "BestWarriorHp" then -- динамічний голем у руці: оновити стат на табличці
 			local holder = p.Character and p.Character:FindFirstChild(HOLDER_NAME)
 			local bb = holder and holder:FindFirstChild("GolemInfo", true)
 			local t = bb and bb:FindFirstChild("Stat")

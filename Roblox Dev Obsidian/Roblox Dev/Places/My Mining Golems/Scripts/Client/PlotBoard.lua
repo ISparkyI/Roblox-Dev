@@ -130,18 +130,8 @@ local function card(parent, x, y, key)
 	frame(holder, o.X, o.Y + 14, CW, CH, Color3.new(0, 0, 0), { BackgroundTransparency = 0.65 })
 	local c = frame(holder, o.X, o.Y, CW, CH, WHITE); local cgrad = vgrad(c, th.grad); stroke(c, INK, 6)
 	-- шар studs — звичайний Frame (CanvasGroup у таблах на слабкій графіці не малювався); прозорість 0.68 — кожній пупочці
-	local sg = new("Frame", { Name = "Studs", Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, ClipsDescendants = true }, c)
-	task.defer(function() for _, d in sg:GetChildren() do if d:IsA("GuiObject") then d.BackgroundTransparency = 0.68 end end end)
-	local cell = 46
-	local studs = {}
-	for cx = 0, math.ceil((CW - 20) / cell) - 1 do
-		for cy = 0, math.ceil((CH - 20) / cell) - 1 do
-			local s = cell * 0.6; local so = (cell - s) / 2
-			local a = frame(sg, cx * cell + so - 2, cy * cell + so + 2, s, s, C(th.studShade)); corner(a, 5)
-			local b = frame(sg, cx * cell + so, cy * cell + so, s, s, C(th.stud)); corner(b, 5)
-			table.insert(studs, { a, b })
-		end
-	end
+	-- 03.11.2026: студи картки — одна картинка-плитка (StyleA.studTile, card), було ~320 Frame + UICorner на картку; прозорість 0.68
+	local studs = StyleA.studTile(c, 10, 10, CW - 20, CH - 20, 46, C(th.stud), { ImageTransparency = 0.68 }, true)
 	bands(c, CW, CH)
 	local gloss = frame(c, 12, 12, CW - 24, math.floor(CH * 0.36), WHITE)
 	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.68), NumberSequenceKeypoint.new(1, 1) }) }, gloss)
@@ -170,7 +160,7 @@ local function setLocked(cd, locked: boolean)
 	cd.grad.Color = cseq(th.grad)
 	cd.rim.Color = C(th.rim)
 	cd.strip.BackgroundColor3 = darken(C(th.grad[#th.grad][2]), 0.30)
-	for _, s in cd.studs do s[1].BackgroundColor3 = C(th.studShade); s[2].BackgroundColor3 = C(th.stud) end
+	StyleA.studTint(cd.studs, C(th.stud))
 	cd.icon.ImageColor3 = locked and C("8c9096") or WHITE
 	cd.icon.ImageTransparency = locked and 0.25 or 0
 	cd.lock.Visible = locked
@@ -185,11 +175,7 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		ResetOnSpawn = false, ClipsDescendants = true, MaxDistance = 400 }, playerGui)
 	local root = frame(g, 0, 0, PW, PH, C("8e939a"), { ClipsDescendants = true, Active = true })
 	local PC = 56
-	for cx = 0, math.ceil(PW / PC) - 1 do
-		for cy = 0, math.ceil(PH / PC) - 1 do
-			stud(root, cx * PC, cy * PC, PC, C("979ca3"), C("6c7178"), C("aeb3b9"))
-		end
-	end
+	StyleA.studTile(root, 0, 0, PW, PH, PC, C("979ca3")) -- 03.11.2026: одна картинка замість ~1,000 Frame + UICorner + UIStroke
 	local shade = frame(root, 0, 0, PW, PH, WHITE, { ZIndex = 2, Active = false })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.new(0, 0, 0)),
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.72), NumberSequenceKeypoint.new(0.08, 1), NumberSequenceKeypoint.new(0.9, 1), NumberSequenceKeypoint.new(1, 0.8) }) }, shade)

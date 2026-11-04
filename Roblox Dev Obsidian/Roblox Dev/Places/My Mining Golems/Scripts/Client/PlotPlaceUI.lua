@@ -123,9 +123,7 @@ local function windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),
@@ -615,7 +613,7 @@ render = function()
 	gridHdr.Text = tab == "m" and "Your miners" or "Your carriers"
 	gridCap.Text = #list .. " golems"
 	sortMenu.refresh(GolemSort.current(player))
-	emptyHint.Text = #list == 0 and (tab == "m" and "No miner golems yet" or "No carrier golems yet") or ""
+	emptyHint.Text = "" -- порожні вкладки без написів (як в інвентарі)
 	local rows = math.max(2, math.ceil(#list / GCOLS))
 	gH = rows * (GS + GG) - GG + 2 * GP + 4 -- 2 ряди влазять без повзунка
 	gstrip.Size = UDim2.fromOffset(GW, gH)
@@ -774,7 +772,8 @@ StyleA.bind(placeBtn, { hoverAlways = true, debounce = 0.3, onClick = function()
 do
 	local key = new("TextLabel", { Name = "KeyR", Size = UDim2.fromOffset(30, 30), Position = UDim2.fromOffset(-14, -12),
 		BackgroundColor3 = C("1d2233"), BorderSizePixel = 0, FontFace = HEAVY, TextScaled = true, Text = "R", TextColor3 = WHITE, ZIndex = 8,
-		Visible = not (UIS.TouchEnabled and not UIS.KeyboardEnabled) }, placeBtn.root)
+		Visible = false }, placeBtn.root)
+	require(RS:WaitForChild("Shared"):WaitForChild("KeyHint")).bind(key) -- 04.11.2026: R лише з клавіатурою й мишкою (PreferredInput)
 	new("UIStroke", { Color = INK, Thickness = 2.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, key)
 	UIS.InputBegan:Connect(function(inp, gp)
 		if gp or inp.KeyCode ~= Enum.KeyCode.R or UIS:GetFocusedTextBox() then return end
@@ -793,7 +792,7 @@ RunService.Heartbeat:Connect(function(dt)
 	curPlot = idx
 	if isOpen and idx ~= plotIdx then close() end
 	local show = idx > 0 and not isOpen
-	if show then bTag.Text = "Plot " .. idx end
+	if show then bTag.Text = "PLOT " .. idx end
 	showButton(show)
 end)
 

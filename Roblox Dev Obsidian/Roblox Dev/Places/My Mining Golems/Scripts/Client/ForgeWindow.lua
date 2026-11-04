@@ -260,7 +260,11 @@ local function makeChip(parent)
 end
 
 -- ===== плитка 80 × 80 з іконкою (стиль A: колір руди, візерунок половинної сили, іконка в межах грані; галочка — ZIndex 4) =====
-local ORE_TILE = { Coal = "ore_coal", Copper = "ore_copper", Iron = "ore_iron", Tin = "blue", Silver = "gray", Gold = "yellow" }
+local ORE_TILE = { Coal = "ore_coal", Copper = "ore_copper", Iron = "ore_iron", Tin = "blue", Silver = "gray", Gold = "yellow",
+	-- мапи 3–7 (03.11.2026)
+	Quartz = "gray", Amethyst = "purple", Sapphire = "blue", Obsidian = "purple", Ruby = "red", Emberite = "orange",
+	Frostite = "blue", Platinum = "gray", Celestium = "yellow", Voidstone = "purple", Starmetal = "purple", Eclipsium = "purple",
+	Toxite = "green", Uranite = "green", Venomite = "green" }
 local function makeTile(parent, x, y, oreKey, iconId, clickable, itemKey)
 	-- руда без PNG (мапа 2+): тимчасова картинка, щоб у плитці був ImageLabel — далі його замінить 3D-модель (ItemViewport)
 	if not iconId and itemKey and ItemVP.has(itemKey) then iconId = "rbxasset://textures/ui/GuiImagePlaceholder.png" end
@@ -349,11 +353,7 @@ do
 	local CELL = 40
 	local nx, ny = math.floor(PAN_W / CELL), math.floor((PAN_H + EXTRA_H) / CELL) -- з запасом на 4-й рядок (панель обрізає)
 	local ox, oy = (PAN_W - nx * CELL) / 2, (PAN_H + EXTRA_H - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do
-			stud(studsFrame, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1)
-		end
-	end
+	StyleA.studTile(studsFrame, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 end
 local shade = frame(panel, 0, 0, PAN_W, PAN_H, WHITE, { Name = "Shade", ZIndex = 2 })
 new("UIGradient", { Rotation = 90,
@@ -891,9 +891,7 @@ do
 		local CELL = 40
 		local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 		local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-		for cx = 0, nx - 1 do
-			for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-		end
+		StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	end
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,

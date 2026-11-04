@@ -8,7 +8,8 @@
 -- У кожного гравця свої слоти (машина локальна): гравець бачить лише своїх големів.
 -- Дії (E на кнопці, сервер сам вирішує за станом):
 --   * слот порожній, у руці голем (InvHeld = Golem_<id>) — PLACE: голем зникає з інвентаря (запис із тим самим UID
---     лежить у машині). Умови: не на плоті, не Secret, такий самий, як уже покладені в цю машину.
+--     лежить у машині). Умови: не на плоті, не Secret, не ексклюзив (GolemCatalog.EXCLUSIVES, 03.11.2026),
+--     такий самий, як уже покладені в цю машину. Ексклюзив, що вже лежав у машині, при вході повертається в інвентар.
 --   * під час мутації големи в камері (TAKE не можна); CANCEL на панелі (MutationAction "Cancel") зупиняє мутацію, големи знову на слотах.
 --   * 3 однакових покладено — кнопка START на панелі машини (Remotes/MutationAction "Start", номер машини) запускає мутацію (job).
 --   * слот з големом — TAKE: голем повертається в інвентар (той самий UID), мутація скасовується (таймер скидається).
@@ -40,6 +41,10 @@ local MutationService = {}
 local REACH = 16 -- сервер: максимальна відстань гравця до кнопки, стад
 
 local function now(): number return workspace:GetServerTimeNow() end
+-- ексклюзивних големів (Mushroom, Honey, кейсові…) мутувати не можна
+local function isExclusive(kind: any): boolean
+	return table.find(Catalog.EXCLUSIVES or {}, Catalog.id(kind) or kind) ~= nil
+end
 
 local function decode(p: Player, attr: string, default: any): any
 	local s = p:GetAttribute(attr)
@@ -264,6 +269,7 @@ local function onTrigger(prompt: ProximityPrompt, p: Player)
 	for _, e in decode(p, "InvGolems", {}) do if type(e) == "table" and e.id == id then g = e end end
 	if not g or not Catalog.get(g.kind) then return end
 	local probe = record(g)
+	if isExclusive(probe.kind) then return end
 	if probe.mut >= MutCfg.MAX_MUT then return end
 	local other = firstRec(m)
 	if other and not MutCfg.same(other, probe) then return end
@@ -309,6 +315,7 @@ local function onPlayer(p: Player)
 		if type(g) == "table" and GolemRegistry.IsUid(g.uid) then seen[g.uid] = true end
 	end
 	local checkList = {}
+	local giveBack = {} -- ексклюзиви, що лежали в машині до заборони, — назад в інвентар
 	if type(sec) == "table" and type(sec.machines) == "table" then
 		for i = 1, MutCfg.MACHINES do
 			local src = sec.machines[tostring(i)]
@@ -323,8 +330,8 @@ local function onPlayer(p: Player)
 							GolemRegistry.Log({ e = "dupe", u = p.UserId, g = rec.uid, k = rec.kind, m = rec.mut, r = "mutate" })
 						else
 							seen[rec.uid] = true
-							m.slots[tostring(s)] = rec
 							table.insert(checkList, rec)
+							if isExclusive(rec.kind) then table.insert(giveBack, rec) else m.slots[tostring(s)] = rec end
 						end
 					end
 				end
@@ -337,6 +344,7 @@ local function onPlayer(p: Player)
 		end
 	end
 	GolemRegistry.CheckOwnership(p, checkList)
+	for _, rec in giveBack do returnToInventory(p, rec) end
 	publish(p, st)
 	p:SetAttribute("MutReady", true)
 	onSpeedChanged(p) -- ступінь куплено, поки гравця не було

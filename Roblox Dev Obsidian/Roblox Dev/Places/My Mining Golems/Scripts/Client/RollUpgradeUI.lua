@@ -117,16 +117,7 @@ local function card(parent, x, y, kind, title)
 	local c = frame(holder, o.X, o.Y, CW, CH, WHITE); vgrad(c, th.grad); stroke(c, INK, 6)
 	-- studs на картці (ледь помітні)
 	-- шар studs — звичайний Frame (CanvasGroup у таблах на слабкій графіці не малювався); прозорість 0.68 — кожній пупочці
-	local sg = new("Frame", { Name = "Studs", Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, ClipsDescendants = true }, c)
-	task.defer(function() for _, d in sg:GetChildren() do if d:IsA("GuiObject") then d.BackgroundTransparency = 0.68 end end end)
-	local cell = 46
-	for cx = 0, math.ceil((CW - 20) / cell) - 1 do
-		for cy = 0, math.ceil((CH - 20) / cell) - 1 do
-			local s = cell * 0.6; local o = (cell - s) / 2
-			local a = frame(sg, cx * cell + o - 2, cy * cell + o + 2, s, s, C(th.studShade)); corner(a, 5)
-			local b = frame(sg, cx * cell + o, cy * cell + o, s, s, C(th.stud)); corner(b, 5)
-		end
-	end
+	local sg = StyleA.studTile(c, 10, 10, CW - 20, CH - 20, 46, C(th.stud), { ImageTransparency = 0.68 }, true) -- 03.11.2026: студи картки — одна картинка-плитка (було ~320 Frame + UICorner)
 	-- косі світлі смуги: над шаром studs, під блиском / іконкою / текстом
 	bands(c, CW, CH)
 	-- блиск: прямокутна смужка на всю ширину всередині обідка (12 від краю), зверху, біла з вертикальним градієнтом прозорості
@@ -182,16 +173,7 @@ local function build(niche: Model, screenPart: BasePart)
 	local x0 = math.floor((W - (2 * CW + GAP)) / 2) - IX
 	local y0 = math.floor((H - CH) / 2) - 4 - IY
 	local PC = 56
-	for cx = 0, math.ceil(W / PC) - 1 do
-		for cy = 0, math.ceil(H / PC) - 1 do
-			local x, y = cx * PC, cy * PC
-			local covered = false -- під непрозорими картками studs не малюємо (картки тут не рухаються)
-			for _, kx in { IX + x0, IX + x0 + CW + GAP } do
-				if x >= kx + 20 and x + PC <= kx + CW - 20 and y >= IY + y0 + 20 and y + PC <= IY + y0 + CH - 20 then covered = true end
-			end
-			if not covered then stud(root, x, y, PC, C("979ca3"), C("6c7178"), C("aeb3b9")) end
-		end
-	end
+	StyleA.studTile(root, 0, 0, W, H, PC, C("979ca3")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(root, 0, 0, W, H, WHITE, { ZIndex = 2 })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.new(0, 0, 0)),
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.72), NumberSequenceKeypoint.new(0.08, 1), NumberSequenceKeypoint.new(0.9, 1), NumberSequenceKeypoint.new(1, 0.8) }) }, shade)
@@ -216,10 +198,16 @@ local function build(niche: Model, screenPart: BasePart)
 		local money = attr("Money", 0)
 		local lvl = attr("RollLuckLvl", 1)
 		local cur, nxt = RollConfig.luckPercent(lvl), RollConfig.luckPercent(lvl + 1)
-		luck.value.Text = string.format('<font color="#FFFFFF">%s%%</font>  <font color="#D4FF3E">›  %s%%</font>', NF.full(cur), NF.full(nxt))
 		local lp = RollConfig.luckPrice(lvl)
-		luck.sa:setText(NF.money(lp))
-		luck.sa:setColor(money >= lp and "green" or "gray")
+		if lp then
+			luck.value.Text = string.format('<font color="#FFFFFF">%s%%</font>  <font color="#D4FF3E">›  %s%%</font>', NF.full(cur), NF.full(nxt))
+			luck.sa:setText(NF.money(lp))
+			luck.sa:setColor(money >= lp and "green" or "gray")
+		else -- максимум Roll Luck (RollConfig.LUCK_MAX_LEVEL; зараз без обмеження)
+			luck.value.Text = string.format('<font color="#D4FF3E">MAX (%s%%)</font>', NF.full(cur))
+			luck.sa:setText("MAX")
+			luck.sa:setColor("gray")
+		end
 		local count = attr("RollStands", 1)
 		local sp = RollConfig.standPrice(count, attr("Stage", 1))
 		local color
@@ -244,7 +232,8 @@ local function build(niche: Model, screenPart: BasePart)
 			end
 		end
 		hookButton(luck, "Luck", function()
-			return (player:GetAttribute("Money") or 0) >= RollConfig.luckPrice(player:GetAttribute("RollLuckLvl") or 1)
+			local lp = RollConfig.luckPrice(player:GetAttribute("RollLuckLvl") or 1)
+			return lp ~= nil and (player:GetAttribute("Money") or 0) >= lp
 		end)
 		hookButton(stands, "Stands", function()
 			local sp = RollConfig.standPrice(player:GetAttribute("RollStands") or 1, player:GetAttribute("Stage") or 1)

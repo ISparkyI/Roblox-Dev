@@ -78,7 +78,7 @@ end
 
 local busy: { [Player]: boolean } = {}
 -- телепорти з HUD (кнопки SHOP / HOME / MARKET зверху по центру, TeleportHUD, 29.10.2026): Remotes/StallShopAction ("Teleport", ціль)
---   "shop" — у коло лавки DIAMONDS SHOP обличчям до неї; "home" — на PlotSpawn своєї ніші (NicheService.TeleportHome);
+--   "shop" — перед лавками DIAMONDS / EVENTS SHOP (Cave/Hub/Shops) обличчям до них; "home" — на PlotSpawn своєї ніші (NicheService.TeleportHome);
 --   "market" — у центр кола Marketplace, трохи в повітрі (гравець приземляється — відразу починається відлік переходу, MarketplaceClient).
 local tpAt: { [Player]: number } = {}
 local function floorAt(pos: Vector3, char: Model): Vector3
@@ -98,6 +98,7 @@ local function teleport(p: Player, target: any): any
 		local okN, NS = pcall(require, script.Parent:FindFirstChild("NicheService"))
 		if not (okN and NS and NS.TeleportHome) then return { ok = false, err = "fail" } end
 		tpAt[p] = os.clock()
+		p:SetAttribute("InBossArena", nil) -- вдома — уже не на арені боса
 		NS.TeleportHome(p)
 		return { ok = true }
 	end
@@ -105,9 +106,20 @@ local function teleport(p: Player, target: any): any
 	local at: Vector3?, look: Vector3?
 	local lift = 0 -- додаткова висота над підлогою (Marketplace — падає в коло)
 	if target == "shop" then
-		local shop = cave and cave:FindFirstChild("Shops") and cave.Shops:FindFirstChild("DiamondShop")
-		local rc = shop and shop:FindFirstChild("Ring") and shop.Ring:FindFirstChild("RingCenter")
-		if rc and rc:IsA("BasePart") then at = rc.Position; look = shop:GetPivot().Position end
+		-- 03.11.2026: лавки тепер у Cave/Hub/Shops; ставимо ПЕРЕД обома лавками (посередині між колами DIAMONDS і EVENTS, на 12 стадів ближче
+		--   до центру зали), обличчям до лавок — не в коло, щоб вікно лавки не відкривалось саме
+		local shops = cave and ((cave:FindFirstChild("Hub") and cave.Hub:FindFirstChild("Shops")) or cave:FindFirstChild("Shops"))
+		local a = shops and shops:FindFirstChild("DiamondShop")
+		local b = shops and shops:FindFirstChild("EventShop")
+		local ra = a and a:FindFirstChild("RingCenter", true)
+		local rb = b and b:FindFirstChild("RingCenter", true)
+		if ra and rb and ra:IsA("BasePart") and rb:IsA("BasePart") then
+			local mid = (ra.Position + rb.Position) / 2
+			local shopMid = (a:GetPivot().Position + b:GetPivot().Position) / 2
+			local dir = Vector3.new(mid.X - shopMid.X, 0, mid.Z - shopMid.Z)
+			dir = dir.Magnitude > 0.1 and dir.Unit or Vector3.new(0, 0, -1)
+			at = mid + dir * 12; look = shopMid
+		end
 	elseif target == "market" then
 		local mk = cave and cave:FindFirstChild("Hub") and cave.Hub:FindFirstChild("Marketplace")
 		if mk then
@@ -120,6 +132,9 @@ local function teleport(p: Player, target: any): any
 	tpAt[p] = os.clock()
 	local g = floorAt(at, char :: Model)
 	local pos = g + Vector3.new(0, hum.HipHeight + hrp.Size.Y / 2 + 0.3 + lift, 0)
+	-- StreamingEnabled: спершу підвантажити місце призначення (до 2 с), потім переносити — без «пролагів» (03.11.2026)
+	pcall(function() p:RequestStreamAroundAsync(pos, 2) end)
+	if p.Character ~= char then return { ok = false, err = "fail" } end
 	char:PivotTo(CFrame.lookAt(pos, Vector3.new(look.X, pos.Y, look.Z)))
 	hrp.AssemblyLinearVelocity = Vector3.zero
 	return { ok = true }

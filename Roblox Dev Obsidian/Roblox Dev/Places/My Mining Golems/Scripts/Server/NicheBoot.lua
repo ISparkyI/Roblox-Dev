@@ -1,5 +1,28 @@
 -- Запуск систем: збереження даних (ПЕРШИМ), множники й покупки за Robux, збірка 6 ніш у печері, автоклейм плота і телепорт на спавн;
 -- кузні Forge; екран Roll Upgrades і покращення ролу (підставки); лавка Sell; інвентар і хотбар, предмет у руці; плоти (зони фарму, големи на плотах).
+-- Режим маркету (HubConfig.isMarket — цей самий файл, опублікований як плейс Marketplace; 03.11.2026): лише дані, інвентар, покупки,
+--   налаштування, статистика, адмінка й MarketServerService (спавн, облік сервера); печера, ніші, плоти тощо не стартують.
+--   Головний плейс натомість прибирає Workspace/Marketplace (на головних серверах він не потрібен).
+local HubCfg = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HubConfig"))
+if HubCfg.isMarket() then
+	require(script.Parent:WaitForChild("DataService")).Start()
+	require(script.Parent:WaitForChild("GolemRegistry")).Start()
+	require(script.Parent:WaitForChild("MultiService")).Start()
+	require(script.Parent:WaitForChild("MonetizationService")).Start()
+	require(script.Parent:WaitForChild("GiftService")).Start()
+	require(script.Parent:WaitForChild("InventoryService")).Start()
+	require(script.Parent:WaitForChild("HeldItemService")).Start()
+	require(script.Parent:WaitForChild("IndexService")).Start()
+	require(script.Parent:WaitForChild("AdminService")).Start()
+	require(script.Parent:WaitForChild("SettingsService")).Start()
+	require(script.Parent:WaitForChild("IncomeService")).Start()
+	require(script.Parent:WaitForChild("StatsService")).Start()
+	require(script.Parent:WaitForChild("DailyService")).Start()
+	require(script.Parent:WaitForChild("MarketServerService")).Start()
+	return
+end
+local mk = workspace:FindFirstChild("Marketplace")
+if mk then mk:Destroy() end
 require(script.Parent:WaitForChild("DataService")).Start()
 require(script.Parent:WaitForChild("GolemRegistry")).Start() -- UID големів, глобальний індекс цінних, журнал подій
 require(script.Parent:WaitForChild("MultiService")).Start()
@@ -11,11 +34,13 @@ require(script.Parent:WaitForChild("RollScreenService")).Start()
 require(script.Parent:WaitForChild("RollUpgradeService")).Start()
 require(script.Parent:WaitForChild("SellService")).Start()
 require(script.Parent:WaitForChild("InventoryService")).Start()
+require(script.Parent:WaitForChild("MarketLotService")).StartMain() -- виставлені на маркеті големи: на плоті / видалені — знімаються (секція MarketLots)
 require(script.Parent:WaitForChild("HeldItemService")).Start() -- предмет у руці (руда, злитки, голем-фігурка з табличкою)
 require(script.Parent:WaitForChild("PlotService")).Start()
 require(script.Parent:WaitForChild("MapService")).Start() -- перехід на наступну мапу (кнопка MAP N, Remotes/MapAction)
 require(script.Parent:WaitForChild("CaveStandService")).Start() -- стенди в печері-сховищі: купівля, големи на стендах, секція Cave
 require(script.Parent:WaitForChild("IndexService")).Start() -- колекція Index: відкриті записи големів, діаманти за перше відкриття
+require(script.Parent:WaitForChild("CaseService")).Start() -- кейси з інвентаря: Exclusive Case → ексклюзивний голем (Remotes/CaseAction, CaseResult)
 require(script.Parent:WaitForChild("RollService")).Start() -- рол големів на підставках ролу: шанси, результат, купівля BUY, секція Roll
 require(script.Parent:WaitForChild("BackendService")).Start() -- Google Таблиця: новини Updates, коди Codes, відгуки Feedback (ServerStorage/BackendConfig)
 require(script.Parent:WaitForChild("AdminService")).Start() -- адмін-панель (F2, лише ServerStorage/AdminConfig): гравці, UID, глобальні події й видачі

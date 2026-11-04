@@ -8,9 +8,11 @@
 -- Щоденні: 3 квести на добу (UTC), набір і цілі однозначно з (день, UserId) — легкий / середній / важкий, нагорода 5 / 10 / 15 діамантів.
 -- Тижневі: 6 ланцюжків (тиждень з понеділка, UTC); рахунок за тиждень наростає, рівень i виконано, коли рахунок ≥ цілі i;
 --   забирати по одному рівню, нагорода 5 / 10 / 20 / 40 / 80 діамантів. Boss — SOON (боса ще немає).
--- Спеціальні: 20 годин у грі (сумарно) → Exclusive «100% Best» — поки SOON (голема ще немає), прогрес уже рахується.
+-- Спеціальні: 20 годин у грі (сумарно) → Exclusive Case (предмет Case_Exclusive: 5 ексклюзивів, клас випадковий — як «Case» в адмінці);
+--   04.11.2026 (рішення користувача): замість «100% Best» голема. Claim → атрибут Case_<case> + 1 (зберігає InventoryService).
 -- Клієнту — атрибут гравця QuestState (JSON, раз на ≤ 1 с при змінах). RemoteFunction Remotes/QuestAction:
---   ("Claim", { kind = "daily", i = 1..3 }) / ("Claim", { kind = "weekly", key = "Mine" }) / ("ClaimAll") → { ok, diamonds }.
+--   ("Claim", { kind = "daily", i = 1..3 }) / ("Claim", { kind = "weekly", key = "Mine" }) / ("Claim", { kind = "special", key = "Case20h" })
+--   / ("ClaimAll") → { ok, diamonds, items }.
 -- Нагороди й цілі — пропозиція (GDD).
 -- Studio: атрибут цього скрипта TestAdd = "Mine:50" додає всім гравцям (для перевірки).
 local Players = game:GetService("Players")
@@ -50,7 +52,7 @@ local WEEKLY = {
 local WEEK_REWARD = { 5, 10, 20, 40, 80 }
 
 local SPECIAL = {
-	{ key = "Best100", stat = "Play", text = "Play for 20 hours in total", target = 1200, reward = "100% Best", soon = true },
+	{ key = "Case20h", stat = "Play", text = "Play for 20 hours in total", target = 1200, reward = "Exclusive Case", case = "Exclusive" },
 }
 
 type Q = {
@@ -123,7 +125,7 @@ local function snapshot(p: Player, q: Q)
 	for _, s in SPECIAL do
 		local prog = q.total[s.stat] or 0
 		table.insert(special, { key = s.key, text = s.text, prog = math.min(prog, s.target), target = s.target, reward = s.reward,
-			claimed = q.special[s.key] == true, soon = s.soon == true })
+			case = s.case, claimed = q.special[s.key] == true, soon = s.soon == true })
 	end
 	return { day = q.day, week = q.week, daily = daily, weekly = weekly, special = special }
 end
@@ -151,6 +153,22 @@ local function addDiamonds(p: Player, n: number)
 	p:SetAttribute("Diamonds", ((tonumber(p:GetAttribute("Diamonds")) or 0) :: number) + n)
 	-- кожна отримана нагорода квесту — +1 до Stat_QuestsDone (особисте табло біля ніші, PlotStatsClient)
 	p:SetAttribute("Stat_QuestsDone", ((tonumber(p:GetAttribute("Stat_QuestsDone")) or 0) :: number) + 1)
+end
+
+-- спеціальний квест: нагорода — предмет (кейс); true — видано
+local function claimSpecial(p: Player, q: Q, key: any): boolean
+	for _, s in SPECIAL do
+		if s.key == key and not s.soon and not q.special[s.key] and (q.total[s.stat] or 0) >= s.target then
+			q.special[s.key] = true
+			if s.case then
+				local a = "Case_" .. s.case
+				p:SetAttribute(a, ((tonumber(p:GetAttribute(a)) or 0) :: number) + 1)
+			end
+			p:SetAttribute("Stat_QuestsDone", ((tonumber(p:GetAttribute("Stat_QuestsDone")) or 0) :: number) + 1)
+			return true
+		end
+	end
+	return false
 end
 
 -- одна нагорода; повертає кількість діамантів (0 — не можна)
@@ -186,10 +204,13 @@ local function onInvoke(p: Player, action: any, arg: any): any
 	if not q or busy[p] then return { ok = false } end
 	busy[p] = true
 	roll(q)
-	local got = 0
-	if action == "Claim" and type(arg) == "table" then
+	local got, items = 0, 0
+	if action == "Claim" and type(arg) == "table" and arg.kind == "special" then
+		if claimSpecial(p, q, arg.key) then items += 1 end
+	elseif action == "Claim" and type(arg) == "table" then
 		got = claimOne(p, q, tostring(arg.kind), arg.kind == "daily" and arg.i or arg.key)
 	elseif action == "ClaimAll" then
+		for _, s in SPECIAL do if claimSpecial(p, q, s.key) then items += 1 end end
 		for i = 1, 3 do got += claimOne(p, q, "daily", i) end
 		for _, w in WEEKLY do
 			for _ = 1, #w.t do
@@ -200,8 +221,8 @@ local function onInvoke(p: Player, action: any, arg: any): any
 		end
 	end
 	busy[p] = nil
-	if got > 0 then publish(p); dirty[p] = nil end
-	return { ok = got > 0, diamonds = got }
+	if got > 0 or items > 0 then publish(p); dirty[p] = nil end
+	return { ok = got > 0 or items > 0, diamonds = got, items = items }
 end
 
 local function load(p: Player)

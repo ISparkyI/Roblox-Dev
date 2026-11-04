@@ -9,7 +9,7 @@
 --   * Поки на плоті менше pointsOf(Points) руди, у випадковому вільному місці з'являється нова руда й росте на очах
 --     spawnOf(Spawn) с (GrowT0 / GrowDur; поки росте — її не б'ють), наступна — коли ця доросла. Місце (не біля бортиків,
 --     не в ящику, не на рудах і големах, випадковий поворот). Руда: Coal / Copper / Iron за вагами 1/3, 1/9, 1/20,
---     розмір жили S / M / L (60 / 30 / 10%): HP 5 / 15 / 30 × 1 / 1,25 / 1,5 (вгору). З руди падає 1–3 шматки (60 / 30 / 10%)
+--     розмір жили S / M / L (60 / 30 / 10%): HP руди мапи (PlotConfig.STAGE_ORES; мапа 1 — 4 / 12 / 24) × 1 / 1,25 / 1,5 (вгору). З руди падає 1–3 шматки (60 / 30 / 10%)
 --     × 1 / 1,5 / 2 за розміром (вниз) × картка Ore Drop (вниз).
 --   * Майнер іде до найближчої вільної руди (її ніхто не б'є) і б'є її: шкода dmg раз на int с (числа — Shared/GolemCatalog
 --     через PlotConfig.stats(kind, mut): рух 8 × Швидкість стад/с, удар раз на 1,40 / Швидкість с).
@@ -199,9 +199,7 @@ local function newStack(pl: Plot, key: string, pos: Vector3, from: Vector3): Sta
 	halo.Material = Enum.Material.Neon; halo.Color = glow; halo.Transparency = 0.55
 	halo.Anchored = true; halo.CanCollide = false; halo.CanQuery = false; halo.CanTouch = false; halo.CastShadow = false
 	halo.Parent = m
-	local light = Instance.new("PointLight")
-	light.Color = glow; light.Range = 7; light.Brightness = 1.4; light.Shadows = false
-	light.Parent = m.PrimaryPart
+	-- 03.11.2026: без PointLight (оптимізація для телефонів) — свічення дає неонове кільце Halo
 	local bb = Instance.new("BillboardGui")
 	bb.Name = "Count"; bb.Size = UDim2.fromScale(2.2, 1); bb.StudsOffset = Vector3.new(0, 1.9, 0)
 	bb.MaxDistance = 70; bb.LightInfluence = 0; bb.Adornee = m.PrimaryPart
@@ -683,7 +681,9 @@ local function makePlot(m: Model, i: number): Plot
 	local base = m:FindFirstChild("Base") :: BasePart
 	local bottom = base.Position.Y - base.Size.Y / 2
 	local floor = bottom + ((m:GetAttribute("FloorUp") :: number?) or base.Size.Y) -- поверхня плиток
-	local y = floor + 0.4 -- Root голема — 0,4 стада над підлогою
+	-- 02.11.2026: півот голема = низ стоп (GolemBuilder), тож ставимо його прямо на поверхню плиток
+	-- (раніше було floor + 0.4 — усі големи висіли ~0,4 стада над підлогою; плитки бруківки 3,87–4,06, floor ≈ середня)
+	local y = floor
 	local cf = CFrame.new(base.Position) * base.CFrame.Rotation
 	local drop = (base:FindFirstChild("DropPoint") :: Attachment).WorldPosition
 	local home = (base:FindFirstChild("HomePoint") :: Attachment).WorldPosition
@@ -1068,6 +1068,10 @@ end
 
 function PlotService.Start()
 	syncPrefabs()
+	-- Workspace/OrePrefabs — ряд усіх моделей руди для правки в Studio (жили S/M/L, шматки, злитки, кристали; у грі вони вже скопійовані
+	-- в PlotAssets / Prefabs). На старті сервера прибираємо з карти в ServerStorage (03.11.2026: висіла в небі, видно з печери).
+	local orePrefabs = workspace:FindFirstChild("OrePrefabs")
+	if orePrefabs then orePrefabs.Parent = game:GetService("ServerStorage") end
 	DataService.RegisterSection("Plots", sectionOf)
 	local remotes = RS:FindFirstChild("Remotes") or Instance.new("Folder")
 	remotes.Name = "Remotes"; remotes.Parent = RS

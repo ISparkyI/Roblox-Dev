@@ -1,23 +1,33 @@
 --!nonstrict
--- LeaderboardClient — екрани лідербордів у центрі зали (Workspace/Cave/Hub/Leaderboards/<key>/Screen).
+-- LeaderboardClient — екрани лідербордів у центрі зали (Workspace/Cave/Hub/Leaderboards/<key>/Screen) і на маркеті.
 -- Де: StarterPlayer/StarterPlayerScripts/LeaderboardClient (LocalScript). Дані — атрибут Data (JSON [{u, n, v}]) і NextAt на моделі
--- табла (ставить StatsService). Набір табел, кольори, формат чисел — Shared/HubConfig.BOARDS.
+-- табла (ставить StatsService). Набір табел, кольори, формат чисел — Shared/HubConfig.BOARDS (печера) / MARKET_BOARDS (маркет).
 -- Екран (SurfaceGui у PlayerGui з Adornee — працює прокрутка), полотно 650 × 850:
---   шапка кольору табла зі studs (іконка, заголовок з переливом, підпис, таймер оновлення), п'єдестал топ-3
---   (золото / срібло / бронза, аватари, корона в #1), список 4–100 з прокруткою, внизу — місце й значення гравця.
+--   шапка кольору табла зі studs (іконка, заголовок з переливом, підпис, таймер оновлення), список 1–100 з прокруткою
+--   (03.11.2026: без п'єдесталу топ-3 — місця 1 / 2 / 3 лише виділені кольором рядка: золото / срібло / бронза), внизу — місце й значення гравця.
+-- Маркет (HubConfig.isMarket): табла Marketplace/Floor/<model>/Screen (бік — атрибут Face), по центру — екран покупки пакетів тікетів
+--   (HubConfig.TICKETS_BOARD; MonetizationConfig.TicketProducts, як у SHOP → TICKETS; клік — вікно покупки Roblox).
+--   Четверте табло — RECENT TRADES (HubConfig.tradesBoard): останні 100 угод цього сервера з атрибута Trades (MarketServerService.LogTrade):
+--   картки: 3D-голем ліворуч, назва з переливом кольору мутації, рідкість · клас, «продавець → покупець» (ніки), ціна й час.
 -- Екран будується, коли камера ближче BUILD_AT, і прибирається далі DROP_AT.
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local Shared = RS:WaitForChild("Shared")
 local HubCfg = require(Shared:WaitForChild("HubConfig"))
+local MonCfg = require(Shared:WaitForChild("MonetizationConfig"))
 local NF = require(Shared:WaitForChild("NumberFormat"))
+local Catalog = require(Shared:WaitForChild("GolemCatalog"))
+local ItemViewport = require(Shared:WaitForChild("ItemViewport"))
+local MutationText = require(Shared:WaitForChild("MutationText"))
 local StyleA = require(Shared:WaitForChild("StyleA"))
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local camera = workspace.CurrentCamera
+local MARKET = HubCfg.isMarket()
 
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
 local XBOLD = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.ExtraBold)
@@ -34,18 +44,21 @@ local ICONS = {
 	Donators = "rbxassetid://139687766069559", Playtime = "rbxassetid://76478987044650",
 	Income = "rbxassetid://103015355952567", BestRoll = "rbxassetid://120776574619004",
 	Gifters = "rbxassetid://139687766069559", Bosses = "rbxassetid://111200556390804",
+	MarketBuys = "rbxassetid://91791061262477", MarketSales = "rbxassetid://103015355952567",
 }
+local ROBUX = "rbxassetid://139687766069559"
+local TICKET = "rbxassetid://85299808396483"
 -- текст бонусу за місце (HubConfig.PERK_TIERS): «+50% Money»
 local function perkText(def, rank: number?): string
+	if not def.tier then return "" end
 	local pct = HubCfg.perkPct(def.tier, rank)
 	if pct <= 0 then return "" end
 	return "+" .. pct .. "% " .. (HubCfg.PERK_NAMES[def.perk] or "")
 end
-local CROWN = "rbxassetid://111200556390804"
 local MEDAL = {
-	{ fill = "ffe066", fill2 = "f0a400", text = "ffffff" }, -- золото
-	{ fill = "eef3f8", fill2 = "9aa7b6", text = "ffffff" }, -- срібло
-	{ fill = "ffb880", fill2 = "c2632b", text = "ffffff" }, -- бронза
+	{ fill = "ffd84a", fill2 = "e09400", ring = "fff1a8" }, -- золото
+	{ fill = "dfe6ee", fill2 = "8d9aab", ring = "ffffff" }, -- срібло
+	{ fill = "ffaa6a", fill2 = "b8571f", ring = "ffd2b0" }, -- бронза
 }
 
 local function new(class, props, parent)
@@ -103,120 +116,111 @@ local function fmtValue(kind: string, v: number): string
 	return NF.short(v)
 end
 
--- ===== один екран =====
-local function build(model: Model, def, screen: BasePart)
-	local accent, accent2 = C(def.accent), C(def.accent2)
-	local g = new("SurfaceGui", { Name = "Leaderboard_" .. def.key, Adornee = screen, Face = Enum.NormalId.Front,
-		SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud, PixelsPerStud = PW / screen.Size.X, LightInfluence = 0, Brightness = 1.1,
+-- SurfaceGui на екрані: полотно cw × ch, по центру грані (масштаб — щоб полотно вкрило всю грань)
+local function surface(name: string, screen: BasePart, cw: number, ch: number): (SurfaceGui, Frame)
+	local face = Enum.NormalId[screen:GetAttribute("Face") or "Front"] or Enum.NormalId.Front
+	-- атрибут Inset (стади) — відступ від країв грані, якщо рамка табла накриває екран (Selling Info — заокруглені кути)
+	local inset = tonumber(screen:GetAttribute("Inset")) or 0
+	local ppx = math.max(cw / (screen.Size.X - 2 * inset), ch / (screen.Size.Y - 2 * inset))
+	local g = new("SurfaceGui", { Name = name, Adornee = screen, Face = face,
+		SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud, PixelsPerStud = ppx, LightInfluence = 0, Brightness = 1.1,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ResetOnSpawn = false, ClipsDescendants = true, MaxDistance = DROP_AT + 40 }, playerGui)
-	local root = frame(g, 0, 0, PW, PH, C("1b1e25"), { ClipsDescendants = true })
-	vgrad(root, "262a33", "121419")
-	new("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Image = TILES[def.tile] or A.stylea_tile_gray or "", ImageTransparency = 0.9,
-		ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(64, 64), ZIndex = 1 }, root)
+	local root = frame(g, math.floor((screen.Size.X * ppx - cw) / 2), math.floor((screen.Size.Y * ppx - ch) / 2), cw, ch, C("1b1e25"), { ClipsDescendants = true })
+	return g, root
+end
 
-	-- шапка
-	local head = frame(root, 0, 0, PW, 132, WHITE, { ZIndex = 2, ClipsDescendants = true })
+-- шапка табла: колір, studs, іконка, заголовок з переливом, підпис і рядок таймера
+local function header(root, cw, def, hh)
+	local head = frame(root, 0, 0, cw, hh, WHITE, { ZIndex = 2, ClipsDescendants = true })
 	vgrad(head, def.accent, def.accent2)
 	new("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Image = TILES[def.tile] or "", ImageTransparency = 0.35,
 		ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(64, 64), ZIndex = 2 }, head)
-	frame(head, 0, 0, PW, 10, WHITE, { BackgroundTransparency = 0.6, ZIndex = 3 })
-	frame(root, 0, 132, PW, 6, INK, { ZIndex = 4 })
-	local icS = new("ImageLabel", { BackgroundTransparency = 1, Image = ICONS[def.key] or "", ImageColor3 = INK, ImageTransparency = 0.35, ScaleType = Enum.ScaleType.Fit,
+	frame(head, 0, 0, cw, 10, WHITE, { BackgroundTransparency = 0.6, ZIndex = 3 })
+	frame(root, 0, hh, cw, 6, INK, { ZIndex = 4 })
+	new("ImageLabel", { BackgroundTransparency = 1, Image = def.icon or ICONS[def.key] or "", ImageColor3 = INK, ImageTransparency = 0.35, ScaleType = Enum.ScaleType.Fit,
 		Position = UDim2.fromOffset(20, 22), Size = UDim2.fromOffset(100, 100), Rotation = -8, ZIndex = 4 }, root)
-	local ic = new("ImageLabel", { BackgroundTransparency = 1, Image = ICONS[def.key] or "", ScaleType = Enum.ScaleType.Fit,
+	new("ImageLabel", { BackgroundTransparency = 1, Image = def.icon or ICONS[def.key] or "", ScaleType = Enum.ScaleType.Fit,
 		Position = UDim2.fromOffset(18, 14), Size = UDim2.fromOffset(100, 100), Rotation = -8, ZIndex = 5 }, root)
-	local title = label(root, 130, 18, 500, 64, 58, def.title, WHITE, 6, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6 })
+	local title = label(root, 130, 18, cw - 150, 64, 58, def.title, WHITE, 6, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6 })
 	local tg = new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, C("e9eef4")) }, title)
-	label(root, 132, 78, 500, 28, 24, def.sub, WHITE, 3, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 6 })
-	local timer = label(root, 132, 104, 500, 22, 18, "", C("f4f7fb"), 2.5, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 6, TextTransparency = 0.1 })
+	label(root, 132, 78, cw - 150, 28, 24, def.sub, WHITE, 3, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 6 })
+	local timer = label(root, 132, 104, cw - 150, 22, 18, "", C("f4f7fb"), 2.5, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 6, TextTransparency = 0.1 })
+	return title, tg, timer
+end
 
-	-- п'єдестал топ-3: #2 ліворуч, #1 по центру (вище), #3 праворуч
-	local POD = { { x = 225, y = 152, w = 200, h = 258 }, { x = 18, y = 192, w = 196, h = 218 }, { x = 436, y = 212, w = 196, h = 198 } }
-	local cards = {}
-	for i, p in POD do
-		local md = MEDAL[i]
-		frame(root, p.x, p.y + 8, p.w, p.h, INK, { BackgroundTransparency = 0.45, ZIndex = 3 })
-		local card = frame(root, p.x, p.y, p.w, p.h, WHITE, { ZIndex = 4, ClipsDescendants = false })
-		corner(card, 14)
-		vgrad(card, md.fill, md.fill2)
-		stroke(card, INK, 5)
-		local shine = frame(card, 8, 6, p.w - 16, 12, WHITE, { BackgroundTransparency = 0.55, ZIndex = 5 })
-		corner(shine, 6)
-		local as = i == 1 and 104 or 88
-		local av, img = avatar(card, (p.w - as) / 2, 22, as, nil, INK)
-		local rank = frame(card, -14, -14, 52, 52, INK, { ZIndex = 8 })
-		corner(rank, UDim.new(0.5, 0))
-		local rIn = frame(rank, 4, 4, 44, 44, C(md.fill), { ZIndex = 9 })
-		corner(rIn, UDim.new(0.5, 0)); vgrad(rIn, md.fill, md.fill2)
-		label(rIn, 0, 0, 44, 44, 26, tostring(i), WHITE, 3, { ZIndex = 10 })
-		if i == 1 then
-			new("ImageLabel", { BackgroundTransparency = 1, Image = CROWN, ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 1),
-				Position = UDim2.fromOffset(p.w / 2, 30), Size = UDim2.fromOffset(78, 64), Rotation = 8, ZIndex = 9 }, card)
-		end
-		local nm = fitLabel(card, 8, 22 + as + 8, p.w - 16, 34, i == 1 and 30 or 26, "—", WHITE, 3.5, { ZIndex = 7 })
-		local val = fitLabel(card, 8, 22 + as + 44, p.w - 16, 40, i == 1 and 36 or 30, "", accent, 4, { ZIndex = 7 })
-		val.TextColor3 = WHITE
-		new("UIGradient", { Rotation = 90, Color = ColorSequence.new(C("ffffff"), accent) }, val)
-		-- бонус за місце — ярлик, що звисає з нижнього краю картки
-		local chip = frame(card, 14, p.h - 14, p.w - 28, 28, INK, { ZIndex = 8 })
-		corner(chip, 8)
-		local chipIn = frame(chip, 3, 3, p.w - 34, 22, accent, { ZIndex = 9 })
-		corner(chipIn, 6); vgrad(chipIn, def.accent, def.accent2)
-		fitLabel(chipIn, 4, 1, p.w - 42, 20, 18, perkText(def, i), WHITE, 2.5, { ZIndex = 10 })
-		cards[i] = { img = img, name = nm, val = val }
-	end
+-- ===== одне табло-лідерборд =====
+local function build(model: Model, def, screen: BasePart)
+	local accent = C(def.accent)
+	local g, root = surface("Leaderboard_" .. def.key, screen, PW, PH)
+	vgrad(root, "262a33", "121419")
+	new("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Image = TILES[def.tile] or A.stylea_tile_gray or "", ImageTransparency = 0.9,
+		ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(64, 64), ZIndex = 1 }, root)
+	local title, tg, timer = header(root, PW, def, 132)
 
-	-- список 4–100
-	local LY, LH = 428, 340
+	-- список 1–100 (місця 1–3 — кольорові рядки)
+	local LY, LH = 152, 614
 	local listBg = frame(root, 14, LY, PW - 28, LH, C("0e1014"), { BackgroundTransparency = 0.25, ZIndex = 3 })
 	corner(listBg, 12); stroke(listBg, INK, 4)
 	local list = new("ScrollingFrame", { Position = UDim2.fromOffset(20, LY + 6), Size = UDim2.fromOffset(PW - 40, LH - 12), BackgroundTransparency = 1,
 		BorderSizePixel = 0, ScrollBarThickness = 8, ScrollBarImageColor3 = accent, CanvasSize = UDim2.fromOffset(0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 4 }, root)
-	new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	new("UIListLayout", { Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	new("UIPadding", { PaddingTop = UDim.new(0, 3), PaddingLeft = UDim.new(0, 3), PaddingBottom = UDim.new(0, 3) }, list)
 	local empty = label(root, 20, LY + LH / 2 - 20, PW - 40, 40, 26, "No players yet", C("9aa3ad"), 3, { ZIndex = 6, FontFace = XBOLD })
 
 	-- низ: місце гравця
 	local foot = frame(root, 14, 780, PW - 28, 58, WHITE, { ZIndex = 3 })
 	corner(foot, 12); stroke(foot, INK, 4); vgrad(foot, def.accent, def.accent2)
-	local fAv = avatar(foot, 10, 7, 44, player.UserId, INK)
+	avatar(foot, 10, 7, 44, player.UserId, INK)
 	local fRank = label(foot, 64, 0, 170, 58, 30, "YOU", WHITE, 4, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7 })
 	local fPerk = fitLabel(foot, 214, 8, 190, 42, 22, "", WHITE, 3, { ZIndex = 7 })
 	local fVal = fitLabel(foot, 404, 6, PW - 28 - 418, 46, 32, "", WHITE, 4, { TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 7 })
 
+	local RW = PW - 56
 	local B = { gui = g, screen = screen, model = model, rows = {}, timer = timer, title = title, tg = tg }
 	function B.render()
 		local raw = model:GetAttribute("Data")
 		local ok, data = pcall(HttpService.JSONDecode, HttpService, type(raw) == "string" and raw or "[]")
 		if not ok or type(data) ~= "table" then data = {} end
-		for i = 1, 3 do
-			local e = data[i]
-			cards[i].img.Image = e and ("rbxthumb://type=AvatarHeadShot&id=" .. e.u .. "&w=150&h=150") or ""
-			cards[i].name.Text = e and tostring(e.n) or "—"
-			cards[i].val.Text = e and fmtValue(def.fmt, e.v) or ""
-		end
 		for _, r in B.rows do r:Destroy() end
 		B.rows = {}
 		local myRank = nil
 		for i, e in data do if e.u == player.UserId then myRank = i end end
-		for i = 4, #data do
-			local e = data[i]
+		for i, e in data do
 			local mine = e.u == player.UserId
-			local row = new("Frame", { Size = UDim2.fromOffset(PW - 56, 46), BackgroundColor3 = mine and accent or C("ffffff"),
-				BackgroundTransparency = mine and 0.55 or (i % 2 == 0 and 0.94 or 0.98), BorderSizePixel = 0, LayoutOrder = i, ZIndex = 5 }, list)
+			local md = MEDAL[i]
+			local rh = md and 54 or 46
+			local row = new("Frame", { Size = UDim2.fromOffset(RW, rh), BackgroundColor3 = md and WHITE or (mine and accent or C("ffffff")),
+				BackgroundTransparency = md and 0 or (mine and 0.55 or (i % 2 == 0 and 0.94 or 0.98)), BorderSizePixel = 0, LayoutOrder = i, ZIndex = 5 }, list)
 			corner(row, 8)
-			if mine then stroke(row, accent, 2) end
-			label(row, 4, 0, 62, 46, 22, "#" .. i, C("c9d1da"), 2.5, { ZIndex = 6 })
-			avatar(row, 70, 5, 36, e.u, INK)
-			fitLabel(row, 116, 4, 290, 38, 22, tostring(e.n), WHITE, 2.5, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6, FontFace = XBOLD })
-			local v = fitLabel(row, 400, 4, PW - 56 - 412, 38, 24, fmtValue(def.fmt, e.v), accent, 2.5, { TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 6 })
+			if md then
+				vgrad(row, md.fill, md.fill2)
+				stroke(row, mine and accent or INK, 3)
+				-- місце — круглий значок кольору медалі
+				local badge = frame(row, 8, (rh - 40) / 2, 40, 40, INK, { ZIndex = 6 })
+				corner(badge, UDim.new(0.5, 0))
+				local bIn = frame(badge, 3, 3, 34, 34, WHITE, { ZIndex = 7 })
+				corner(bIn, UDim.new(0.5, 0)); vgrad(bIn, md.ring, md.fill)
+				label(bIn, 0, 0, 34, 34, 22, tostring(i), WHITE, 3, { ZIndex = 8 })
+			else
+				if mine then stroke(row, accent, 2) end
+				label(row, 4, 0, 54, rh, 22, "#" .. i, C("c9d1da"), 2.5, { ZIndex = 6 })
+			end
+			local as = md and 42 or 36
+			avatar(row, 60, (rh - as) / 2, as, e.u, INK)
+			local perk = md and perkText(def, i) or ""
+			local nameW = perk ~= "" and 200 or 290
+			fitLabel(row, 112, 4, nameW, rh - 8, md and 26 or 22, tostring(e.n), WHITE, md and 3 or 2.5,
+				{ TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6, FontFace = md and HEAVY or XBOLD })
+			if perk ~= "" then fitLabel(row, 316, 10, 110, rh - 20, 18, perk, WHITE, 2.5, { ZIndex = 6 }) end
+			fitLabel(row, 420, 4, RW - 432, rh - 8, md and 28 or 24, fmtValue(def.fmt, e.v), md and WHITE or accent, md and 3.5 or 2.5,
+				{ TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 6 })
 			table.insert(B.rows, row)
 		end
-		empty.Visible = #data <= 3
-		empty.Text = #data == 0 and "No players yet" or "Climb the ranks to get here!"
+		empty.Visible = #data == 0
 		local mv = tonumber(player:GetAttribute(def.stat)) or 0
 		fRank.Text = "YOU  " .. (myRank and ("#" .. myRank) or ("#" .. HubCfg.LB_TOP .. "+"))
-		fPerk.Text = myRank and perkText(def, myRank) or ("Top 100: " .. perkText(def, 4))
+		fPerk.Text = def.tier and (myRank and perkText(def, myRank) or ("Top 100: " .. perkText(def, 4))) or ""
 		fVal.Text = fmtValue(def.fmt, (myRank and data[myRank].v) or mv)
 	end
 	model:GetAttributeChangedSignal("Data"):Connect(B.render)
@@ -225,32 +229,208 @@ local function build(model: Model, def, screen: BasePart)
 	return B
 end
 
+-- ===== маркет: табло покупки пакетів тікетів (як SHOP → TICKETS) =====
+local TICKET_DEF = { key = "Tickets", title = "TICKETS", sub = "Buy Tickets with Robux", accent = "ffd23a", accent2 = "ff9a1f", tile = "yellow", icon = TICKET }
+local TONES = { { "ffe27a", "f5b616", "yellow" }, { "ffb15c", "f07a1e", "orange" }, { "ff8fc8", "e0408e", "red" } }
+local function buildTickets(model: Model, screen: BasePart)
+	local TW = 760
+	local TH = math.floor(TW * screen.Size.Y / screen.Size.X)
+	local g, root = surface("TicketsBoard", screen, TW, TH)
+	vgrad(root, "262a33", "121419")
+	new("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Image = A.stylea_tile_gray or "", ImageTransparency = 0.9,
+		ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(64, 64), ZIndex = 1 }, root)
+	local title, tg, timer = header(root, TW, TICKET_DEF, 132)
+	timer.Text = "Tap a pack to buy"
+	local list = MonCfg.TicketProducts
+	local GX, GY, TOP = 12, 12, 150
+	local cw = math.floor((TW - 32 - 2 * GX) / 3)
+	local chh = math.floor((TH - TOP - 16 - 2 * GY) / 3)
+	for i, t in list do
+		local col, rowi = (i - 1) % 3, (i - 1) // 3
+		local x, y = 16 + col * (cw + GX), TOP + rowi * (chh + GY)
+		local tone = TONES[(rowi % 3) + 1]
+		frame(root, x, y + 6, cw, chh, INK, { BackgroundTransparency = 0.5, ZIndex = 2 })
+		local card = frame(root, x, y, cw, chh, WHITE, { ZIndex = 3, ClipsDescendants = true })
+		corner(card, 12); vgrad(card, tone[1], tone[2]); stroke(card, INK, 4)
+		new("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Image = TILES[tone[3]] or "", ImageTransparency = 0.55,
+			ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(48, 48), ZIndex = 3 }, card)
+		new("ImageLabel", { BackgroundTransparency = 1, Image = TICKET, ScaleType = Enum.ScaleType.Fit, Rotation = -8,
+			Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(62, 62), ZIndex = 5 }, card)
+		fitLabel(card, 72, 8, cw - 80, 38, 34, NF.full(t.tickets), WHITE, 4, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6 })
+		local bonus = math.floor(MonCfg.ticketBonus(t) * 1000 + 0.5) / 10
+		fitLabel(card, 72, 44, cw - 80, 22, 18, bonus > 0 and ("+" .. tostring(bonus) .. "% bonus") or "Tickets", WHITE, 2.5,
+			{ TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6, FontFace = XBOLD })
+		-- кнопка з ціною (стиль A)
+		local bw, bh = cw - 20, math.max(40, chh - 86)
+		local hold = frame(card, 10, chh - bh - 12, bw, bh + 5, nil, { BackgroundTransparency = 1, ZIndex = 6 })
+		local sh = frame(hold, 0, 5, bw, bh, INK, { BackgroundTransparency = 0.6, ZIndex = 6 })
+		local b = StyleA.new(hold, { size = Vector2.new(bw, bh), position = Vector2.new(0, 0), color = "green", clickable = true, zIndex = 7 })
+		StyleA.follow(b, sh)
+		local rowF = new("Frame", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, -2),
+			Size = UDim2.fromOffset(0, bh), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 9 }, b.root)
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6),
+			SortOrder = Enum.SortOrder.LayoutOrder }, rowF)
+		new("ImageLabel", { BackgroundTransparency = 1, Image = ROBUX, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(math.floor(bh * 0.5), math.floor(bh * 0.5)),
+			LayoutOrder = 1, ZIndex = 10 }, rowF)
+		local pt = new("TextLabel", { BackgroundTransparency = 1, FontFace = HEAVY, TextSize = math.min(30, math.floor(bh * 0.6)), TextColor3 = WHITE, Text = NF.full(t.robux),
+			Size = UDim2.fromOffset(0, bh), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 2, ZIndex = 10 }, rowF)
+		stroke(pt, INK, 3, true)
+		StyleA.bind(b, { debounce = 0.5, onClick = function()
+			if (t.id or 0) == 0 then return end
+			local r = RS:FindFirstChild("Remotes")
+			local rf = r and r:FindFirstChild("GiftAction")
+			if rf then pcall(rf.InvokeServer, rf, "Clear") end -- покупка для себе
+			pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, player, t.id)
+		end })
+	end
+	return { gui = g, screen = screen, model = model, title = title, tg = tg, timer = timer, static = true }
+end
+
+-- ===== маркет: останні угоди на цьому сервері =====
+local TRADES_DEF = { key = "Trades", title = "RECENT TRADES", sub = "Last 100 trades on this server", accent = "c99bff", accent2 = "7a3fe0", tile = "purple",
+	icon = "rbxassetid://91791061262477" }
+local CUR_ICON = { money = "rbxassetid://103015355952567", diamonds = "rbxassetid://126442692946356", tickets = TICKET }
+local CUR_COLOR = { money = "7ef05a", diamonds = "6fd2ff", tickets = "ffd23a" }
+local function ago(t: number): string
+	local d = math.max(0, os.time() - (tonumber(t) or 0))
+	if d < 60 then return d .. "s" elseif d < 3600 then return (d // 60) .. "m" end
+	return (d // 3600) .. "h"
+end
+local function buildTrades(model: Model, screen: BasePart)
+	local TW = 900
+	local ins = 2 * (tonumber(screen:GetAttribute("Inset")) or 0)
+	local TH = math.floor(TW * (screen.Size.Y - ins) / (screen.Size.X - ins))
+	local g, root = surface("TradesBoard", screen, TW, TH)
+	vgrad(root, "262a33", "121419")
+	new("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Image = TILES.purple or "", ImageTransparency = 0.9,
+		ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(64, 64), ZIndex = 1 }, root)
+	local title, tg, timer = header(root, TW, TRADES_DEF, 132)
+	-- картки угод (03.11.2026, v2): ліворуч 3D-голем у слоті, праворуч — назва (перелив кольором мутації), рідкість · клас,
+	-- «продавець → покупець» (лише ніки), ціна з іконкою валюти і «… ago»
+	local RW = TW - 56
+	local CHH, IC = 112, 96
+	local LY = 150
+	local LH = TH - LY - 16
+	local listBg = frame(root, 14, LY, TW - 28, LH, C("0e1014"), { BackgroundTransparency = 0.25, ZIndex = 3 })
+	corner(listBg, 12); stroke(listBg, INK, 4)
+	local list = new("ScrollingFrame", { Position = UDim2.fromOffset(20, LY + 6), Size = UDim2.fromOffset(TW - 40, LH - 12), BackgroundTransparency = 1,
+		BorderSizePixel = 0, ScrollBarThickness = 8, ScrollBarImageColor3 = C(TRADES_DEF.accent), CanvasSize = UDim2.fromOffset(0, 0),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 4 }, root)
+	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, list)
+	new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4) }, list)
+	local empty = label(root, 20, LY + LH / 2 - 20, TW - 40, 40, 28, "No trades on this server yet", C("9aa3ad"), 3, { ZIndex = 6, FontFace = XBOLD })
+	local B = { gui = g, screen = screen, model = model, rows = {}, timer = timer, title = title, tg = tg, static = true, ages = {} }
+	function B.render()
+		local raw = model:GetAttribute("Trades")
+		local ok, data = pcall(HttpService.JSONDecode, HttpService, type(raw) == "string" and raw or "[]")
+		if not ok or type(data) ~= "table" then data = {} end
+		for _, r in B.rows do r:Destroy() end
+		B.rows = {}; B.ages = {}
+		for i, e in data do
+			local mine = e.s == player.UserId or e.b == player.UserId
+			local def = e.k and Catalog.get(e.k)
+			local mutN = tonumber(e.m) or 0
+			local mut = Catalog.mutation(mutN)
+			local rcol = def and Catalog.rarityColor(def.rarity) or WHITE
+			local card = new("Frame", { Size = UDim2.fromOffset(RW - 8, CHH), BackgroundColor3 = WHITE, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 5 }, list)
+			corner(card, 12)
+			vgrad(card, mine and "4a3a6e" or "2e3340", mine and "2c2147" or "1c1f27")
+			stroke(card, mine and C(TRADES_DEF.accent) or INK, 3)
+			-- слот з големом
+			local slot = frame(card, 8, (CHH - IC) / 2, IC, IC, C("14161a"), { ZIndex = 6 })
+			corner(slot, 10); stroke(slot, rcol, 3)
+			vgrad(slot, "2a2f3a", "15171d")
+			local img = new("ImageLabel", { BackgroundTransparency = 1, Image = "", ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromScale(1, 1), ZIndex = 7 }, slot)
+			if def then pcall(ItemViewport.set, img, ItemViewport.golemKey(def.id, Catalog.cls(e.c)), 1) end
+			local X = 8 + IC + 16
+			local W = RW - 8 - X - 12
+			-- 1: назва (перелив кольором мутації) і ціна праворуч
+			local gname = def and def.name or "Golem"
+			if mutN > 0 and mut and mut.key then gname = mut.key .. " " .. gname end
+			local nm = fitLabel(card, X, 8, W - 230, 38, 32, gname, WHITE, 3.5, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7 })
+			pcall(MutationText.apply, nm, mutN)
+			local cur = CUR_ICON[e.cur] and e.cur or "money"
+			new("ImageLabel", { BackgroundTransparency = 1, Image = CUR_ICON[cur], ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(X + W - 222, 10),
+				Size = UDim2.fromOffset(34, 34), ZIndex = 7 }, card)
+			fitLabel(card, X + W - 184, 8, 184, 38, 32, cur == "money" and NF.money(e.p or 0) or NF.full(e.p or 0), C(CUR_COLOR[cur]), 3.5,
+				{ TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 7 })
+			-- 2: рідкість · клас і час
+			local cls = Catalog.cls(e.c)
+			fitLabel(card, X, 46, W - 160, 24, 20, (def and def.rarity or "?") .. " · " .. (cls:sub(1, 1):upper() .. cls:sub(2)), rcol, 2.5,
+				{ TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7, FontFace = XBOLD })
+			local ag = label(card, X + W - 160, 46, 160, 24, 20, ago(e.t) .. " ago", C("9aa3ad"), 2.5,
+				{ TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 7, FontFace = XBOLD })
+			table.insert(B.ages, { l = ag, t = e.t })
+			-- 3: продавець → покупець (лише ніки)
+			fitLabel(card, X, 74, W, 30, 24, string.format('<font color="#ffffff">%s</font>  <font color="#%s">→</font>  <font color="#ffffff">%s</font>',
+				tostring(e.sn or "?"), TRADES_DEF.accent, tostring(e.bn or "?")), WHITE, 2.5,
+				{ TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 7, RichText = true, FontFace = XBOLD })
+			table.insert(B.rows, card)
+		end
+		empty.Visible = #data == 0
+		timer.Text = #data > 0 and (#data .. " trade" .. (#data == 1 and "" or "s")) or "Sell golems with the Sell Golems button"
+	end
+	model:GetAttributeChangedSignal("Trades"):Connect(B.render)
+	B.render()
+	task.spawn(function() -- «… ago» оновлюється раз на 15 с
+		while g.Parent do
+			task.wait(15)
+			for _, a in B.ages do if a.l.Parent then a.l.Text = ago(a.t) .. " ago" end end
+		end
+	end)
+	return B
+end
+
 -- ===== усі табла: будувати поблизу камери, оновлювати таймер і перелив =====
 local boards = {} -- [key] = B
-local function folder()
+-- джерела: { key, def, model, screen, kind }
+local function sources(): { any }
+	local out = {}
+	if MARKET then
+		local m = workspace:FindFirstChild("Marketplace")
+		local fl = m and m:FindFirstChild("Floor")
+		if not fl then return out end
+		for _, def in HubCfg.MARKET_BOARDS or {} do
+			local mm = fl:FindFirstChild(def.model)
+			table.insert(out, { key = def.key, def = def, model = mm, screen = mm and mm:FindFirstChild("Screen") })
+		end
+		local tm = HubCfg.TICKETS_BOARD and fl:FindFirstChild(HubCfg.TICKETS_BOARD)
+		table.insert(out, { key = "Tickets", model = tm, screen = tm and tm:FindFirstChild("Screen"), tickets = true })
+		local tr = HubCfg.tradesBoard and HubCfg.tradesBoard()
+		table.insert(out, { key = "Trades", model = tr, screen = tr and tr:FindFirstChild("Screen", true), trades = true })
+		return out
+	end
 	local cave = workspace:FindFirstChild("Cave")
 	local hub = cave and cave:FindFirstChild("Hub")
-	return hub and hub:FindFirstChild("Leaderboards")
-end
-local function refresh()
-	local f = folder()
-	local camPos = camera.CFrame.Position
+	local f = hub and hub:FindFirstChild("Leaderboards")
 	for _, def in HubCfg.BOARDS do
-		local m = f and f:FindFirstChild(def.key)
-		local screen = m and m:FindFirstChild("Screen")
-		local B = boards[def.key]
-		local dist = screen and (screen.Position - camPos).Magnitude or math.huge
-		if B and (dist > DROP_AT or B.screen ~= screen or not B.screen:IsDescendantOf(workspace)) then B.gui:Destroy(); boards[def.key] = nil; B = nil end
-		if not B and screen and dist < BUILD_AT then
-			local ok, res = pcall(build, m, def, screen)
-			if ok then boards[def.key] = res else warn("LeaderboardClient: ", res) end
+		local mm = f and f:FindFirstChild(def.key)
+		table.insert(out, { key = def.key, def = def, model = mm, screen = mm and mm:FindFirstChild("Screen") })
+	end
+	return out
+end
+-- за один прохід будується не більше ОДНОГО табла (03.11.2026): після телепорту в залу 8 табел не будуються в одному кадрі (фриз)
+local function refresh()
+	local camPos = camera.CFrame.Position
+	local built = false
+	for _, s in sources() do
+		local screen = s.screen
+		local B = boards[s.key]
+		local dist = (screen and screen:IsA("BasePart")) and (screen.Position - camPos).Magnitude or math.huge
+		if B and (dist > DROP_AT or B.screen ~= screen or not B.screen:IsDescendantOf(workspace)) then B.gui:Destroy(); boards[s.key] = nil; B = nil end
+		if not B and screen and dist < BUILD_AT and not built then
+			built = true
+			local ok, res
+			if s.tickets then ok, res = pcall(buildTickets, s.model, screen)
+			elseif s.trades then ok, res = pcall(buildTrades, s.model, screen) else ok, res = pcall(build, s.model, s.def, screen) end
+			if ok then boards[s.key] = res else warn("LeaderboardClient: ", res) end
 		end
 	end
 end
 task.spawn(function()
 	while true do
 		pcall(refresh)
-		task.wait(0.5)
+		task.wait(0.2)
 	end
 end)
 local acc = 0
@@ -269,8 +449,10 @@ RunService.Heartbeat:Connect(function(dt)
 	acc = 0
 	local now = workspace:GetServerTimeNow()
 	for _, B in boards do
-		local nx = tonumber(B.model:GetAttribute("NextAt")) or 0
-		local left = math.max(0, math.ceil(nx - now))
-		B.timer.Text = nx > 0 and string.format("Updates in %d:%02d", left // 60, left % 60) or "Updating..."
+		if not B.static then
+			local nx = tonumber(B.model:GetAttribute("NextAt")) or 0
+			local left = math.max(0, math.ceil(nx - now))
+			B.timer.Text = nx > 0 and string.format("Updates in %d:%02d", left // 60, left % 60) or "Updating..."
+		end
 	end
 end)

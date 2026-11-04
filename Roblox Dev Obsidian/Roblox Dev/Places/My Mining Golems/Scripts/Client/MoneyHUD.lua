@@ -348,10 +348,10 @@ local function onMoney()
 	setW(lockW)
 	if target > from then
 		popup(target - from)
-		moneyScale.Scale = 1
-		local up = TweenService:Create(moneyScale, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Scale = 1.08 })
-		up:Play()
-		up.Completed:Connect(function() tw(moneyScale, 0.22, { Scale = 1 }, Enum.EasingStyle.Back) end)
+		-- 04.11.2026 (телефони): без «пульсу» розміру суми — кожен кадр анімації давав новий розмір шрифту, атлас шрифтів
+		--   переповнювався й цифри суми зникали / мерехтіли; замість пульсу — короткий спалах кольору
+		moneyLabel.TextColor3 = C("d9ffb8")
+		tw(moneyLabel, 0.35, { TextColor3 = C("7dff3a") })
 	end
 	local t0 = os.clock()
 	while my == animId do

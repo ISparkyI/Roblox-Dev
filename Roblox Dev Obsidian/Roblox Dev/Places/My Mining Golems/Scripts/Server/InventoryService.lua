@@ -24,6 +24,7 @@
 --   "Hotbar", { ключі }       — новий список хотбара;
 --   "Pin",    { key, on }      — кнопка Hotbar / Unpin: закріплений слот лишається після Put Away (InvPinned);
 --   "Clear",  { ключі }       — кнопка «в інвентар»: ці предмети зникають з хотбара й руки;
+--   Case_<кейс> — кількість кейсів (секція, поле cases); відкриває CaseService (Remotes/CaseAction).
 --   "Use",    "Pot_<зілля>"   — випити зілля: −1, атрибут Boost_<зілля> = кінець дії (ItemConfig.boostLeft);
 --   "Sort",   ключ (Shared/GolemSort.LIST) — сортування големів (атрибут InvSort, спільний для інвентаря й вікна плоту; зберігається в секції, поле sort);
 --   "Hold",   ключ або ""     — взяти в руку (створює слот) / прибрати з рук (слот зникає). Модель у руці й табличку над
@@ -74,6 +75,8 @@ local function exists(p: Player, key: string): boolean
 		local id = tonumber(string.sub(key, 7))
 		-- голем на плоті (PlotPlaced) — не в інвентарі (v24): його не можна взяти в руку / в хотбар / заблокувати / видалити
 		if table.find(decode(p, "PlotPlaced", {}), id) then return false end
+		-- голем, виставлений на продаж на маркеті (MktLots, MarketLotService) — теж «не в інвентарі» (03.11.2026)
+		for _, l in decode(p, "MktLots", {}) do if type(l) == "table" and l.id == id then return false end end
 		for _, g in golems(p) do if g.id == id then return true end end
 	end
 	return false
@@ -215,7 +218,9 @@ local function sectionOf(p: Player, old: any): any
 		local left = Items.boostLeft(p, d.key)
 		if left > 1 then boosts[d.key] = math.floor(left) end
 	end
-	return { golems = golems(p), locks = locks(p), hotbar = hotbar(p), pinned = pins(p), potions = pot, boosts = boosts, sort = GolemSort.current(p) }
+	local cases = {} -- кейси (Case_<ключ>, 02.11.2026)
+	for _, d in Items.CASES do cases[d.key] = (p:GetAttribute("Case_" .. d.key) :: number?) or 0 end
+	return { golems = golems(p), locks = locks(p), hotbar = hotbar(p), pinned = pins(p), potions = pot, boosts = boosts, cases = cases, sort = GolemSort.current(p) }
 end
 
 local function onPlayer(p: Player)
@@ -247,6 +252,10 @@ local function onPlayer(p: Player)
 			local left = type(sec.boosts) == "table" and tonumber(sec.boosts[d.key]) or 0
 			if left and left > 0 then p:SetAttribute("Boost_" .. d.key, workspace:GetServerTimeNow() + math.min(left, 7 * 86400)) end
 		end
+		for _, d in Items.CASES do
+			local n = type(sec.cases) == "table" and tonumber(sec.cases[d.key]) or 0
+			p:SetAttribute("Case_" .. d.key, math.max(0, math.floor(n or 0)))
+		end
 	else
 		local gl = {} -- новий гравець починає з порожнім інвентарем (тестові големи й зілля прибрано)
 		encode(p, "InvGolems", gl)
@@ -257,6 +266,7 @@ local function onPlayer(p: Player)
 		for _, d in Items.POTIONS do
 			p:SetAttribute("Pot_" .. d.key, 0)
 		end
+		for _, d in Items.CASES do p:SetAttribute("Case_" .. d.key, 0) end
 	end
 	p:SetAttribute("InvHeld", "")
 	cleanup(p)
@@ -264,7 +274,7 @@ local function onPlayer(p: Player)
 	-- руда / злитки / зілля закінчилися → їхній слот зникає з хотбара
 	p.AttributeChanged:Connect(function(name)
 		-- голем став на плот (PlotPlaced) → прибрати його з хотбара й руки (v24)
-		if name == "PlotPlaced" then task.defer(function() if p.Parent then cleanup(p) end end) end
+		if name == "PlotPlaced" or name == "MktLots" then task.defer(function() if p.Parent then cleanup(p) end end) end
 		if Items.isStack(name) then
 			task.defer(function()
 				if p.Parent and not exists(p, name) then cleanup(p) end

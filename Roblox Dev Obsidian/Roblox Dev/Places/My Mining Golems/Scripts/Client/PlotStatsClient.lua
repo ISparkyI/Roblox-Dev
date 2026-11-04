@@ -62,7 +62,15 @@ local INDEX_TOTAL = 0
 do
 	local n = 0
 	for _, id in Catalog.ORDER do local g = Catalog.get(id); if g and g.rarity ~= "Exclusive" then n += 1 end end
-	INDEX_TOTAL = n * 3 * #Catalog.MUTATIONS + #(Catalog.EXCLUSIVES or {}) * 3 + #PlotCfg.ORES
+	INDEX_TOTAL = n * 3 * #Catalog.MUTATIONS + #(Catalog.EXCLUSIVES or {}) * 3 + #(PlotCfg.INDEX_ORES or PlotCfg.ORES) -- руда мап 1–6 (03.11.2026)
+	-- + оброблена руда (вкладка Crafted): усе, що плавиться
+	local okF, Forge = pcall(require, Shared:WaitForChild("ForgeConfig"))
+	if okF then
+		for _, o in PlotCfg.INDEX_ORES or PlotCfg.ORES do
+			local f = Forge.oreDef(o.key)
+			if f and Forge.canSmelt(f) then INDEX_TOTAL += 1 end
+		end
+	end
 end
 -- найкращий голем власника: вища рідкість (ексклюзиви — найнижче, їхня сила залежить від інших) → мутація → сила;
 -- големи — атрибути InvGolems і PlotPlaced (JSON-списки { kind, cls, mut })
@@ -236,14 +244,17 @@ local function refresh()
 	local f = workspace:FindFirstChild("Niches")
 	if not f then return end
 	local camPos = camera.CFrame.Position
+	local built = false -- не більше одного нового табла за прохід (03.11.2026: без фризу після телепорту)
 	for _, n in f:GetChildren() do
 		local m = n:FindFirstChild("PlotStats")
 		local screen = m and m:FindFirstChild("Screen")
 		if screen then
 			local B = boards[m]
 			local dist = (screen.Position - camPos).Magnitude
-			if B and (dist > DROP_AT or not screen:IsDescendantOf(workspace)) then B.gui:Destroy(); boards[m] = nil; B = nil end
-			if not B and dist < BUILD_AT then
+			local near = n:GetAttribute("LODNear") ~= false -- NicheLOD (03.11.2026): далека ніша — табло не будується
+			if B and (not near or dist > DROP_AT or not screen:IsDescendantOf(workspace)) then B.gui:Destroy(); boards[m] = nil; B = nil end
+			if not B and near and dist < BUILD_AT and not built then
+				built = true
 				local ok, res = pcall(build, n, screen)
 				if ok then boards[m] = res else warn("PlotStatsClient: ", res) end
 			end

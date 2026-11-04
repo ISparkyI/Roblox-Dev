@@ -96,7 +96,7 @@ function RollUpgradeService.Start()
 		if what == "Luck" then
 			local lvl = p:GetAttribute("RollLuckLvl") or 1
 			local price = RollConfig.luckPrice(lvl)
-			if money < price then return end
+			if not price or money < price then return end -- nil — максимум (RollConfig.LUCK_MAX_LEVEL; зараз без обмеження)
 			p:SetAttribute("Money", money - price)
 			p:SetAttribute("RollLuckLvl", lvl + 1)
 			p:SetAttribute("RollLuck", RollConfig.luckPercent(lvl + 1))

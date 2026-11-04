@@ -49,8 +49,25 @@ Config.POTIONS = {
 	{ key = "Strength", name = "Strength Potion", icon = "rbxassetid://82686194310657", tone = Color3.fromHex("ff5c6e"), dur = 300, desc = "+50% damage to ore · 5 min" },
 }
 
+-- кейси (02.11.2026): Case_<ключ> — кількість (атрибут гравця, стак). Лежать у вкладці Items інвентаря (перед зіллями; з 03.11.2026), ставляться в хотбар;
+-- клік по слоту хотбара / кнопка Open — відкрити (Remotes/CaseAction, сервер CaseService, анімація CaseOpenClient).
+-- 3D-іконка — Prefabs/IconModels/ExclusiveCase (ItemViewport). Видає адмін-панель (Give → Case).
+-- 03.11.2026: кейси за класом (магазин SHOP → CASES, адмінка): cls — голем завжди цього класу; Exclusive (без cls) — клас випадковий.
+Config.CASES = {
+	{ key = "Exclusive", name = "Exclusive Case", tone = Color3.fromHex("ff5c7a"), desc = "5 exclusive golems · open to get one" },
+	{ key = "Miner", cls = "miner", name = "Miner Case", tone = Color3.fromHex("ff9a4a"), desc = "5 exclusive miners · open to get one" },
+	{ key = "Carrier", cls = "carrier", name = "Carrier Case", tone = Color3.fromHex("5cc8ff"), desc = "5 exclusive carriers · open to get one" },
+	{ key = "Warrior", cls = "warrior", name = "Warrior Case", tone = Color3.fromHex("ff5c6e"), desc = "5 exclusive warriors · open to get one" },
+}
+function Config.case(key: string): any
+	for _, d in Config.CASES do if d.key == key then return d end end
+	return nil
+end
+
 Config.ORE_TONE = { Coal = Color3.fromHex("6d737c"), Copper = Color3.fromHex("e0743c"), Iron = Color3.fromHex("d9b08a"),
 	Tin = Color3.fromHex("a9bccb"), Silver = Color3.fromHex("dfe6ee"), Gold = Color3.fromHex("ffc928") }
+-- мапи 3–7 (03.11.2026): тон — колір руди з ForgeConfig (color)
+for _, o in Forge.ALL_ORES do if not Config.ORE_TONE[o.key] then Config.ORE_TONE[o.key] = o.color end end
 Config.HOTBAR = 9
 Config.MAX_GOLEMS = 300
 -- ліміт гравця: MAX_GOLEMS + атрибут ExtraSlots (продукт Extra Storage, +50 за покупку, багаторазовий)
@@ -87,11 +104,12 @@ function Config.stackKeys(): { string }
 	for _, o in Forge.ALL_ORES do table.insert(t, "Ore_" .. o.key) end -- руда всіх мап (29.10.2026)
 	for _, o in Forge.ALL_ORES do if Forge.canSmelt(o) then table.insert(t, "Bars_" .. o.key) end end
 	for _, p in Config.POTIONS do table.insert(t, "Pot_" .. p.key) end
+	for _, c in Config.CASES do table.insert(t, "Case_" .. c.key) end
 	return t
 end
 
 function Config.isStack(key: string): boolean
-	return string.sub(key, 1, 4) == "Ore_" or string.sub(key, 1, 5) == "Bars_" or string.sub(key, 1, 4) == "Pot_"
+	return string.sub(key, 1, 4) == "Ore_" or string.sub(key, 1, 5) == "Bars_" or string.sub(key, 1, 4) == "Pot_" or string.sub(key, 1, 5) == "Case_"
 end
 
 -- кількість големів В ІНВЕНТАРІ — без тих, що працюють на плотах (PlotPlaced). Нею рахуються ліміт MAX_GOLEMS (купівля на

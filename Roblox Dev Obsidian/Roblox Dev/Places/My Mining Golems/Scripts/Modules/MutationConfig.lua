@@ -5,8 +5,10 @@
 --   (атрибут гравця MutMachines, сервер — ServerScriptService/MutationService, вигляд — StarterPlayerScripts/MutationMachineClient).
 -- «Однакові» = та сама назва (kind), той самий клас (cls) і та сама мутація (mut). Secret (7) — найвища, далі не мутує.
 -- Час — від мутації, ДО якої йде покращення (GDD): Normal → Bronze 15 хв … Rainbow → Secret 120 год.
--- Таймер іде й офлайн (від часу старту). Прискорення Fast Mutations (MutSpeedTier, MonetizationConfig.MUT_SPEED_TIERS):
---   час ділиться на множник; купівля під час мутації прискорює решту часу.
+-- Таймер іде й офлайн (від часу старту). Прискорення Fast Mutations (MutSpeedTier, MonetizationConfig.MUT_SPEED_TIERS)
+--   прискорює ПЛИН часу машини: за 1 реальну секунду проходить mult секунд мутації. Таймер показує час машини
+--   (machineLeft) і рахує вниз у mult разів швидше, а не скорочується стрибком. Купівля під час мутації: пройдене
+--   фіксується (done), далі час тече з новим множником.
 
 local M = {}
 
@@ -35,6 +37,13 @@ function M.left(job: any, now: number): number
 	local mult = math.max(1, tonumber(job.mult) or 1)
 	local base = (tonumber(job.done) or 0) + math.max(0, now - (tonumber(job.t0) or now)) * mult
 	return math.max(0, ((tonumber(job.dur) or 0) - base) / mult)
+end
+-- залишок у ЧАСІ МАШИНИ (те, що показує таймер): 15:00 при x2 тікає по 2 с за секунду
+function M.machineLeft(job: any, now: number): number
+	if type(job) ~= "table" then return math.huge end
+	local mult = math.max(1, tonumber(job.mult) or 1)
+	local base = (tonumber(job.done) or 0) + math.max(0, now - (tonumber(job.t0) or now)) * mult
+	return math.max(0, (tonumber(job.dur) or 0) - base)
 end
 function M.progress(job: any, now: number): number
 	if type(job) ~= "table" then return 0 end

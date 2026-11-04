@@ -1,7 +1,7 @@
 ---
 tags: [gdd, place, economy]
 status: draft
-updated: 2026-10-29
+updated: 2026-11-04
 ---
 
 # GDD - Economy
@@ -67,8 +67,13 @@ updated: 2026-10-29
 ## Ребітхи
 Ціна n-го = 20,000 × 3^(n−1): **20K · 60K · 180K · 540K · 1.62M** (мапа 1, ліміт 5) · 4.86M · 14.6M · 43.7M (мапа 2) … Множник ×2^n. Крок ×3 більший за множник ×2 — кожен наступний ребітх довший, без «сніжної кулі». Гроші при переході на мапу згорають, тож вигідно зробити ребітх перед переходом.
 
+## Мапи 2+ (03–04.11.2026)
+- **Множник цін мапи** `MultiConfig.PRICE_MULTS = { 0.7, 11800, 4.9e6, 2.5e9, 8.3e11, 1.77e14, 5.3e16 }` (симуляція з ребітхами; цілі: мапа 1 ≈ 30 хв, далі 1 / 2 / 4 / 8 / 16 год). Ним множаться картки плоту, підставки ролу, покращення Workshop, Auto Sell, Auto Workshop, ребітхи.
+- **Знижка перших рівнів** (04.11.2026, мапи 2+; мапа 1 без змін) — `MultiConfig.earlyDiscount(level, stage)`: рівень 1 → ×0.4, 2 → ×0.5, 3 → ×0.6, 4 → ×0.7, 5 → ×0.8, далі ×0.9. Діє на картки плоту, підставки ролу й покращення Workshop (не на ребітхи, Roll Luck, Auto Sell / Auto Workshop). Навіщо: на новій мапі все скидається, і перша покупка за повним множником займала 1–2 хв. Мапа 3: перший Plots $122M → $49M, перший Ore Spawn $147M → $59M, останній Ore Spawn $59B → $53B.
+- **Пробудження Workshop** (04.11.2026, `ForgeConfig.WAKE_FIXED`): мапа 1 — $1K, мапа 2 — $15M, мапа 3 — $5B (+ руда мапи 20/10/5, далі 30/15/8). Мапи 4–7 — та сама пропорція, що мапа 3 (`WAKE_MONEY_BASE` = 5e9 / множник мапи 3): ≈ $2.6T / $850T / $180Q / $54Qn. Було 50,000 × множник ($590M на мапі 2, ~$245B на мапі 3 — ×500 від першого покращення).
+
 ## Відкрите питання
-- **Мапа 2 з правилом ×2 — ≈ 15 хв навіть з нуля** (ціна руди ×20 → дохід ×30). Для 30–40 хв потрібен множник карток ×10–15 (симуляція: ×10 → 32 хв, ×15 → 42 хв). Рішення — за користувачем; зараз у коді ×2.
+- ~~**Мапа 2 з правилом ×2 — ≈ 15 хв навіть з нуля** (ціна руди ×20 → дохід ×30). Для 30–40 хв потрібен множник карток ×10–15 (симуляція: ×10 → 32 хв, ×15 → 42 хв). Рішення — за користувачем; зараз у коді ×2.~~ Закрито 03.11.2026: множники мап — таблиця `PRICE_MULTS` (див. вище).
 
 ## Де в коді
-`Shared/PlotConfig` (CARDS, SPAWN_LEVELS, CRATE_LEVELS, rollDrop), `Shared/ForgeConfig` (CAP_LEVELS, CAP/SPD/OPH_PRICES, capMax, TEST_START), `Shared/RollConfig` (luckPrice, STAND_PRICES), `Shared/MultiConfig` (REBIRTH_BASE 20000, REBIRTH_GROWTH 3), `ForgeService` (Cap max), `ForgeClient` / `WorkshopClient` (MAX на картці Capacity). Бекап — `ServerStorage/NicheBackup/Economy2_pre`.
+`Shared/PlotConfig` (CARDS, SPAWN_LEVELS, CRATE_LEVELS, rollDrop), `Shared/ForgeConfig` (CAP_LEVELS, CAP/SPD/OPH_PRICES, capMax, TEST_START), `Shared/RollConfig` (luckPrice, STAND_PRICES), `Shared/MultiConfig` (REBIRTH_BASE 20000, REBIRTH_GROWTH 3), `ForgeService` (Cap max), `ForgeClient` / `WorkshopClient` (MAX на картці Capacity). Бекап — `ServerStorage/NicheBackup/Economy2_pre`. Знижка перших рівнів — `MultiConfig.earlyDiscount` (бекап `EarlyDiscount_pre`), пробудження — `ForgeConfig.WAKE_FIXED` (бекап `Map3Live_pre`).

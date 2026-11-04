@@ -17,16 +17,39 @@ local Config = {}
 Config.FRIEND_BONUS = 0.25 -- +25% за кожного друга на сервері
 Config.VIP_MULT = 1.5
 Config.REBIRTH_ENABLED = true -- множник ребітхів 2^Rebirths (вікно REBIRTH, RebirthService)
--- ребітхи: ціна n-го = REBIRTH_BASE × REBIRTH_GROWTH^(n−1); ліміт: мапа 1 — 5, кожна наступна +3
--- економіка v2 (29.10.2026, рішення користувача: перший 20K): 20K, 60K, 180K, 540K, 1.62M | 4.86M … (×3). Крок ×3 > множника ×2,
--- тож кожен наступний ребітх довший (без сніжної кулі). Симуляція: на мапі 1 — 1–2 ребітхи (~15 і ~23 хв). Було 100K × 5^(n−1).
-Config.REBIRTH_BASE = 20000
+-- ребітхи: ліміт — мапа 1: 5, кожна наступна +3. Для переходу на наступну мапу треба зробити ВСІ ребітхи мапи (03.11.2026, MapService).
+-- Ціна (03.11.2026, симуляція з ребітхами): j-й ребітх мапи s = REBIRTH_BASE × priceMult(s) × REBIRTH_GROWTH^(j−1), округлено до
+-- цілого числа в одиницях K / M / B … (Config.round): мапа 1: 3K, 9K, 26K, 78K, 240K; мапа 2: 49M, 150M, 440M …
+-- Крок ×3 > множника ×2. Було 20K × 3^(n−1) для всіх мап.
+Config.REBIRTH_BASE = 4150 -- × priceMult мапи (мапа 1: 4150 × 0,7 ≈ 2.9K)
 Config.REBIRTH_GROWTH = 3
 Config.REBIRTH_LIMIT = 5
 Config.REBIRTH_PER_STAGE = 3
 
 -- множник етапу: 1 → x1, 2 → x1.5, 3 → x2, 4 → x3, 5 → x4, 6 → x6, 7 → x9, 8 → x12 (далі додаємо з новими етапами)
 Config.STAGE_MULTS = { 1, 1.5, 2, 3, 4, 6, 9, 12 }
+
+-- множник ЦІН на мапі: картки плотів, підставки ролу, покращення й пробудження Workshop, Auto Sell, Auto Workshop, ребітхи
+-- = ціна «мапи 1» × PRICE_MULTS[мапа]. 03.11.2026 v2 — симуляція З РЕБІТХАМИ (×2 доходу кожен, усі ребітхи мапи обов'язкові
+-- для переходу) і Roll Luck з коліном. Ціль: мапа 1 ≈ 30 хв, далі 1 год / 2 / 4 / 8 / 16 год (медіана симуляції: 29 / 57 / 115 /
+-- 243 / 482 / 984 хв; Roll Luck ×1,0567 → ~2000 % на кінець мапи 6). Було { 0.7, 230, 15500, 720000, 43e6, 3.4e9 } — без
+-- урахування ребітхів. Мапа 7 — оцінка (×300 до мапи 6).
+Config.PRICE_MULTS = { 0.7, 11800, 4.9e6, 2.5e9, 8.3e11, 1.77e14, 5.3e16 }
+-- знижка перших рівнів на мапах 2+ (04.11.2026, рішення користувача): на новій мапі все скидається, і перші покупки за повним
+--   множником мапи були задовгими (1–2 хв на перше покращення). Множник ціни за рівнем l (l = поточний рівень / кількість):
+--   1 → ×0.4, 2 → ×0.5, 3 → ×0.6, 4 → ×0.7, 5 → ×0.8, 6+ → ×0.9. Мапа 1 — без знижки. Діє на картки плотів, підставки ролу,
+--   покращення Workshop (PlotConfig.cardPrice, RollConfig.standPrice, ForgeConfig.cap/spd/ophPrice). Ребітхи, Auto Sell, Auto Workshop — без неї.
+Config.EARLY_DISCOUNT = { 0.4, 0.5, 0.6, 0.7, 0.8 }
+Config.EARLY_DISCOUNT_REST = 0.9
+function Config.earlyDiscount(level: number?, stage: number?): number
+	if math.floor(tonumber(stage) or 1) <= 1 then return 1 end
+	local l = math.max(1, math.floor(tonumber(level) or 1))
+	return Config.EARLY_DISCOUNT[l] or Config.EARLY_DISCOUNT_REST
+end
+function Config.priceMult(stage: number?): number
+	local s = math.max(1, math.floor(tonumber(stage) or 1))
+	return Config.PRICE_MULTS[math.min(s, #Config.PRICE_MULTS)]
+end
 
 -- ступені x2 Money за Robux: { mult = множник, price = ціна в R$ }. Номер ступеня = номер рядка (атрибут гравця DonateTier = скільки куплено).
 -- Ціни — за таблицею в GDD 15.2 (задає ЛИШЕ користувач; самим не міняти).
@@ -88,8 +111,34 @@ function Config.rebirthMult(rebirths: number): number
 end
 
 -- ціна n-го ребітху (n = 1, 2, 3 …)
+-- округлення цін до ЦІЛОГО числа в одиницях показу (K / M / B / T …): 2905 → 3K, 48,9M → 49M, 7,29T → 7T (без «2.9K»)
+function Config.round(x: number): number
+	if x < 1000 then return math.max(1, math.floor(x + 0.5)) end
+	local u = 1000 ^ math.floor(math.log10(x) / 3 + 1e-9)
+	return math.floor(x / u + 0.5) * u
+end
+local nice = Config.round
+-- 2 значущі цифри (Auto Sell, Auto Workshop, пробудження Workshop): 1,475B → 1.5B
+function Config.round2(x: number): number
+	if x < 100 then return math.floor(x + 0.5) end
+	local p = 10 ^ (math.floor(math.log10(x)) - 1)
+	return math.floor(x / p + 0.5) * p
+end
+-- ціни ребітхів мап 1–6 — від користувача (03.11.2026); далі (мапа 7+) — формула нижче
+Config.REBIRTH_PRICES = {
+	5e3, 10e3, 25e3, 100e3, 250e3, -- мапа 1
+	50e6, 150e6, 450e6,             -- мапа 2
+	20e9, 60e9, 200e9,              -- мапа 3
+	10e12, 25e12, 100e12,           -- мапа 4
+	3e15, 10e15, 25e15,             -- мапа 5
+	750e15, 2e18, 10e18,            -- мапа 6
+}
 function Config.rebirthPrice(n: number): number
-	return Config.REBIRTH_BASE * Config.REBIRTH_GROWTH ^ (math.max(1, math.floor(n)) - 1)
+	n = math.max(1, math.floor(n))
+	if Config.REBIRTH_PRICES[n] then return Config.REBIRTH_PRICES[n] end
+	local s = Config.rebirthStageFor(n)
+	local first = s == 1 and 1 or (Config.REBIRTH_LIMIT + Config.REBIRTH_PER_STAGE * (s - 2) + 1) -- перший ребітх цієї мапи
+	return nice(Config.REBIRTH_BASE * Config.priceMult(s) * Config.REBIRTH_GROWTH ^ (n - first))
 end
 -- скільки ребітхів дозволено на мапі stage
 function Config.rebirthLimit(stage: number): number

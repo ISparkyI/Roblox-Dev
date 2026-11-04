@@ -21,6 +21,8 @@
 -- Лідерборди (HubConfig.BOARDS): раз на LB_PERIOD с — значення онлайн-гравців → OrderedDataStore "LB_<key>",
 --   топ LB_TOP → атрибут Data (JSON [{u, n, v}]) і UpdatedAt на Workspace/Cave/Hub/Leaderboards/<key>;
 --   #1 — статуя (аватар гравця) на StatuePad над таблом. У Studio без доступу до API — сховище в пам'яті.
+-- Маркет (HubConfig.isMarket, 03.11.2026): замість BOARDS — HubConfig.MARKET_BOARDS (Marketplace/Floor/<model>), без бонусів за місце.
+--   Stat_MarketBought / Stat_MarketSold — големи, куплені / продані на маркеті (StatsService.Add — коли буде торгівля).
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
@@ -35,7 +37,7 @@ local DataService = require(script.Parent:WaitForChild("DataService"))
 
 local StatsService = {}
 local STATS = { "Stat_TotalMoney", "Stat_Rolls", "Stat_Playtime", "Stat_RobuxSpent", "Stat_BestIncome", "Stat_BestRoll", "Stat_RobuxGifted", "Stat_BossKills",
-	"Stat_OresMined", "Stat_Mutations", "Stat_BestStreak" }
+	"Stat_OresMined", "Stat_Mutations", "Stat_BestStreak", "Stat_MarketBought", "Stat_MarketSold" }
 
 local function num(p: Player, a: string): number return tonumber(p:GetAttribute(a)) or 0 end
 function StatsService.Add(p: Player, key: string, n: number)
@@ -224,7 +226,23 @@ local function applyPerks(ranks: { [string]: { [number]: number } })
 	end
 end
 
+local function publishMarket()
+	local fl = workspace:FindFirstChild("Marketplace") and workspace.Marketplace:FindFirstChild("Floor")
+	for _, b in HubCfg.MARKET_BOARDS or {} do
+		write(b)
+		local list = read(b)
+		for _, e in list do e.n = nameOf(e.u) end
+		local m = fl and fl:FindFirstChild(b.model)
+		if m then
+			m:SetAttribute("Data", HttpService:JSONEncode(list))
+			m:SetAttribute("UpdatedAt", workspace:GetServerTimeNow())
+			m:SetAttribute("NextAt", workspace:GetServerTimeNow() + HubCfg.LB_PERIOD)
+		end
+	end
+end
+
 local function publish()
+	if HubCfg.isMarket() then publishMarket(); return end
 	local hub = workspace:FindFirstChild("Cave") and workspace.Cave:FindFirstChild("Hub")
 	local folder = hub and hub:FindFirstChild("Leaderboards")
 	local ranks = {}
@@ -248,9 +266,13 @@ function StatsService.Start()
 	Players.PlayerAdded:Connect(function(p) task.spawn(onPlayer, p) end)
 	for _, p in Players:GetPlayers() do task.spawn(onPlayer, p) end
 	Players.PlayerRemoving:Connect(function(p) tracked[p] = nil end)
-	local niches = workspace:WaitForChild("Niches")
-	for _, n in niches:GetChildren() do hookNiche(n) end
-	niches.ChildAdded:Connect(hookNiche)
+	-- роли з ніш: на сервері Marketplace ніш немає (HubConfig.isMarket) — не чекаємо, інакше NicheBoot завис би тут
+	task.spawn(function()
+		local niches = workspace:WaitForChild("Niches", 30)
+		if not niches then return end
+		for _, n in niches:GetChildren() do hookNiche(n) end
+		niches.ChildAdded:Connect(hookNiche)
+	end)
 	-- геймпаси за Robux → Stat_RobuxSpent (ціна з конфіга)
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(p, passId, purchased)
 		if not purchased then return end

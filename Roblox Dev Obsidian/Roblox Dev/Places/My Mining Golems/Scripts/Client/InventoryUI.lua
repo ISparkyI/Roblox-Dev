@@ -162,9 +162,7 @@ local function windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),
@@ -362,7 +360,8 @@ local function makeSlot(parent, x, y, S, mini)
 			-- з номером хотбара (синій значок справа) назва звужується до S − 44 і зменшується, щоб не залазити під значок
 			local narrow = opt.hotIndex ~= nil
 			name.Size = UDim2.fromOffset(narrow and S - 44 or S - 10, name.Size.Y.Offset)
-			name.TextScaled = narrow
+			-- 04.11.2026: завжди TextScaled (до ts через nameMax) — довгі назви («Mushroom Golem») на телефоні вилазили за картку
+			name.TextScaled = true
 			nameMax.MaxTextSize = ts
 			name.TextSize = ts
 		end
@@ -478,8 +477,13 @@ local function rebuild()
 	for _, o in Forge.ALL_ORES do
 		if not shown(o, "Bars_") then continue end
 		if not Forge.canSmelt(o) and num("Bars_" .. o.key) <= 0 then continue end -- злитків вугілля не буває
-		add({ key = "Bars_" .. o.key, tab = "ores", name = o.key .. " Bar", sub = "Bar · " .. NF.money(o.price * Forge.BAR_MULT) .. " each",
+		local cut = Forge.productOf(o.key) == "Cut" -- мапи 3+: огранований кристал замість злитка (03.11.2026)
+		add({ key = "Bars_" .. o.key, tab = "ores", name = Forge.productName(o.key), sub = (cut and "Gem · " or "Bar · ") .. NF.money(o.price * Forge.BAR_MULT) .. " each",
 			n = num("Bars_" .. o.key), icon = ICON_BAR[o.key] or "", tone = Items.ORE_TONE[o.key] or WHITE })
+	end
+	-- кейси (02.11.2026; з 03.11.2026 — у вкладці Items, перед зіллями), 3D-іконка; клік у хотбарі / Open — відкрити (CaseOpenClient)
+	for _, d in Items.CASES or {} do
+		add({ key = "Case_" .. d.key, tab = "potions", case = true, name = d.name, sub = d.desc, n = num("Case_" .. d.key), icon = "", tone = d.tone })
 	end
 	for _, d in Items.POTIONS do
 		add({ key = "Pot_" .. d.key, tab = "potions", name = d.name, sub = d.desc, n = num("Pot_" .. d.key), icon = d.icon, tone = d.tone })
@@ -489,6 +493,7 @@ local function rebuild()
 	golemTotal = 0
 	local placedSet = {}
 	for _, id in decodeAttr("PlotPlaced", {}) do placedSet[id] = true end
+	for _, l in decodeAttr("MktLots", {}) do if type(l) == "table" and l.id then placedSet[l.id] = true end end -- лоти маркету (03.11.2026)
 	for gi, g in decodeAttr("InvGolems", {}) do
 		local def = Catalog.get(g.kind)
 		if def and type(g.id) == "number" then golemTotal += 1 end
@@ -583,6 +588,8 @@ local function fillTip(it): boolean
 			mutLine = #lines + 1
 			table.insert(lines, { mu.key .. " [x" .. trim2(mu.power or 1) .. "]", "X", 17 })
 		end
+		local bt = Catalog.bestText and Catalog.bestText(it.kind, it.cls) -- ексклюзив: «65% BEST» над рідкістю
+		if bt then table.insert(lines, { '<font color="#ffd23a">' .. bt .. "</font>", "X", 15 }) end
 		table.insert(lines, { '<font color="#' .. hex(Catalog.rarityColor(it.rar)) .. '">' .. it.rar .. "</font>"
 			.. '<font color="#c9ced4"> · ' .. (CLASS_NAME[it.cls] or "Miner") .. "</font>", "X", 15 })
 		local sp = "x" .. trim2(math.floor(st.speed * 100 + 0.5) / 100)
@@ -696,6 +703,14 @@ toggleHeld = function(i: number)
 		UISounds.play("claim", 0.1)
 		return
 	end
+	-- кейс у руку не береться: клік / цифра — відкрити один (CaseService; анімація — CaseOpenClient)
+	if string.sub(key, 1, 5) == "Case_" then
+		if player:GetAttribute("CaseOpening") == true then hot[i].shake(); return end
+		local ca = RS.Remotes:FindFirstChild("CaseAction")
+		if ca then ca:FireServer("Open", key) end
+		UISounds.play("tap", 0.1)
+		return
+	end
 	if heldKey == key then -- прибрав з рук → слот зникає (сервер теж прибирає), решта зсуваються; закріплений (Hotbar) — лишається
 		if not pinSet[key] then table.remove(hotbar, i) end
 		sendHold("")
@@ -786,13 +801,18 @@ local function visibleItems()
 	local t = {}
 	for _, it in tabItems(tab) do if not tableFind(hotbar, it.key) then table.insert(t, it) end end
 	if tab ~= "golems" then return t end
-	local f = {}
-	for _, it in t do if filt == "all" or it.cls == filt then table.insert(f, it) end end
-	return GolemSort.sort(f, GolemSort.current(player)) -- вибране сортування (Best на All — за класом, далі сила)
+	local f, cases = {}, {}
+	for _, it in t do
+		if it.case then if filt == "all" then table.insert(cases, it) end -- кейси — на початку, без сортування
+		elseif filt == "all" or it.cls == filt then table.insert(f, it) end
+	end
+	f = GolemSort.sort(f, GolemSort.current(player)) -- вибране сортування (Best на All — за класом, далі сила)
+	for i = #cases, 1, -1 do table.insert(f, 1, cases[i]) end
+	return f
 end
 
 -- ===== вкладки =====
-local TABS = { { "golems", "Golems", Items.ICONS.tab_golems }, { "ores", "Ores / Bars", Items.ICONS.tab_orebars }, { "potions", "Potions", Items.ICONS.tab_potions } }
+local TABS = { { "golems", "Golems", Items.ICONS.tab_golems }, { "ores", "Ores / Bars", Items.ICONS.tab_orebars }, { "potions", "Items", Items.ICONS.tab_potions } } -- вкладка Items (03.11.2026): кейси + зілля
 local tabBtns = {}
 local setTab, setMode -- нижче
 local function tabY(i: number) return 66 + (i - 1) * (TH + 14) end
@@ -870,7 +890,7 @@ local function refreshFilt()
 		local on = k == filt
 		f.b:recolor(on and "green" or "gray")
 		local n = 0
-		for _, it in g do if k == "all" or it.cls == k then n += 1 end end
+		for _, it in g do if it.golem and (k == "all" or it.cls == k) then n += 1 end end
 		f.pt.Text = tostring(n)
 		f.pt.TextColor3 = on and C("c8ff6a") or WHITE
 	end
@@ -1208,16 +1228,16 @@ local function renderGrid()
 	end
 	for i = count + 1, #gslots do gslots[i].holder.Visible = false end
 	setG(gscroll)
-	hdr.Text = tab == "golems" and "Golems" or tab == "ores" and "Ores / Bars" or "Potions"
+	hdr.Text = tab == "golems" and "Golems" or tab == "ores" and "Ores / Bars" or "Items"
 	local n = 0
 	for _, it in list do n += it.n end
 	-- на вкладці Golems місткість — у підписі вкладки, праворуч — кнопка сортування
 	cap.Text = tab == "golems" and "" or tab == "ores" and (#list .. " kinds · " .. NF.full(n) .. " items") or (#list .. " kinds")
 	for k, t in tabBtns do
 		local l = tabItems(k)
-		local c = 0
-		for _, it in l do c += it.n end
-		t.c.Text = k == "golems" and (#l .. " / " .. Items.maxGolems(player) .. " golems") or (NF.full(c) .. " items") -- лише інвентар (без големів на плотах), як ліміт на сервері
+		local c, gc = 0, 0
+		for _, it in l do c += it.n; if it.golem then gc += 1 end end
+		t.c.Text = k == "golems" and (gc .. " / " .. Items.maxGolems(player) .. " golems") or (NF.full(c) .. " items") -- лише інвентар (без големів на плотах), як ліміт на сервері
 	end
 	refreshFilt()
 	-- кнопки режиму
@@ -1281,8 +1301,10 @@ local function renderInfo()
 	local hi = tableFind(hotbar, it.key)
 	local inHand = heldKey == it.key
 	-- зілля: лише Use (п'ють одразу, кнопки Hotbar немає)
-	showBtn(bPin, it.tab ~= "potions")
-	if it.tab == "potions" then
+	showBtn(bPin, it.tab ~= "potions" or it.case == true) -- кейс можна закріпити в хотбарі
+	if it.case then
+		bHold:setText("Open"); bHold:recolor("green")
+	elseif it.tab == "potions" then
 		bHold:setText("Use"); bHold:recolor("green")
 	else
 		bHold:setText(inHand and "Put Away" or "Hold"); bHold:recolor(inHand and "red" or "green")
@@ -1322,9 +1344,16 @@ end
 bHold.onClick = function()
 	local it = selKey and live(selKey)
 	if not it then return end
-	if it.tab == "potions" then -- зілля: кнопка Use — випити одне
+	if it.tab == "potions" and not it.case then -- зілля: кнопка Use — випити одне
 		Action:FireServer("Use", it.key)
 		UISounds.play("claim", 0.1)
+		return
+	end
+	if it.case then -- кейс: Open — вікно закривається, кейс падає перед гравцем (CaseOpenClient)
+		if player:GetAttribute("CaseOpening") == true then StyleA.shake(bHold); return end
+		local ca = RS.Remotes:FindFirstChild("CaseAction")
+		if ca then ca:FireServer("Open", it.key) end
+		require(RS.Shared:WaitForChild("WindowManager")).opened("CaseOpen") -- вікно інвентаря закривається (одне вікно на екрані)
 		return
 	end
 	if heldKey == it.key then -- Put Away: прибрати з рук — слот зникає (крім закріплених кнопкою Hotbar)
@@ -1558,6 +1587,7 @@ local function escKey(_, state)
 end
 open = function()
 	if isOpen then return end
+	if require(RS:WaitForChild("Shared"):WaitForChild("HubConfig")).isMarket() then return end -- 04.11.2026: на маркеті інвентаря немає (кнопка, B, ~)
 	isOpen = true
 	require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("WindowManager")).opened("Inventory") -- одне вікно на екрані: інші закриваються
 	animToken += 1
@@ -1637,6 +1667,7 @@ local KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyC
 	Enum.KeyCode.Eight, Enum.KeyCode.Nine }
 UIS.InputBegan:Connect(function(inp, gp)
 	if gp then return end
+	if require(RS:WaitForChild("Shared"):WaitForChild("HubConfig")).isMarket() then return end -- маркет: без хотбара (1–9) і B
 	local i = tableFind(KEYS, inp.KeyCode)
 	if i then toggleHeld(i) return end
 	if inp.KeyCode == Enum.KeyCode.B then if isOpen then close() else open() end end
@@ -1745,7 +1776,7 @@ task.spawn(function() -- окрема функція: у головній уже
 			local d = drag
 			if not (d and not d.thumb and d.slot and isOpen and not mode) then return end
 			local it = d.slot.item
-			if not (it and it.key and it.tab ~= "potions") or inside(content, p) then return end
+			if not (it and it.key and (it.tab ~= "potions" or it.case)) or inside(content, p) then return end
 			-- вийшли за вікно: це вже не гортання, а перенесення предмета
 			setG(d.s); drag = nil; dragEndAt = os.clock()
 			local h = d.slot.holder
@@ -1793,7 +1824,7 @@ local function schedule()
 	task.defer(function() pending = false; refreshAll() end)
 end
 player.AttributeChanged:Connect(function(name)
-	if string.sub(name, 1, 4) == "Ore_" or string.sub(name, 1, 5) == "Bars_" or string.sub(name, 1, 4) == "Pot_" or string.sub(name, 1, 3) == "Inv" or name == "PlotPlaced" then schedule() end
+	if string.sub(name, 1, 4) == "Ore_" or string.sub(name, 1, 5) == "Bars_" or string.sub(name, 1, 4) == "Pot_" or string.sub(name, 1, 5) == "Case_" or string.sub(name, 1, 3) == "Inv" or name == "PlotPlaced" or name == "MktLots" then schedule() end
 end)
 refreshAll()
 fit()

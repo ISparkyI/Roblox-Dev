@@ -51,6 +51,10 @@ local ICONS = {
 	bar_Iron = StyleA.ASSETS.forge_bar_iron_v2,
 }
 local TONE = { Coal = "6d737c", Copper = "e0743c", Iron = "d9b08a", Tin = "a9bccb", Silver = "dfe6ee", Gold = "ffc928" }
+-- мапи 3–7 (03.11.2026): тон — колір руди з ForgeConfig
+for _, o in require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("ForgeConfig")).ALL_ORES do
+	if not TONE[o.key] then TONE[o.key] = o.color:ToHex() end
+end
 
 -- ===== константи макета (одиниці дизайну) =====
 -- рамка 1206 × 650 — ті самі пропорції, що в Inventory (980 × 528): на екрані вікна 1 в 1 (Shared/WindowFit.match)
@@ -168,9 +172,7 @@ local function windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),
@@ -806,7 +808,8 @@ openMini = function(s)
 	MK.arrowFill.Visible = side
 	MK.icon.Image = it.icon
 	ItemVP.set(MK.icon, it.key, 0.95) -- поруч із заголовком: у межах іконки
-	MK.title.Text = it.kind == "bar" and (it.name .. " Bars") or it.name
+	local FCfg = require(game:GetService("ReplicatedStorage").Shared.ForgeConfig)
+	MK.title.Text = it.kind == "bar" and (FCfg.productOf(it.name) == "Cut" and ("Cut " .. it.name) or (it.name .. " Bars")) or it.name
 	MK.sync()
 	MK.dim.Visible = true
 	MK.root.Visible = true

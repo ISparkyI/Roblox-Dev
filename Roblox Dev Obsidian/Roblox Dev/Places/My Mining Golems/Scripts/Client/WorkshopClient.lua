@@ -183,16 +183,7 @@ local function card(parent, x, y, key, title, titleSize)
 	local c = frame(holder, o.X, o.Y, CW, CH, WHITE); vgrad(c, th.grad); stroke(c, INK, 6)
 	-- studs на картці (ледь помітні)
 	-- шар studs — звичайний Frame (CanvasGroup у таблах на слабкій графіці не малювався); прозорість 0.68 — кожній пупочці
-	local sg = new("Frame", { Name = "Studs", Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(CW - 20, CH - 20), BackgroundTransparency = 1, ClipsDescendants = true }, c)
-	task.defer(function() for _, d in sg:GetChildren() do if d:IsA("GuiObject") then d.BackgroundTransparency = 0.68 end end end)
-	local cell = 46
-	for cx = 0, math.ceil((CW - 20) / cell) - 1 do
-		for cy = 0, math.ceil((CH - 20) / cell) - 1 do
-			local s = cell * 0.6; local o = (cell - s) / 2
-			local a = frame(sg, cx * cell + o - 2, cy * cell + o + 2, s, s, C(th.studShade)); corner(a, 5)
-			local b = frame(sg, cx * cell + o, cy * cell + o, s, s, C(th.stud)); corner(b, 5)
-		end
-	end
+	local sg = StyleA.studTile(c, 10, 10, CW - 20, CH - 20, 46, C(th.stud), { ImageTransparency = 0.68 }, true) -- 03.11.2026: студи картки — одна картинка-плитка (було ~320 Frame + UICorner)
 	-- косі світлі смуги: над шаром studs, під блиском / іконкою / текстом
 	bands(c, CW, CH)
 	-- блиск: прямокутна смужка на всю ширину всередині обідка (12 від краю), зверху, біла з вертикальним градієнтом прозорості
@@ -226,11 +217,7 @@ local function buildPanel(f: Model, screen: BasePart, ownerId: number)
 	local root = frame(g, 0, 0, PW, PH, C("8e939a"), { ClipsDescendants = true, Active = true })
 	-- сіра підкладка зі studs на весь екран (картки прокручуються, тому studs і під ними)
 	local PC = 56
-	for cx = 0, math.ceil(PW / PC) - 1 do
-		for cy = 0, math.ceil(PH / PC) - 1 do
-			stud(root, cx * PC, cy * PC, PC, C("979ca3"), C("6c7178"), C("aeb3b9"))
-		end
-	end
+	StyleA.studTile(root, 0, 0, PW, PH, PC, C("979ca3")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(root, 0, 0, PW, PH, WHITE, { ZIndex = 2, Active = false })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.new(0, 0, 0)),
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.72), NumberSequenceKeypoint.new(0.08, 1), NumberSequenceKeypoint.new(0.9, 1), NumberSequenceKeypoint.new(1, 0.8) }) }, shade)
@@ -1129,15 +1116,24 @@ RunService.RenderStepped:Connect(function(dt)
 		jobUpdate(r, dt, clock)
 		-- «Z» над головою
 		if r.zzz then
-			r.zzz.Enabled = st == "Asleep"
-			if st == "Asleep" then
+			-- 04.11.2026 (телефони): «Z» не змінюють розмір (раніше Size щокадру → новий розмір шрифту щокадру → переповнення
+			--   атласу шрифтів, на телефоні зникали/мерехтіли літери в усьому UI); у далекій ніші (NicheLOD) — вимкнено
+			if r.zNiche == nil then
+				local x: Instance? = r.zzz
+				while x and x.Parent and x.Parent.Name ~= "Niches" do x = x.Parent end
+				r.zNiche = x or false
+			end
+			local zOn = st == "Asleep" and not (r.zNiche and r.zNiche:GetAttribute("LODNear") == false)
+			if r.zzz.Enabled ~= zOn then r.zzz.Enabled = zOn end
+			if zOn then
 				for i = 1, 3 do
 					local z = r.zzz:FindFirstChild("Z" .. i)
 					local a = (clock * 0.45 + i / 3) % 1
 					z.Position = UDim2.fromScale(0.05 + a * 0.45, 0.8 - a * 0.75)
 					z.TextTransparency = a < 0.15 and 1 - a / 0.15 or a
-					z.Size = UDim2.fromScale(0.2 + a * 0.15, 0.14 + a * 0.1)
+					if not r.zSized then z.Size = UDim2.fromScale(0.28, 0.2) end
 				end
+				r.zSized = true
 			end
 		end
 	end
@@ -1225,9 +1221,10 @@ local function refreshPanels()
 					pn.can.Auto = false
 				else
 					au.value.Text = '<font color="#FFFFFF">Off</font>  <font color="#D4FF3E">›  On</font>'
-					au.sa:setText(NF.money(Cfg.AUTO_PRICE))
-					au.sa:setColor(money >= Cfg.AUTO_PRICE and "green" or "gray")
-					pn.can.Auto = working and money >= Cfg.AUTO_PRICE
+					local ap = Cfg.autoPrice(stage) -- × множник цін мапи (03.11.2026)
+					au.sa:setText(NF.money(ap))
+					au.sa:setColor(money >= ap and "green" or "gray")
+					pn.can.Auto = working and money >= ap
 				end
 			end
 			pn.lock.Visible = not working

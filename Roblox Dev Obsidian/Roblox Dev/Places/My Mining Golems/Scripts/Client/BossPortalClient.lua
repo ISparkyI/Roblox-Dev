@@ -4,7 +4,8 @@
 -- Без анімацій відкриття/закриття (рішення користувача): спіраль крутиться, світло «дихає», промені з порталу
 -- центр — червоно-біле світіння; коли бос з'явився (Workspace.BossAt … BossOpenUntil,
 -- BossPortalService) — усе яскравіше й швидше. Табличка BOSS FIGHT: таймер до боса / BOSS IS HERE!, COMING SOON.
--- Коло перед аркою — тост «Boss Arena — coming soon» (арени ще немає). Кнопка Boss у HUD (UIEvents/HUDButton "Boss") —
+-- Коло перед аркою (03.11.2026) — відлік «TELEPORTING TO BOSS ARENA IN» 3 → 1 (UIEvents/Countdown, як Marketplace), потім
+--   Remotes/BossPortalAction "Arena" — арена Workspace/«Boss Map» на цьому ж сервері. Вийшов з кола — відлік скасовується. Кнопка Boss у HUD (UIEvents/HUDButton "Boss") —
 -- телепорт до входу (Remotes/BossPortalAction "TP").
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -178,24 +179,55 @@ RunService.RenderStepped:Connect(function()
 	titleLbl.Rotation = soon and math.sin(t * 30) * 2 or 0
 end)
 
--- коло: арени ще немає
+-- коло: відлік і телепорт на арену боса
 local uiEvents = RS:WaitForChild("UIEvents", 30)
-local toast = uiEvents and uiEvents:WaitForChild("Toast", 30)
-local inside = false
+local TITLE = "TELEPORTING TO BOSS ARENA IN"
+local COUNT, TITLE_SEC = 3, 1.2
+local function banner(text: string, sound: string?)
+	local b = uiEvents and uiEvents:FindFirstChild("Countdown")
+	if b then b:Fire(TITLE, text, "red", sound) end
+end
+local function hideBanner()
+	local b = uiEvents and uiEvents:FindFirstChild("CountdownHide")
+	if b then b:Fire() end
+end
+local state, t0, shown = "idle", 0, -1
 task.spawn(function()
 	while true do
-		task.wait(0.2)
+		task.wait(0.1)
 		local char = player.Character
 		local hrp = char and char:FindFirstChild("HumanoidRootPart")
-		local now = false
-		if hrp then
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local inside = false
+		if hrp and hum and hum.Health > 0 and player:GetAttribute("InBossArena") ~= true then
 			local d = (hrp.Position - ringCenter.Position) * Vector3.new(1, 0, 1)
-			now = d.Magnitude < 13.8 and math.abs(hrp.Position.Y - ringCenter.Position.Y) < 8
+			inside = d.Magnitude < 13.8 and math.abs(hrp.Position.Y - ringCenter.Position.Y) < 8
 		end
-		if now and not inside and toast then
-			toast:Fire("BOSS ARENA — COMING SOON!", Color3.fromHex("ff5a4a"))
+		if state == "idle" then
+			if inside then state = "counting"; t0 = os.clock(); shown = -1 end
+		elseif state == "counting" then
+			if not inside then state = "idle"; hideBanner()
+			else
+				local el = os.clock() - t0
+				if el < TITLE_SEC then
+					if shown ~= 0 then shown = 0; banner("", "claim") end
+				else
+					local left = COUNT - (el - TITLE_SEC)
+					if left <= 0 then
+						state = "done"
+						local rem = RS:FindFirstChild("Remotes")
+						local ev = rem and rem:FindFirstChild("BossPortalAction")
+						if ev then ev:FireServer("Arena") end
+						task.delay(0.6, hideBanner)
+					elseif math.ceil(left) ~= shown then
+						shown = math.ceil(left)
+						banner(tostring(shown), "tap")
+					end
+				end
+			end
+		elseif state == "done" then
+			if not inside then state = "idle" end
 		end
-		inside = now
 	end
 end)
 

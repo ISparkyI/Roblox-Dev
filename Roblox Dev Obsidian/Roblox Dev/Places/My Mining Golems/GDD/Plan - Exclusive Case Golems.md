@@ -1,12 +1,15 @@
 ---
 tags: [gdd, plan, golems, exclusive]
-status: draft
-updated: 2026-11-02
+status: done
+updated: 2026-11-04
 ---
 
 # План — Ексклюзивний кейс (5 големів)
 
-← [[Golems]] · [[Golem Stats - Miner]]
+> [!success] Стан (04.11.2026)
+> Големи Exclusive Case у грі (Coral, Jade, Storm, Phantom, Chrono), кейс з іконкою — нагорода спеціального квесту. Див. [[Exclusive Case]], [[Golems]].
+
+← [[Plans]] · [[Golems]] · [[Golem Stats - Miner]]
 
 Кейс у магазині, з якого випадає один із п'яти ексклюзивних големів. Кожен голем сильніший за попереднього і детальніший.
 
@@ -89,6 +92,13 @@ updated: 2026-11-02
   - хода «пливе», у спокої голем повільно розчиняється й з'являється.
 
 ### 5. Chrono Golem — 200 %, рівень Celestial / Divine — ✅ зроблено 02.11.2026 ([[Chrono Golem]], x −1088; замість римських цифр — німб із 6 поділок; світло часу синьо-фіолетове `#6656ff`; «тіні часу» — `echo` в аніматорі v3.7)
+
+### Магазин кейсів (03.11.2026)
+- **Шанси змінено:** Coral 63 % · Jade 20 % · Storm 10 % · Phantom 5 % · Chrono 2 % (`GolemCatalog.caseChance`).
+- **SHOP → CASES** (між GAMEPASSES і LUCKY ROLLS, `ShopWindow`): довга картка — 3D-кейс зліва, 5 клітинок з 3D-големами (назва над клітинкою, «N% BEST» у ній, шанс під нею), перемикач класу MINER / CARRIER / WARRIOR унизу ліворуч (міняє моделі големів і колір картки).
+- **Товари (Developer Products):** Exclusive Case x1 — 249 R$ (`3727960215`), x5 — 999 R$ (`3727960291`), `MonetizationConfig.Products.CaseX1 / CaseX5`.
+- **Клас:** 3 види кейсів — `Case_Miner` / `Case_Carrier` / `Case_Warrior` (`ItemConfig.CASES[].cls`); куплений кейс завжди дає вибраний клас. Перед оплатою клас іде на сервер (`ShopAction "CaseClass"` → атрибут `CaseBuyCls`). Адмін-панель видає будь-який з кейсів (список з `Items.CASES`). Старий `Case_Exclusive` — випадковий клас.
+- **Після покупки** кейс одразу в руці (`InventoryService.Give`); голем з кейсу одразу в хотбарі (`InventoryService.Pin`).
 
 **Усі 5 големів готові.** ✅ Кейс — предмет інвентаря `Case_Exclusive` (вкладка Golems / хотбар), `CaseService` (рол 88,9 / 8 / 2 / 1 / 0,1 %, клас випадковий), анімація «падіння + рулетка» `CaseOpenClient`, видача в адмін-панелі — див. [[Exclusive Case]] (v2). Далі — товар за Robux (друг) і власні звуки кейсу.
 

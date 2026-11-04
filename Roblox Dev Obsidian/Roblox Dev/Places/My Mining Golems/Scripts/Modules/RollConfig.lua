@@ -32,9 +32,23 @@ local function nice(x: number): number
 	if x >= 1e7 then s = 10 ^ (math.floor(math.log10(x)) - 2) end -- далі — 3 значущі цифри
 	return math.max(s, math.floor(x / s + 0.5) * s)
 end
--- ціна переходу з рівня level на level + 1
-function RollConfig.luckPrice(level: number): number
-	return nice(RollConfig.LUCK_START_PRICE * RollConfig.LUCK_GROWTH ^ (math.max(1, math.floor(level)) - 1))
+-- 03.11.2026 (рішення користувача): Roll Luck БЕЗ обмеження; ціни підібрані так, щоб до кінця мапи 6
+--   гравець мав близько 2000 % (рівень ~400), далі качається й далі.
+--   Рівні 1–35 — ×1,55 за рівень; далі ×LUCK_LATE_GROWTH. 03.11.2026 v2 (симуляція з ребітхами): ×1,0567 —
+--   медіана на кінець мап: 50 % / 140 % / 410 % / 975 % / 1500 % / ~1990 % (рівень ~397). Було ×1,017 → ~6000 % на мапі 6.
+--   З 2000 % Astral (1 до 10 млн) — ≈ 1 до 476,000 за рол (x2 Roll Luck — 1 до 238,000).
+RollConfig.LUCK_MAX_LEVEL = math.huge -- без обмеження (код MAX у RollUpgradeUI / Service лишається на випадок межі)
+RollConfig.LUCK_KNEE = 35      -- до цього рівня — ×1,55, далі — ×LUCK_LATE_GROWTH
+RollConfig.LUCK_LATE_GROWTH = 1.0567
+-- ціна переходу з рівня level на level + 1 (nil лише на LUCK_MAX_LEVEL, зараз недосяжний)
+function RollConfig.luckPrice(level: number): number?
+	local l = math.max(1, math.floor(level))
+	if l >= RollConfig.LUCK_MAX_LEVEL then return nil end
+	if l <= RollConfig.LUCK_KNEE then
+		return nice(RollConfig.LUCK_START_PRICE * RollConfig.LUCK_GROWTH ^ (l - 1))
+	end
+	local knee = RollConfig.LUCK_START_PRICE * RollConfig.LUCK_GROWTH ^ (RollConfig.LUCK_KNEE - 1)
+	return nice(knee * RollConfig.LUCK_LATE_GROWTH ^ (l - RollConfig.LUCK_KNEE))
 end
 
 function RollConfig.stageMult(stage: number): number
@@ -54,8 +68,8 @@ function RollConfig.standPrice(count: number, stage: number): number?
 	if count >= RollConfig.STANDS_BASE then return nil end
 	local base = RollConfig.STAND_PRICES[math.clamp(math.floor(count), 1, #RollConfig.STAND_PRICES)]
 	local MultiCfg = require(script.Parent:WaitForChild("MultiConfig"))
-	local mult = 1 + 2 * (MultiCfg.stageMult(tonumber(stage) or 1) - 1)
-	return math.floor(base * mult)
+	local mult = MultiCfg.priceMult(stage) -- 03.11.2026: MultiConfig.PRICE_MULTS
+	return math.floor(base * mult * MultiCfg.earlyDiscount(count, stage)) -- 04.11.2026: знижка перших рівнів (мапи 2+)
 end
 
 -- усього підставок гравця: куплені за Money (1–5) + геймпаси Pass_RollStand1 / Pass_RollStand2 (+1 кожен)

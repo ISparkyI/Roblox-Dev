@@ -8,20 +8,56 @@ Config.MAX_PLOTS = 6     -- плоти купуються по черзі 1→6 
 Config.MAX_POINTS = 6    -- (28.10.2026, було 10) максимум руди на плоті одночасно (картка Ore Limit, старт 1); місце руди — випадкове
 
 -- руда мапи 1: HP і шанс спавну «1 до N» (шанси працюють як ваги: кожен спавн дає одну з трьох руд)
--- руда кожної мапи (HP — GDD - Ores and Bars: HP = базове × 14^(мапа−1); шанси ті самі 1 до 3 / 9 / 20)
+-- руда кожної мапи; шанси 1 до 3 / 9 / 20. HP (03.11.2026, рішення користувача; було ×14 за мапу — непрохідно):
+--   мапа 1 — 4 / 12 / 24 (1 : 3 : 6); з мапи 2 — 1 : 2 : 3 і ×5 за мапу, тож найслабша руда мапи (S) міцніша
+--   за найсильнішу попередньої (L = ×1,5): 40/80/120 · 200/400/600 · 1,000/2,000/3,000 · 5,000/10,000/15,000 · 25,000/50,000/75,000.
 Config.STAGE_ORES = {
 	[1] = {
-		{ key = "Coal", hp = 5, odds = 3 },
-		{ key = "Copper", hp = 15, odds = 9 },
-		{ key = "Iron", hp = 30, odds = 20 },
+		{ key = "Coal", hp = 4, odds = 3 },
+		{ key = "Copper", hp = 12, odds = 9 },
+		{ key = "Iron", hp = 24, odds = 20 },
 	},
 	[2] = {
-		{ key = "Tin", hp = 70, odds = 3 },
-		{ key = "Silver", hp = 210, odds = 9 },
-		{ key = "Gold", hp = 420, odds = 20 },
+		{ key = "Tin", hp = 40, odds = 3 },
+		{ key = "Silver", hp = 80, odds = 9 },
+		{ key = "Gold", hp = 120, odds = 20 },
+	},
+	[3] = {
+		{ key = "Quartz", hp = 200, odds = 3 },
+		{ key = "Amethyst", hp = 400, odds = 9 },
+		{ key = "Sapphire", hp = 600, odds = 20 },
+	},
+	[4] = {
+		{ key = "Obsidian", hp = 1000, odds = 3 },
+		{ key = "Ruby", hp = 2000, odds = 9 },
+		{ key = "Emberite", hp = 3000, odds = 20 },
+	},
+	[5] = {
+		{ key = "Frostite", hp = 5000, odds = 3 },
+		{ key = "Platinum", hp = 10000, odds = 9 },
+		{ key = "Celestium", hp = 15000, odds = 20 },
+	},
+	[6] = {
+		{ key = "Voidstone", hp = 25000, odds = 3 },
+		{ key = "Starmetal", hp = 50000, odds = 9 },
+		{ key = "Eclipsium", hp = 75000, odds = 20 },
+	},
+	-- мапа 7 — прихована (наступне оновлення), те саме правило ×5
+	[7] = {
+		{ key = "Toxite", hp = 125000, odds = 3 },
+		{ key = "Uranite", hp = 250000, odds = 9 },
+		{ key = "Venomite", hp = 375000, odds = 20 },
 	},
 }
-Config.ORES = Config.STAGE_ORES[1] -- руда мапи 1 (Index поки показує лише її)
+Config.ORES = Config.STAGE_ORES[1] -- руда мапи 1
+-- руда в Index (03.11.2026): мапи 1–6 по порядку (o.stage — мапа); мапа 7 — наступне оновлення, у Index її немає.
+-- Номер у цьому списку = n для нагороди Index (IndexService.oreReward).
+Config.INDEX_STAGES = 6
+Config.INDEX_ORES = {}
+for st = 1, Config.INDEX_STAGES do
+	for _, o in Config.STAGE_ORES[st] or {} do o.stage = st; table.insert(Config.INDEX_ORES, o) end
+end
+for _, o in Config.STAGE_ORES[7] or {} do o.stage = 7 end
 function Config.oresFor(stage: number?): { any }
 	local n = #Config.STAGE_ORES
 	return Config.STAGE_ORES[math.clamp(math.floor(tonumber(stage) or 1), 1, n)]
@@ -70,7 +106,9 @@ function Config.rollDrop(r: Random, size: any, dropLvl: number): number
 end
 function Config.oreChance(key: string): number -- частка у відсотках (для UI / GDD)
 	local total, mine = 0, 0
-	for _, o in Config.ORES do total += 1 / o.odds; if o.key == key then mine = 1 / o.odds end end
+	local list = Config.ORES
+	for _, st in Config.STAGE_ORES do for _, o in st do if o.key == key then list = st end end end -- шанс серед руди своєї мапи
+	for _, o in list do total += 1 / o.odds; if o.key == key then mine = 1 / o.odds end end
 	return mine / total * 100
 end
 
@@ -106,19 +144,19 @@ Config.CARDS = {
 	--   Відкривається на мапі 2, скидається разом з усіма картками на наступній мапі. Геймпас Auto Sell (Pass_AutoSell) — те саме з мапи 1
 	--   і назавжди (картку тоді не купують). Ціна — $250K фіксована (flat: без множника мапи; рішення користувача).
 	--   optional: не рахується в прогрес NEXT MAP (MapService).
-	AutoSell = { name = "Auto Sell", max = 2, minStage = 2, flat = true, optional = true, pass = "AutoSell", price = function(l: number) return 250000 end },
+	AutoSell = { name = "Auto Sell", max = 2, minStage = 2, flat = true, optional = true, pass = "AutoSell", price = function(l: number, stage: number?) return require(script.Parent:WaitForChild("MultiConfig")).round2(125000 * Config.priceMult(stage)) end }, -- 03.11.2026: × множник цін мапи (мапа 2 ≈ $1.5B; було фіксовані $250K)
 }
 -- ціни карток на мапі N (29.10.2026, рішення користувача): приріст множника мапи (MultiConfig.STAGE_MULTS) подвоюється —
 -- ціна × (1 + 2 × (множник мапи − 1)). Мапа 1 ×1 → ×1; мапа 2 ×1,5 → ×2; мапа 3 ×2 → ×3 … Ціни ростуть удвічі швидше за заробіток
 -- (баланс — через големів).
 local MultiCfg = require(script.Parent:WaitForChild("MultiConfig"))
 function Config.priceMult(stage: number?): number
-	return 1 + 2 * (MultiCfg.stageMult(tonumber(stage) or 1) - 1)
+	return MultiCfg.priceMult(stage) -- 03.11.2026: таблиця MultiConfig.PRICE_MULTS (×0,7 / ×230 / ×15,500 …)
 end
 function Config.cardPrice(key: string, l: number, stage: number?): number
 	local c = Config.CARDS[key]
-	if c and c.flat then return math.floor(c.price(l)) end -- фіксована ціна (Auto Sell)
-	return c and math.floor(c.price(l) * Config.priceMult(stage)) or math.huge
+	if c and c.flat then return math.floor(c.price(l, stage)) end -- одна ціна без рівнів (Auto Sell; сама враховує мапу)
+	return c and math.floor(c.price(l) * Config.priceMult(stage) * MultiCfg.earlyDiscount(l, stage)) or math.huge -- 04.11.2026: знижка перших рівнів (мапи 2+)
 end
 Config.CARD_ORDER = { "Plots", "Points", "Spawn", "Slots", "Carry", "Crate", "Drop", "AutoSell" }
 -- чи відкрита картка для гравця на етапі stage

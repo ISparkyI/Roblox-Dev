@@ -3,6 +3,7 @@
 -- Де: ServerScriptService/MapService (ModuleScript). Запуск: NicheBoot (після PlotService / InventoryService).
 -- Кнопка MAP N на табло Cave_Upgrade (клієнт MapBoard) → Remotes/MapAction ("Next") → тут:
 --   умови: своя ніша, біля табла, прокачка плотів 100 % (усі картки, відкриті на цій мапі, на максимумі — атрибут PlotLv),
+--   усі ребітхи мапи зроблені (Rebirths ≥ MultiConfig.rebirthLimit(Stage), 03.11.2026), плати за перехід немає,
 --   є префаб наступної мапи (ForgeConfig.MAX_STAGE).
 --   скидання (GDD): големи інвентаря (крім Exclusive; стенди печери й машини мутацій лишаються) — InventoryService.ResetForNewMap;
 --   Money, RollStands, руда й злитки (Ore_*, Bars_*), секція Forge — DataService.ResetStageScope (+ подія StageReset:
@@ -15,6 +16,7 @@ local HttpService = game:GetService("HttpService")
 
 local PlotCfg = require(RS:WaitForChild("Shared"):WaitForChild("PlotConfig"))
 local Forge = require(RS.Shared:WaitForChild("ForgeConfig"))
+local MultiCfg = require(RS.Shared:WaitForChild("MultiConfig"))
 local DataService = require(script.Parent:WaitForChild("DataService"))
 local NicheService = require(script.Parent:WaitForChild("NicheService"))
 local InventoryService = require(script.Parent:WaitForChild("InventoryService"))
@@ -62,6 +64,8 @@ function MapService.Advance(p: Player, force: boolean?): (boolean, string?)
 	if stage >= Forge.MAX_STAGE then return false, "soon" end
 	if not force then
 		if progress(p) < 1 - 1e-6 then return false, "plots" end
+		-- 03.11.2026: ще й усі ребітхи, доступні на цій мапі (MultiConfig.rebirthLimit)
+		if (tonumber(p:GetAttribute("Rebirths")) or 0) < MultiCfg.rebirthLimit(stage) then return false, "rebirths" end
 		if not nearBoard(p, niche) then return false, "far" end
 	end
 	busy[p] = true

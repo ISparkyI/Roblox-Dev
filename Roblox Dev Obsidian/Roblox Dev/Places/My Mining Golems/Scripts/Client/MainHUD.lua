@@ -162,17 +162,23 @@ do
 		local w = TOP_TS
 		local h = button(topLayer, { x = 0, y = TOP_CY - TOP_TS / 2, w = w, h = TOP_TS, icon = a[1], key = a[2], raw = true,
 			tile = a[3], ts = TOP_TS, ty = 0, iconIn = TOP_TS - 10, iconY = 0.45 })
-		table.insert(leftTop, { holder = h, w = w })
+		table.insert(leftTop, { holder = h, w = w, key = a[2] })
 	end
 	local function layoutTop()
 		local x = GuiService.TopbarInset.Min.X + 16
+		-- 04.11.2026: на маркеті — лише Invite (без Settings і рюкзака-інвентаря)
+		local mkt = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HubConfig")).isMarket()
 		for _, t in leftTop do
+			t.holder.Visible = not (mkt and (t.key == "Settings" or t.key == "Inventory"))
+			if not t.holder.Visible then continue end
 			t.holder.Position = UDim2.fromOffset(x, TOP_CY - TOP_TS / 2)
 			x += t.w + G
 		end
 	end
 	layoutTop()
 	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(layoutTop)
+	game:GetService("ReplicatedStorage"):GetAttributeChangedSignal("MarketMode"):Connect(layoutTop) -- режим маркету приходить із сервера
+	task.delay(3, layoutTop)
 
 	local d = 16
 	for _, a in { { "updates", "Updates", "blue" }, { "codes", "Codes", "yellow" }, { "feedback", "Feedback", "pink" } } do

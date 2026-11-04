@@ -504,7 +504,8 @@ task.spawn(function()
 			end
 		end
 		-- лавки Diamonds / Events у кінці зали — ті самі анімації голема-продавця (вітання, монета при покупці)
-		local shops = workspace:FindFirstChild("Cave") and workspace.Cave:FindFirstChild("Shops")
+		local cave = workspace:FindFirstChild("Cave")
+		local shops = cave and ((cave:FindFirstChild("Hub") and cave.Hub:FindFirstChild("Shops")) or cave:FindFirstChild("Shops")) -- Cave/Hub/Shops (або старий Cave/Shops)
 		if shops then
 			for _, s in shops:GetChildren() do
 				if not recs[s] and s:FindFirstChild("Golem") and s:FindFirstChild("SellOrigin") then

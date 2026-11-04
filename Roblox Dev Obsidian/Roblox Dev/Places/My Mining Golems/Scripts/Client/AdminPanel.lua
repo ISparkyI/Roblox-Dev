@@ -161,9 +161,7 @@ function U.windowFrame(parent, x, y, w, h, z, shadowDy)
 	local CELL = 40
 	local nx, ny = math.floor(pw / CELL), math.floor(ph / CELL)
 	local ox, oy = (pw - nx * CELL) / 2, (ph - ny * CELL) / 2
-	for cx = 0, nx - 1 do
-		for cy = 0, ny - 1 do U.stud(studs, ox + cx * CELL, oy + cy * CELL, CELL, C("b3b8bf"), C("868b92"), C("c8ccd1"), 1) end
-	end
+	StyleA.studTile(studs, ox, oy, nx * CELL, ny * CELL, CELL, C("b3b8bf")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(panel, 0, 0, pw, ph, WHITE, { Name = "Shade", ZIndex = 2 })
 	new("UIGradient", { Rotation = 90,
 		Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, BLACK), ColorSequenceKeypoint.new(0.5, BLACK), ColorSequenceKeypoint.new(0.501, WHITE), ColorSequenceKeypoint.new(1, WHITE) }),
@@ -591,7 +589,7 @@ do
 		U.setGolemIcon(prevIcon, st.kind, st.cls)
 		prevName.Text = U.golemName(st.kind, st.mut)
 		prevName.TextColor3 = mutColor(st.mut)
-		prevRar.Text = string.upper(def and def.rarity or "") .. " · 1 in " .. U.num(def and def.odds or 1)
+		prevRar.Text = string.upper(def and def.rarity or "") .. ((def and def.exclusive) and (" · " .. string.upper(def.howShort and def.howShort.miner or tostring(def.exclusive))) or (" · 1 in " .. U.num(def and def.odds or 1)))
 		prevRar.TextColor3 = Catalog.rarityColor(def and def.rarity)
 		for id, c in cells do
 			c.stroke.Color = id == st.kind and GOLD or INK
@@ -600,7 +598,10 @@ do
 		for i, b in mutBtns do b:setColor(i - 1 == st.mut and "blue" or "gray") end
 		for k, b in clsBtns do b:setColor(k == st.cls and "green" or "gray") end
 	end
-	for i, id in Catalog.ORDER do
+	-- звичайні големи (ORDER), потім усі ексклюзиви (EXCLUSIVES: Mushroom, големи Exclusive Case; 02.11.2026)
+	local pickIds = table.clone(Catalog.ORDER)
+	for _, id in Catalog.EXCLUSIVES or {} do if Catalog.GOLEMS[id] and not table.find(pickIds, id) then table.insert(pickIds, id) end end
+	for i, id in pickIds do
 		local def = Catalog.GOLEMS[id]
 		local rc = Catalog.rarityColor(def.rarity)
 		local cell = new("ImageButton", { Name = id, BackgroundColor3 = WHITE, AutoButtonColor = false, LayoutOrder = i, ZIndex = 53 }, grid)
@@ -1085,6 +1086,23 @@ do
 				if result(invoke("Give", { u = info.u, what = "Golem", amount = cnt.get(), item = golemItem(golemSel) })) then openPlayer(info.u, true) end
 			end)
 			ry += 84
+
+			-- кейси (02.11.2026): предмет Case_<ключ> у вкладці Golems інвентаря; відкривається з хотбара (CaseService)
+			U.section(resF, 0, ry, "GIVE CASE"); ry += 30
+			for _, cd in Items.CASES or {} do
+				local cbg = U.slotBg(resF, 0, ry, 300, 64, 4)
+				local cic = new("ImageLabel", { Name = "Icon", BackgroundTransparency = 1, Position = UDim2.fromOffset(6, 2), Size = UDim2.fromOffset(60, 60),
+					ScaleType = Enum.ScaleType.Fit, Image = "", ZIndex = 5 }, cbg)
+				pcall(ItemViewport.set, cic, "Case_" .. cd.key, 1.1)
+				label(cbg, 72, 4, 220, 32, 18, cd.name, cd.tone or WHITE, 2, { TextXAlignment = LEFT, ZIndex = 6 })
+				label(cbg, 72, 34, 220, 24, 13, "has: " .. tostring(info.cases and info.cases[cd.key] or "?"), MUTED, 1.4, { TextXAlignment = LEFT, ZIndex = 6 })
+				local ccnt = U.stepper(resF, 310, ry + 9, 176, 46, 1, 1, 1000)
+				button(resF, 496, ry + 7, CW - 496, 50, "GIVE", "green", function()
+					if result(invoke("Give", { u = info.u, what = "Case", amount = ccnt.get(), item = cd.key })) then openPlayer(info.u, true) end
+				end)
+				ry += 74
+			end
+			ry += 10
 
 			U.section(resF, 0, ry, "POTIONS"); ry += 30
 			local pitems = {}

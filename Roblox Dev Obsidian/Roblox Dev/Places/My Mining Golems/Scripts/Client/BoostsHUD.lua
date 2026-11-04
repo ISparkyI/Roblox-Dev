@@ -14,7 +14,7 @@ local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWei
 local SIZE = 62
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "BoostsHUD"; gui.ResetOnSpawn = false; gui.IgnoreGuiInset = true; gui.DisplayOrder = 4
+gui.Name = "BoostsHUD"; gui.ResetOnSpawn = false; gui.IgnoreGuiInset = false; gui.DisplayOrder = 4 -- координати як у MainHUD (TopRow)
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 local root = Instance.new("Frame")
 root.Name = "Root"; root.BackgroundTransparency = 1; root.AnchorPoint = Vector2.new(0.5, 0)
@@ -27,12 +27,44 @@ list.Padding = UDim.new(0, 12); list.SortOrder = Enum.SortOrder.LayoutOrder
 list.Parent = root
 gui.Parent = player:WaitForChild("PlayerGui")
 
+-- 04.11.2026: значки стоять ПОСЕРЕДИНІ між лівою і правою групою верхніх кнопок MainHUD (TopRow), а не просто по центру
+--   екрана (на телефоні центр припадав на третю ліву кнопку); розмір кружка = висота кнопки; не ширші за проміжок між групами.
+local function topGap(): (number?, number?, number?, number?)
+	local hud = player.PlayerGui:FindFirstChild("MainHUD")
+	local row = hud and hud:FindFirstChild("TopRow", true)
+	local cam = workspace.CurrentCamera
+	if not (row and cam) then return nil end
+	local mid = cam.ViewportSize.X / 2
+	local lEdge, rEdge, top, h = -math.huge, math.huge, nil, nil
+	for _, c in row:GetChildren() do
+		if c:IsA("GuiObject") and c.Visible and c.AbsoluteSize.X > 4 then
+			local x0, x1 = c.AbsolutePosition.X, c.AbsolutePosition.X + c.AbsoluteSize.X
+			if (x0 + x1) / 2 < mid then lEdge = math.max(lEdge, x1) else rEdge = math.min(rEdge, x0) end
+			top = c.AbsolutePosition.Y; h = c.AbsoluteSize.Y
+		end
+	end
+	if lEdge == -math.huge or rEdge == math.huge or not top then return nil end
+	return lEdge, rEdge, top, h
+end
 local function fit()
 	local cam = workspace.CurrentCamera
 	local y = cam and cam.ViewportSize.Y or 1015
-	scale.Scale = math.clamp(y / 1015, 0.55, 1.3)
+	local l, r, top, h = topGap()
+	if l and r and top and h then
+		local n = math.max(1, #root:GetChildren() - 2) -- значків (без UIListLayout і UIScale)
+		local k = h / SIZE
+		local need = (n * (SIZE + 10) + (n - 1) * 12) * k
+		local gap = (r - l) - 2 * 10
+		if need > gap and need > 0 then k *= gap / need end
+		scale.Scale = math.max(0.3, k)
+		root.Position = UDim2.fromOffset((l + r) / 2, top)
+	else
+		scale.Scale = math.clamp(y / 1015, 0.55, 1.3)
+		root.Position = UDim2.new(0.5, 0, 0, 12)
+	end
 end
 fit()
+task.spawn(function() while true do task.wait(1); pcall(fit) end end) -- MainHUD будується й масштабується окремо
 workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
 	fit()
 	if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit) end
@@ -118,7 +150,7 @@ local function update()
 		local left = Items.boostLeft(player, d.key)
 		local b = badges[d.key]
 		if left > 0 then
-			if not b then b = makeBadge(i, d); badges[d.key] = b end
+			if not b then b = makeBadge(i, d); badges[d.key] = b; fit() end
 			b.timer.Text = fmt(left)
 			b.timer.TextColor3 = left <= 10 and Color3.fromHex("ff8a8a") or Color3.new(1, 1, 1)
 		elseif b then

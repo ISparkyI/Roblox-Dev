@@ -20,6 +20,7 @@ local TweenService = game:GetService("TweenService")
 local RS = game:GetService("ReplicatedStorage")
 local StyleA = require(RS:WaitForChild("Shared"):WaitForChild("StyleA"))
 local UISounds = require(RS:WaitForChild("Shared"):WaitForChild("UISounds"))
+local KeyHint = require(RS:WaitForChild("Shared"):WaitForChild("KeyHint"))
 -- Звуки: tap — натискання (E, мишка, дотик; у підказок з утриманням — на початку утримання), lever — важіль ролу
 --   (RollPrompt, лише в того, хто тягне). StyleA.bind кнопки підказки — tap = false, щоб не було подвійного звуку.
 local player = Players.LocalPlayer
@@ -150,6 +151,7 @@ local function build(prompt: ProximityPrompt, conns: { any })
 	key.BorderSizePixel = 0; key.FontFace = HEAVY; key.TextScaled = true; key.Text = prompt.KeyboardKeyCode.Name; key.TextColor3 = Color3.new(1, 1, 1); key.ZIndex = 8
 	local ks = Instance.new("UIStroke"); ks.Color = INK; ks.Thickness = 2.5; ks.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ks.Parent = key
 	key.Parent = btn.root
+	KeyHint.bind(key) -- 04.11.2026: бейдж клавіші лише з клавіатурою й мишкою (телефон / геймпад — без нього)
 	if prompt.HoldDuration > 0 then
 		-- тримати мишкою / пальцем: натиснув — InputHoldBegin, відпустив або звів курсор — InputHoldEnd
 		holdFx(prompt, btn, conns)

@@ -273,6 +273,7 @@ local function infoLocal(p: Player): any
 		suspect = a("SuspectDupe") == true,
 		passes = passList(a),
 		tiers = { MoneyTier = a("DonateTier") or 0, MutTier = a("MutSpeedTier") or 0, LuckRoll10 = a("LuckRoll10") or 0, LuckRoll99 = a("LuckRoll99") or 0 },
+		cases = (function() local t = {} for _, d in Items.CASES do t[d.key] = a("Case_" .. d.key) or 0 end return t end)(),
 		golems = packGolems(decodeAttr(p, "InvGolems", {}), decodeAttr(p, "PlotPlaced", {}), decodeAttr(p, "CaveStandGolems", {}), decodeAttr(p, "InvLocks", {})),
 	}
 end
@@ -299,6 +300,7 @@ local function infoOffline(userId: number): any
 		luck = at.RollLuckLvl or 1, rebirths = at.Rebirths or 0,
 		passes = passList(function(k) return at[k] end),
 		tiers = { MoneyTier = at.DonateTier or 0, MutTier = at.MutSpeedTier or 0, LuckRoll10 = at.LuckRoll10 or 0, LuckRoll99 = at.LuckRoll99 or 0 },
+		cases = (type(sec.Inventory) == "table" and type(sec.Inventory.cases) == "table") and sec.Inventory.cases or {},
 		golems = packGolems(inv, placed, cave, locks),
 	}
 end
@@ -331,6 +333,7 @@ local function validGrant(g: any): (boolean, string?)
 	if g.what ~= "RemoveGolem" and (not n or n ~= n or math.abs(n) > MAX_AMOUNT or n == 0) then return false, "amount" end
 	if RESOURCES[g.what] then return true end
 	if g.what == "Potion" then return potionKey(g.item) ~= nil and n > 0, "potion" end
+	if g.what == "Case" then return Items.case(tostring(g.item or "")) ~= nil and n > 0 and n <= 1000, "case" end -- кейси (02.11.2026)
 	if g.what == "Golem" then
 		return parseGolem(g.item) ~= nil and n > 0 and n <= MAX_GOLEMS_GRANT, "golem"
 	end
@@ -362,6 +365,9 @@ local function grantText(g: any): string
 		return (n > 0 and "+" or "Removed: ") .. nm
 	elseif g.what == "Potion" then
 		return "+" .. f(n) .. " " .. (potionKey(g.item) or "") .. " Potion"
+	elseif g.what == "Case" then
+		local d = Items.case(tostring(g.item or ""))
+		return "+" .. f(n) .. " " .. ((d and d.name) or "Case")
 	elseif g.what == "LuckLvl" then
 		return (n >= 0 and "+" or "") .. f(n) .. " Roll Luck"
 	elseif g.what == "MoneyTier" then
@@ -388,6 +394,9 @@ local function applyGrant(p: Player, g: any, tx: string, silent: boolean?): (boo
 		local new = math.max(attr == "RollLuckLvl" and 1 or 0, math.floor((g.mode == "set" and 0 or cur) + n))
 		p:SetAttribute(attr, new)
 		if attr == "RollLuckLvl" then p:SetAttribute("RollLuck", RollConfig.luckPercent(new)) end -- % удачі рахує RollUpgradeService лише при покупці
+	elseif g.what == "Case" then
+		local key = "Case_" .. Items.case(tostring(g.item)).key
+		p:SetAttribute(key, math.max(0, ((tonumber(p:GetAttribute(key)) or 0) :: number) + math.floor(n)))
 	elseif g.what == "Potion" then
 		local key = "Pot_" .. (potionKey(g.item) :: string)
 		p:SetAttribute(key, math.max(0, ((p:GetAttribute(key) :: number?) or 0) + math.floor(n)))

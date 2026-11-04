@@ -114,9 +114,7 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		ResetOnSpawn = false, ClipsDescendants = true, MaxDistance = DROP_AT + 100 }, playerGui)
 	local root = frame(g, 0, 0, PW, PH, C("8e939a"), { ClipsDescendants = true, Active = true })
 	local PC = 56
-	for cx = 0, math.ceil(PW / PC) - 1 do
-		for cy = 0, math.ceil(PH / PC) - 1 do stud(root, cx * PC, cy * PC, PC, C("979ca3"), C("6c7178"), C("aeb3b9")) end
-	end
+	StyleA.studTile(root, 0, 0, PW, PH, PC, C("979ca3")) -- 03.11.2026: одна картинка-плитка замість сотень Frame-студів (StyleA.studTile)
 	local shade = frame(root, 0, 0, PW, PH, WHITE, { ZIndex = 2, Active = false })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(BLACK),
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.72), NumberSequenceKeypoint.new(0.08, 1), NumberSequenceKeypoint.new(0.9, 1), NumberSequenceKeypoint.new(1, 0.8) }) }, shade)
@@ -138,16 +136,26 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 	frame(fill, 0, 8, W, 16, WHITE, { BackgroundTransparency = 0.65, ZIndex = 5 })
 	local title = gradText(label(root, X0, BY, W, BH, 100, "NEXT MAP [0%]", WHITE, 9, { ZIndex = 7 }), "f4ffb0", "7ef05a")
 
-	-- ліворуч: множник грошей мапи
+	-- ліворуч під банером (03.11.2026): мала шкала ребітхів мапи — для переходу треба всі (MultiConfig.rebirthLimit), рожева як вікно REBIRTH
 	local LW = 880
-	gradText(label(root, X0, 290, LW, 90, 78, "Money Multiplier", WHITE, 7, { TextXAlignment = Enum.TextXAlignment.Left }), "f4ffb0", "9be83a")
-	-- текст у Roblox — не більше 100 px (навіть TextScaled), тому великий множник — напис 100 у рамці з UIScale 2,1
-	local MK = 2.1
-	local mbox = frame(root, X0, 365, LW / MK, 220 / MK, nil, { BackgroundTransparency = 1, ZIndex = 6 })
+	local RBY, RBH = 286, 64
+	frame(root, X0, RBY + 8, LW, RBH, BLACK, { BackgroundTransparency = 0.6, ZIndex = 3 })
+	local rbar = frame(root, X0, RBY, LW, RBH, C("2a2e35"), { ZIndex = 4, ClipsDescendants = true })
+	stroke(rbar, INK, 6)
+	local rclip = frame(rbar, 0, 0, 0, RBH, nil, { BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 5 })
+	local rfill = frame(rclip, 0, 0, LW, RBH, WHITE, { ZIndex = 5 })
+	new("UIGradient", { Rotation = 90, Color = cseq({ { 0, "ff9fd0" }, { 0.55, "ff4fa8" }, { 1, "d42a85" } }) }, rfill)
+	frame(rfill, 0, 5, LW, 8, WHITE, { BackgroundTransparency = 0.65, ZIndex = 5 })
+	local rbText = label(rbar, 0, 0, LW, RBH, 46, "REBIRTHS 0 / 5", WHITE, 6, { ZIndex = 7 })
+	-- множник грошей мапи (зсунуто нижче під шкалу ребітхів)
+	gradText(label(root, X0, 372, LW, 76, 66, "Money Multiplier", WHITE, 7, { TextXAlignment = Enum.TextXAlignment.Left }), "f4ffb0", "9be83a")
+	-- текст у Roblox — не більше 100 px (навіть TextScaled), тому великий множник — напис 100 у рамці з UIScale
+	local MK = 1.9
+	local mbox = frame(root, X0, 440, LW / MK, 200 / MK, nil, { BackgroundTransparency = 1, ZIndex = 6 })
 	new("UIScale", { Scale = MK }, mbox)
-	local mult = gradText(label(mbox, 0, 0, LW / MK, 220 / MK, 100, "x1 → x2", WHITE, 6, { TextXAlignment = Enum.TextXAlignment.Left }), "f4ffb0", "7ef05a")
-	local mapName = label(root, X0, 610, LW, 70, 56, "", WHITE, 6, { TextXAlignment = Enum.TextXAlignment.Left })
-	local reqText = label(root, X0, 680, LW, 60, 44, "Max ALL plot upgrades to unlock", C("e9edf1"), 5, { TextXAlignment = Enum.TextXAlignment.Left })
+	local mult = gradText(label(mbox, 0, 0, LW / MK, 200 / MK, 100, "x1 → x2", WHITE, 6, { TextXAlignment = Enum.TextXAlignment.Left }), "f4ffb0", "7ef05a")
+	local mapName = label(root, X0, 650, LW, 64, 52, "", WHITE, 6, { TextXAlignment = Enum.TextXAlignment.Left })
+	local reqText = label(root, X0, 714, LW, 56, 40, "Max ALL plot upgrades & rebirths to unlock", C("e9edf1"), 5, { TextXAlignment = Enum.TextXAlignment.Left })
 
 	-- праворуч: що втрачаємо (GDD - Maps)
 	local RX = X0 + LW + 60
@@ -194,7 +202,7 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		return depth > -4 and depth <= ZONE_DEPTH and math.abs(rel.X) <= ZONE_HALF and math.abs(rel.Y) <= ZONE_UP
 	end
 	if mine then
-		StyleA.bind(sa, { hoverAlways = true, canClick = function() return pn.pct >= 1 and near() end, onClick = function()
+		StyleA.bind(sa, { hoverAlways = true, canClick = function() return pn.pct >= 1 and pn.rebOk == true and near() end, onClick = function()
 			-- перехід на наступну мапу (сервер MapService перевіряє умови й скидає дані за GDD)
 			local r = RS:FindFirstChild("Remotes")
 			local ev = r and r:FindFirstChild("MapAction")
@@ -202,7 +210,8 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		end })
 		sa.button.Activated:Connect(function()
 			if not near() then screenToast("Come a bit closer to the board!", "red", "deny")
-			elseif pn.pct < 1 then screenToast("Max all plot upgrades first!", "red", "deny") end
+			elseif pn.pct < 1 then screenToast("Max all plot upgrades first!", "red", "deny")
+			elseif not pn.rebOk then screenToast("Do all rebirths of this map first!", "red", "deny") end
 		end)
 	else
 		sa.button.Active = false
@@ -221,8 +230,16 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		mapName.Text = "Map " .. nextStage .. " · " .. (MAP_NAMES[nextStage] or "???")
 		upLbl.Text = "Upgrade to Map " .. nextStage
 		sa:setText("MAP " .. nextStage)
-		local ready = pct >= 1
-		reqText.Text = ready and "All plot upgrades maxed!" or "Max ALL plot upgrades to unlock"
+		-- ребітхи цієї мапи: зроблено / ліміт (шкала — лише ребітхи цієї мапи: 0..5 на мапі 1, 5..8 на мапі 2 …)
+		local reb = owner and (tonumber(owner:GetAttribute("Rebirths")) or 0) or 0
+		local lim = MultiCfg.rebirthLimit(stage)
+		local from = stage > 1 and MultiCfg.rebirthLimit(stage - 1) or 0
+		local rp = math.clamp((reb - from) / math.max(1, lim - from), 0, 1)
+		rclip.Size = UDim2.fromOffset(LW * rp, RBH)
+		pn.rebOk = reb >= lim
+		rbText.Text = (pn.rebOk and "✓ " or "") .. "REBIRTHS " .. math.min(reb, lim) .. " / " .. lim
+		local ready = pct >= 1 and pn.rebOk
+		reqText.Text = ready and "All upgrades & rebirths done!" or (pct >= 1 and "Do ALL rebirths of this map to unlock" or "Max ALL plot upgrades & rebirths to unlock")
 		reqText.TextColor3 = ready and LIME or C("e9edf1")
 		local close = mine and near()
 		local col = (mine and ready and close) and "green" or "gray"
@@ -249,6 +266,7 @@ task.spawn(function()
 			b:Fire("Welcome to Map " .. tostring(arg) .. " · " .. (MAP_NAMES[tonumber(arg) or 0] or "") .. "!", "green", "purchase")
 		elseif kind == "Deny" then
 			local t = arg == "soon" and "Next map is coming soon!" or arg == "plots" and "Max all plot upgrades first!"
+				or arg == "rebirths" and "Do all rebirths of this map first!"
 				or arg == "far" and "Come a bit closer to the board!" or "Can't move to the next map right now"
 			b:Fire(t, arg == "soon" and "yellow" or "red", "deny")
 		end
@@ -270,8 +288,9 @@ local function refresh()
 		local ownerId = (n:GetAttribute("OwnerUserId") :: number?) or 0
 		local dist = screen and (screen.Position - camPos).Magnitude or math.huge
 		local pn = panels[n]
-		if pn and (dist > DROP_AT or pn.ownerId ~= ownerId or pn.screen ~= screen) then pn.gui:Destroy(); panels[n] = nil; pn = nil end
-		if not pn and screen and screen:IsA("BasePart") and dist < BUILD_AT then pn = buildPanel(n, screen, ownerId); panels[n] = pn end
+		local near = n:GetAttribute("LODNear") ~= false -- NicheLOD (03.11.2026): далека ніша — табло не будується й прибирається
+		if pn and (not near or dist > DROP_AT or pn.ownerId ~= ownerId or pn.screen ~= screen) then pn.gui:Destroy(); panels[n] = nil; pn = nil end
+		if not pn and near and screen and screen:IsA("BasePart") and dist < BUILD_AT then pn = buildPanel(n, screen, ownerId); panels[n] = pn end
 		if pn then pn.update(ownerId ~= 0 and Players:GetPlayerByUserId(ownerId) or nil) end
 	end
 end

@@ -2,7 +2,7 @@
 tags: [gdd, place]
 status: draft
 version: 42
-updated: 2026-10-29
+updated: 2026-11-04
 ---
 
 # GDD
@@ -78,8 +78,9 @@ updated: 2026-10-29
 **Перенесення ящиків — скасовано:** руду з ящика плоту гравець забирає кнопкою COLLECT на місці, тож геймпас «Більше ящиків» і голем-збирач не потрібні.
 
 ## 4. Системи
-Детальний дизайн кожної системи — у своїй нотатці:
+Детальний дизайн кожної системи — у своїй нотатці.
 
+### Ядро гри
 | Система | Що там |
 | --- | --- |
 | [[GDD - Golems]] | класи (майнер, носій, воїн), рідкість, мутації, каталог, формули, утилізація, як працює удар |
@@ -88,18 +89,39 @@ updated: 2026-10-29
 | [[GDD - Maps]] | 7 мап печери, нова рідкість і руди кожної, ціна переходу, що скидається |
 | [[GDD - Ores and Bars]] | руда всіх мап (шанси, ціни, HP), Forge (пробудження, переплавка, табло), Sell (продаж, правила) |
 | [[GDD - Currencies and Rebirths]] | Money, діаманти, тікети, руда й злитки; ребітхи |
-| [[GDD - Monetization]] | геймпаси, кейси, TOTAL MULTI, драбина x2 Money і ID продуктів, стенд для новачків |
-| [[GDD - Diamonds Shop]] | скіпалки часу за діаманти |
-| [[GDD - Mutation Machine]] | 3 → 1 з наступною мутацією, таймери |
+| [[GDD - Map Prefabs]] | префаби ніш мап: що спільне, що міняється, як додати мапу |
+| [[GDD - Economy]] | ціни всіх покращень, темп мап (симуляція), множник цін мап, знижка перших рівнів на мапах 2+ |
+
+### Системи
+| Система | Що там |
+| --- | --- |
 | [[GDD - Quests and Index]] | щоденні, тижневі, спеціальні квести; Index |
+| [[GDD - Mutation Machine]] | 3 → 1 з наступною мутацією, таймери |
 | [[GDD - Boss Events]] | бос раз на 10 хв, арена, нагороди, мутації боса, Cracked Colossus |
 | [[GDD - Marketplace]] | торгівля големами, логування угод |
 | [[GDD - Leaderboards]] | лідерборди в печері, особистий борд |
 | [[GDD - Interface]] | HUD, правила вікон, підказки E, інвентар і хотбар |
+| [[GDD - Daily Rewards]] | щоденні нагороди, тижневі големи (дні 7 / 14 / 21 / 28) |
+
+### Монетизація
+| Система | Що там |
+| --- | --- |
+| [[GDD - Monetization]] | геймпаси, кейси, TOTAL MULTI, драбина x2 Money і ID продуктів, стенд для новачків |
+| [[GDD - Diamonds Shop]] | скіпалки часу за діаманти |
+
+### Технічне
+| Система | Що там |
+| --- | --- |
 | [[GDD - Data Saving]] | DataStore, сесійний замок, що зберігається |
 | [[GDD - Golem UID]] | унікальний ID голема, анти-дюп, глобальний індекс і журнал |
 | [[GDD - Admin Panel]] | адмін-панель F2, ролі, івенти Roll Luck / Mutation Luck / Money з чергою, оголошення |
 | [[GDD - Studio Scene]] | що де в Explorer, ніші й автоклейм, технічні правила |
+
+### Плани й гайди
+| Нотатка | Що там |
+| --- | --- |
+| [[Plans]] | усі плани робіт (мапи 3–7, ексклюзиви кейса, тижневі големи) і їх стан |
+| [[Map Style Guide]] | як робити ніші нових мап: стиль, що міняти, палітра, порядок робіт (еталон — мапа 3) |
 
 ## 5. Де що описано
 Об'єкти, моделі, вікна й локації мають свої нотатки в розділах плейсу:
@@ -107,9 +129,9 @@ updated: 2026-10-29
 | Розділ | Нотатки |
 | --- | --- |
 | Interactive Objects | [Roll Station](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FRoll%20Station%2FRoll%20Station), [Roll Upgrades Screen](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FRoll%20Upgrades%20Screen%2FRoll%20Upgrades%20Screen), [Cave Entrance](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FCave%20Entrance%2FCave%20Entrance), [Forge](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FForge%2FForge), [Sell Shop](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FSell%20Shop%2FSell%20Shop), [Plots](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FInteractive%20Objects%2FPlots%2FPlots) |
-| 3D Models | [Golems](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FGolems%2FGolems) (Stone, Wooden), [Ores](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FOres%2FOres) (Coal Ore, Copper Ore, Iron Ore), [Bars](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FBars%2FBars) (Copper Bar, Iron Bar), [Instruments](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FInstruments%2FInstruments) (Pickaxe, Carrier Crate) |
+| 3D Models | [Golems](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FGolems%2FGolems) (Stone, Wooden), [Ores](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FOres%2FOres) (Coal Ore, Copper Ore, Iron Ore; руда мап 2–7 — таблицею), [Bars](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FBars%2FBars) (Copper Bar, Iron Bar), [Instruments](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FInstruments%2FInstruments) (Pickaxe, Carrier Crate) |
 | 2D | [Main HUD](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F2D%2FMain%20HUD%2FMain%20HUD), [Money HUD](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F2D%2FMoney%20HUD%2FMoney%20HUD), [Inventory](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F2D%2FInventory%2FInventory) |
-| Locations | [Main Cave](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FMain%20Cave%2FMain%20Cave), [Niche Stage 1](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FNiche%20Stage%201%2FNiche%20Stage%201) |
+| Locations | [Main Cave](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FMain%20Cave%2FMain%20Cave), [Niche Stage 1](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FNiche%20Stage%201%2FNiche%20Stage%201), [Niche Stage 2](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FNiche%20Stage%202%2FNiche%20Stage%202), [Niche Stage 3](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FLocations%2FNiche%20Stage%203%2FNiche%20Stage%203) |
 | Scripts | [Scripts](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FScripts%2FMy%20Mining%20Golems%20-%20Scripts) (Client, Server, Modules) |
 
 ## 6. Стан

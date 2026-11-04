@@ -7,7 +7,8 @@
 --   голем — "<id>:<клас>:<мутація>" (id з GolemCatalog.ORDER, клас miner | carrier | warrior, мутація 0..7), напр. "flint:miner:0";
 --     сторінка Index = клас × мутація (24 големи), усього 24 × 3 × 8 = 576 записів.
 --     Exclusive-големи (GolemCatalog.EXCLUSIVES, 30.10.2026) — лише на сторінці Normal: "<id>:<клас>:0" за будь-якої мутації
---     (Mushroom miner / carrier / warrior), нагорода як за Normal.
+--     (Mushroom miner / carrier / warrior). 03.11.2026: нагорода за запис ексклюзиву — 100 (Catalog.EXCLUSIVE_INDEX_REWARD);
+--     ексклюзив відкриває лише запис свого класу (03.11.2026: було — усі 3 класи одразу, прибрано).
 --   руда — "ore:<Key>" (Key з PlotConfig.ORES — Coal, Copper, Iron).
 -- Відкриття: голем — коли атрибут гравця InvGolems (JSON { { id, kind, cls, mut } }, ставить InventoryService) отримує голема з новим
 --   ключем; руда — коли атрибут Ore_<Key> уперше > 0. Відкриття НЕ дає діамантів саме по собі (v4).
@@ -40,9 +41,19 @@ local REWARD = IndexService.REWARD
 type State = { found: { [string]: boolean }, claimed: { [string]: boolean }, lastAll: number }
 local states: { [Player]: State } = {}
 
--- руда, яку знає Index (PlotConfig.ORES, по порядку): Key → діаманти
+-- руда, яку знає Index (PlotConfig.INDEX_ORES — мапи 1–6 по порядку, 03.11.2026; була лише мапа 1): Key → діаманти
 local ORE_KEYS: { [string]: number } = {}
-for n, o in PlotCfg.ORES do ORE_KEYS[o.key] = IndexService.oreReward(n) end
+for n, o in PlotCfg.INDEX_ORES or PlotCfg.ORES do ORE_KEYS[o.key] = IndexService.oreReward(n) end
+-- оброблена руда (03.11.2026, вкладка Crafted): злиток / огранований кристал кожної руди, що плавиться; ключ "bar:<Key>",
+-- відкривається, коли атрибут Bars_<Key> уперше > 0; нагорода — як за саму руду (oreReward(n))
+local PROD_KEYS: { [string]: number } = {}
+do
+	local Forge = require(RS.Shared:WaitForChild("ForgeConfig"))
+	for n, o in PlotCfg.INDEX_ORES or PlotCfg.ORES do
+		local f = Forge.oreDef(o.key)
+		if f and Forge.canSmelt(f) then PROD_KEYS[o.key] = IndexService.oreReward(n) end
+	end
+end
 
 -- ключ запису голема або nil (невідомий голем / Exclusive)
 local function keyOf(kind: any, cls: any, mut: any): string?
@@ -57,8 +68,11 @@ IndexService.keyOf = keyOf
 local function rewardOf(k: any): number?
 	if type(k) ~= "string" or #k > 40 then return nil end
 	if string.sub(k, 1, 4) == "ore:" then return ORE_KEYS[string.sub(k, 5)] end
+	if string.sub(k, 1, 4) == "bar:" then return PROD_KEYS[string.sub(k, 5)] end
 	local id, cls, mut = string.match(k, "^(%w+):(%a+):(%d+)$")
 	if not id or keyOf(id, cls, mut) ~= k then return nil end
+	local g = Catalog.get(id)
+	if g and g.rarity == "Exclusive" then return Catalog.EXCLUSIVE_INDEX_REWARD or 100 end -- ексклюзив — 100 (03.11.2026)
 	return REWARD[(tonumber(mut) or 0) + 1]
 end
 IndexService.rewardOf = rewardOf
@@ -102,6 +116,10 @@ local function scanOres(p: Player)
 		local k = "ore:" .. key
 		if (tonumber(p:GetAttribute("Ore_" .. key)) or 0) > 0 and not st.found[k] then st.found[k] = true; changed = true end
 	end
+	for key in PROD_KEYS do
+		local k = "bar:" .. key
+		if (tonumber(p:GetAttribute("Bars_" .. key)) or 0) > 0 and not st.found[k] then st.found[k] = true; changed = true end
+	end
 	if changed then publish(p, st) end
 end
 
@@ -117,7 +135,7 @@ local function onPlayer(p: Player)
 			for _, k in sec.claimed do if rewardOf(k) and st.found[k] then st.claimed[k] = true end end
 		else
 			-- стара секція (v1–v3): големи вже були оплачені автоматично, руда — якщо є в orePaid
-			for k in st.found do if string.sub(k, 1, 4) ~= "ore:" then st.claimed[k] = true end end
+			for k in st.found do if string.sub(k, 1, 4) ~= "ore:" and string.sub(k, 1, 4) ~= "bar:" then st.claimed[k] = true end end
 			if type(sec.orePaid) == "table" then
 				for _, k in sec.orePaid do if st.found[k] then st.claimed[k] = true end end
 			end
@@ -128,7 +146,7 @@ local function onPlayer(p: Player)
 	p:GetAttributeChangedSignal("InvGolems"):Connect(function() scan(p) end)
 	scan(p) -- InvGolems могли виставити ще до цього моменту (InventoryService після завантаження даних)
 	p.AttributeChanged:Connect(function(name: string)
-		if string.sub(name, 1, 4) == "Ore_" then scanOres(p) end
+		if string.sub(name, 1, 4) == "Ore_" or string.sub(name, 1, 5) == "Bars_" then scanOres(p) end
 	end)
 	scanOres(p)
 end

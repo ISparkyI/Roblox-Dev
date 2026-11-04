@@ -1,12 +1,15 @@
 ---
 tags: [gdd, plan, golems, exclusive, daily]
-status: approved
-updated: 2026-11-02
+status: done
+updated: 2026-11-04
 ---
 
 # План — 3 ексклюзивні големи для тижневих нагород
 
-← [[Golems]] · [[Plan - Exclusive Case Golems]] · [[Mushroom Golem]] · [[Golem Stats - Miner]]
+> [!success] Стан (04.11.2026)
+> Тижневі големи у грі: [[Mushroom Golem]], [[Honey Golem]], [[Snow Golem]], [[Cloud Golem]] (дні 7 / 14 / 21 / 28 Daily).
+
+← [[Plans]] · [[Golems]] · [[Plan - Exclusive Case Golems]] · [[Mushroom Golem]] · [[Golem Stats - Miner]]
 
 Потрібні ще три ексклюзивні големи для щоденних нагород (DAILY REWARDS). Зараз кожен 7-й день дає Mushroom Golem-носія. Нові големи мають бути простенькі, на рівні Mushroom: без особливих трюків, аур і нових видів анімацій.
 

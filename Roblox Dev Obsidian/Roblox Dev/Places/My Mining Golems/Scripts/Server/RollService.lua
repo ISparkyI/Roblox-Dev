@@ -283,14 +283,21 @@ local function onPull(p: Player, role: any, niche: Model)
 		end
 	end
 	local passGolem = ((p:GetAttribute("Pass_Lucky") == true) and 2 or 1) * potL
-	local passMut = ((p:GetAttribute("Pass_MutLucky") == true) and 2 or 1) * potL
 	local function boosted(attr: string, passMul: number): number
 		local ev = tonumber(workspace:GetAttribute(attr)) or 1
 		if not (ev > 1 and os.time() < (tonumber(workspace:GetAttribute(attr .. "Until")) or 0)) then ev = 1 end
 		if ev == 1 and passMul == 1 then return luck end
 		return ((1 + luck / 100) * ev * passMul - 1) * 100
 	end
-	local luckGolem, luckMut = boosted("EventLuck", passGolem), boosted("EventMutLuck", passMut)
+	local luckGolem = boosted("EventLuck", passGolem)
+	-- Mutation Luck (03.11.2026, рішення користувача): загальна удача (Roll Luck гравця, зілля, бонус лідербордів, Lucky Roll)
+	--   діє на мутації лише як квадратний корінь (×3 → ×1,73; Lucky Roll ×99 → ×9,9), а власні джерела Mutation Luck — повністю:
+	--   геймпас x2 Mutation Luck (Pass_MutLucky) ×2 і подія EventMutLuck ×множник. Так Normal лишається частим навіть з високою
+	--   удачею, а мутації частішають саме від Mutation Luck.
+	local evMut = tonumber(workspace:GetAttribute("EventMutLuck")) or 1
+	if not (evMut > 1 and os.time() < (tonumber(workspace:GetAttribute("EventMutLuckUntil")) or 0)) then evMut = 1 end
+	local mutMul = math.sqrt((1 + luck / 100) * potL) * ((p:GetAttribute("Pass_MutLucky") == true) and 2 or 1) * evMut
+	local luckMut = (mutMul - 1) * 100
 	local count = RollConfig.totalStands(p) -- за Money + геймпаси Roll Stand
 	local stands = standsOf(niche)
 	local pend = {}

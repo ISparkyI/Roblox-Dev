@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Servers Icon Variants</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&display=swap">
+<style>
+:root{--bg:#2a2f3a;--ink:#14161a;--fg:#fff;--muted:#9aa3ad;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Fredoka,system-ui,sans-serif;padding:24px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+h1{margin:0 0 4px;font-size:28px;letter-spacing:.5px;-webkit-text-stroke:1px var(--ink)}
+p.sub{margin:0 0 24px;color:var(--muted);font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px}
+.card{background:#1c1f27;border:4px solid var(--ink);border-radius:14px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.tag{font-size:26px;font-weight:700;-webkit-text-stroke:1px var(--ink)}
+.big{width:180px;height:180px}
+.row{display:flex;gap:18px;align-items:flex-end}
+/* кнопка як у грі: синя StyleA з шипами, підпис під нею */
+.btnwrap{display:flex;flex-direction:column;align-items:center;gap:2px}
+.btn{width:96px;height:96px;border-radius:10px;border:4px solid var(--ink);position:relative;
+ background:
+  radial-gradient(circle at 50% 45%,rgba(255,255,255,.18) 0 3px,transparent 3.5px) 0 0/16px 16px,
+  linear-gradient(#55a8ff,#2b6fe0);
+ box-shadow:0 6px 0 var(--ink);display:grid;place-items:center}
+.btn svg{width:74px;height:74px}
+.lbl{font-weight:700;font-size:17px;color:#fff;-webkit-text-stroke:.8px var(--ink);text-shadow:0 2px 0 var(--ink);margin-top:6px}
+.dark .btn{background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.12) 0 3px,transparent 3.5px) 0 0/16px 16px,linear-gradient(#5a6068,#3a3f47)}
+.note{color:var(--muted);font-size:14px;text-align:center;max-width:240px;margin:0}
+</style></head><body>
+<h1>Іконка «Servers» — 3 варіанти</h1>
+<p class="sub">Великий розмір + як виглядатиме на кнопці у правому нижньому куті (синій і нейтральний фон). Обведення #14161a, без неону.</p>
+
+<svg width="0" height="0" style="position:absolute">
+ <defs>
+  <linearGradient id="scr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fe0ff"/><stop offset="1" stop-color="#2f86e8"/></linearGradient>
+  <linearGradient id="bez" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2f5f8"/><stop offset="1" stop-color="#b9c2cc"/></linearGradient>
+  <linearGradient id="bezD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a505a"/><stop offset="1" stop-color="#2c3038"/></linearGradient>
+  <linearGradient id="scrG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3a4a"/><stop offset="1" stop-color="#16202b"/></linearGradient>
+  <linearGradient id="globe" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9df07a"/><stop offset="1" stop-color="#3fb83a"/></linearGradient>
+
+  <!-- A: класичний монітор, світла рамка, блакитний екран з бліком -->
+  <g id="iconA" stroke="#14161a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+   <path d="M40 70 L36 84 H64 L60 70 Z" fill="#9aa4b0"/>
+   <rect x="28" y="82" width="44" height="9" rx="4" fill="#c7cfd8"/>
+   <rect x="8" y="12" width="84" height="60" rx="9" fill="url(#bez)"/>
+   <rect x="17" y="20" width="66" height="42" rx="4" fill="url(#scr)"/>
+   <path d="M23 26 L44 26 L28 48 L23 48 Z" fill="#fff" fill-opacity=".45" stroke="none"/>
+   <circle cx="50" cy="67" r="1.6" fill="#14161a" stroke="none"/>
+  </g>
+
+  <!-- B: монітор зі списком серверів на екрані (рядки + зелені «онлайн» точки) -->
+  <g id="iconB" stroke="#14161a" stroke-linejoin="round" stroke-linecap="round">
+   <path d="M40 70 L36 84 H64 L60 70 Z" fill="#5a6270" stroke-width="6"/>
+   <rect x="28" y="82" width="44" height="9" rx="4" fill="#7a8392" stroke-width="6"/>
+   <rect x="8" y="12" width="84" height="60" rx="9" fill="url(#bezD)" stroke-width="6"/>
+   <rect x="17" y="20" width="66" height="42" rx="4" fill="url(#scrG)" stroke-width="5"/>
+   <g stroke-width="3">
+    <circle cx="27" cy="30" r="4" fill="#7ef05a"/><rect x="35" y="27" width="38" height="6" rx="3" fill="#dff3ff"/>
+    <circle cx="27" cy="41" r="4" fill="#7ef05a"/><rect x="35" y="38" width="30" height="6" rx="3" fill="#dff3ff"/>
+    <circle cx="27" cy="52" r="4" fill="#ffd23a"/><rect x="35" y="49" width="34" height="6" rx="3" fill="#dff3ff"/>
+   </g>
+  </g>
+
+  <!-- C: два монітори (кілька серверів), передній з глобусом -->
+  <g id="iconC" stroke="#14161a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+   <rect x="40" y="6" width="54" height="40" rx="7" fill="#9aa4b0"/>
+   <rect x="47" y="12" width="40" height="26" rx="3" fill="#2f86e8"/>
+   <path d="M33 72 L30 84 H54 L51 72 Z" fill="#9aa4b0"/>
+   <rect x="22" y="82" width="40" height="9" rx="4" fill="#c7cfd8"/>
+   <rect x="6" y="26" width="72" height="50" rx="8" fill="url(#bez)"/>
+   <rect x="14" y="33" width="56" height="35" rx="4" fill="url(#scr)"/>
+   <g stroke-width="3.5">
+    <circle cx="42" cy="50.5" r="12" fill="url(#globe)"/>
+    <ellipse cx="42" cy="50.5" rx="5" ry="12" fill="none"/>
+    <path d="M30 50.5 H54" fill="none"/>
+   </g>
+  </g>
+ </defs>
+</svg>
+
+<div class="grid">
+ <div class="card">
+  <div class="tag">1 · Класичний</div>
+  <svg class="big" viewBox="0 0 100 100"><use href="#iconA"/></svg>
+  <div class="row">
+   <div class="btnwrap"><div class="btn"><svg viewBox="0 0 100 100"><use href="#iconA"/></svg></div><div class="lbl">Servers</div></div>
+   <div class="btnwrap dark"><div class="btn"><svg viewBox="0 0 100 100"><use href="#iconA"/></svg></div><div class="lbl">Servers</div></div>
+  </div>
+  <p class="note">Світла рамка, блакитний екран з бліком, ніжка й підставка.</p>
+ </div>
+ <div class="card">
+  <div class="tag">2 · Список серверів</div>
+  <svg class="big" viewBox="0 0 100 100"><use href="#iconB"/></svg>
+  <div class="row">
+   <div class="btnwrap"><div class="btn"><svg viewBox="0 0 100 100"><use href="#iconB"/></svg></div><div class="lbl">Servers</div></div>
+   <div class="btnwrap dark"><div class="btn"><svg viewBox="0 0 100 100"><use href="#iconB"/></svg></div><div class="lbl">Servers</div></div>
+  </div>
+  <p class="note">Темний монітор, на екрані рядки серверів із точками заповненості.</p>
+ </div>
+ <div class="card">
+  <div class="tag">3 · Два монітори</div>
+  <svg class="big" viewBox="0 0 100 100"><use href="#iconC"/></svg>
+  <div class="row">
+   <div class="btnwrap"><div class="btn"><svg viewBox="0 0 100 100"><use href="#iconC"/></svg></div><div class="lbl">Servers</div></div>
+   <div class="btnwrap dark"><div class="btn"><svg viewBox="0 0 100 100"><use href="#iconC"/></svg></div><div class="lbl">Servers</div></div>
+  </div>
+  <p class="note">Кілька серверів: задній монітор + передній із глобусом.</p>
+ </div>
+</div>
+</body></html>
