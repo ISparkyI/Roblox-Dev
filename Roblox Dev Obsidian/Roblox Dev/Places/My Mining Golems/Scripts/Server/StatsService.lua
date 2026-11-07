@@ -108,10 +108,22 @@ local function nameOf(uid: number): string
 	return "Player"
 end
 local LB_MIN_PLAYTIME = 20 * 60
+-- 06.11.2026: адміни / модератори (AdminService.IsStaffId) у лідерборди не потрапляють — ні в лобі, ні на маркеті:
+--   не записуємо їхні значення, відфільтровуємо з топу (беремо із запасом) і раз за сесію сервера видаляємо їхні старі записи зі сховища.
+local AdminService = nil
+local function isStaff(uid: number): boolean
+	if not AdminService then
+		local ok, m = pcall(require, script.Parent:WaitForChild("AdminService"))
+		if not ok then return false end
+		AdminService = m
+	end
+	return AdminService.IsStaffId ~= nil and AdminService.IsStaffId(uid) == true
+end
+local purged: { [string]: { [number]: boolean } } = {}
 local function write(b)
 	written[b.key] = written[b.key] or {}
 	for _, p in Players:GetPlayers() do
-		if DataService.IsLoaded(p) then
+		if DataService.IsLoaded(p) and not isStaff(p.UserId) then
 			local v = math.floor(num(p, b.stat))
 			-- у топ потрапляють лише гравці з часом у грі ≥ LB_MIN_PLAYTIME (20 хв)
 			if num(p, "Stat_Playtime") < LB_MIN_PLAYTIME then v = 0 end
@@ -129,14 +141,25 @@ end
 local function read(b): { any }
 	local list = {}
 	if not useMemory then
-		local ok, page = pcall(function() return store(b.key):GetSortedAsync(false, HubCfg.LB_TOP):GetCurrentPage() end)
+		local ok, page = pcall(function() return store(b.key):GetSortedAsync(false, math.min(100, HubCfg.LB_TOP + 10)):GetCurrentPage() end)
 		if ok then
-			for _, e in page do table.insert(list, { u = tonumber(e.key) or 0, v = e.value }) end
+			purged[b.key] = purged[b.key] or {}
+			for _, e in page do
+				local u = tonumber(e.key) or 0
+				if isStaff(u) then
+					if not purged[b.key][u] then
+						purged[b.key][u] = true
+						task.spawn(pcall, function() store(b.key):RemoveAsync(e.key) end)
+					end
+				elseif #list < HubCfg.LB_TOP then
+					table.insert(list, { u = u, v = e.value })
+				end
+			end
 			return list
 		end
 		fallback(page)
 	end
-	for k, v in memory[b.key] or {} do table.insert(list, { u = tonumber(k) or 0, v = v }) end
+	for k, v in memory[b.key] or {} do if not isStaff(tonumber(k) or 0) then table.insert(list, { u = tonumber(k) or 0, v = v }) end end
 	table.sort(list, function(x, y) return x.v > y.v end)
 	while #list > HubCfg.LB_TOP do table.remove(list) end
 	return list

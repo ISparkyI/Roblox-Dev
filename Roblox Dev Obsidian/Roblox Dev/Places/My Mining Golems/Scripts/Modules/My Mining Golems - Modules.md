@@ -145,3 +145,4 @@ ModuleScript — дані й модулі.
 | `WorkshopGolem.lua` | `ReplicatedStorage/Shared/WorkshopGolem` | модель голема-майстра «Брасс» (латунь, мідь, топка в грудях, 6 рук) — чернетка |
 | `MushroomGolemData.lua` | `Workspace/PlotPrefabs/MushroomGolem/GolemData` → `ReplicatedStorage/PlotAssets` | модель Mushroom Golem (кольори, кістки, 105 блоків) для групового голема. [[GDD - Monetization]] |
 | `GolemCatalog.lua` | `ReplicatedStorage/Shared/GolemCatalog` | (оновлено 29.10.2026) `mushroom` (Exclusive, `dynamic = "bestMiner"`), `bestMinerDmg`, `ownerOf`, параметр `p` у `stats` / `power` / `statText` |
+| `ThumbTools.lua` | `ServerStorage/ThumbTools` (не для гри) | інструменти полігона превʼю `Workspace/ThumbStudio`: `T.bacon` (класичний Бекон зі Smile), `T.golem`, `T.ground`, `T.limb` (поза рук), `T.noBlur`. Використовує й [[My Mining Golems - Trailer|Trailer]] |

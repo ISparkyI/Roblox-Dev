@@ -22,7 +22,11 @@ M.ATLAS = {
 	"rbxassetid://105973206517541", -- 8 (atlas_08.png)
 	"rbxassetid://104790308612950", -- 9 (atlas_09.png)
 	"rbxassetid://113423155194117", -- 10 (atlas_10.png)
+	"rbxassetid://114480732424976", -- 11 (atlas_11.png, 05.11.2026: ексклюзиви Marketplace + бос GOBKING 760 × 580 з (0, 256))
 }
+
+-- запечений бос для вікна реєстрації (BossLobbyWindow на телефонах): атлас, лівий верхній кут, розмір (2× від в’юпорту 380 × 290)
+M.BOSS = { 11, 0, 256, 760, 580 }
 
 M.MAP = {
 	["GolemVP:wooden:miner"] = { 1, 0, 0 },
@@ -170,6 +174,10 @@ M.MAP = {
 	["Pot_Speed"] = { 9, 512, 768 },
 	["Pot_Money"] = { 9, 768, 768 },
 	["Pot_Strength"] = { 10, 0, 0 },
+	-- 05.11.2026: ексклюзиви Marketplace (кожен — лише свій клас)
+	["GolemVP:cyborg:miner"] = { 11, 0, 0 },
+	["GolemVP:lampminer:carrier"] = { 11, 256, 0 },
+	["GolemVP:spartan:warrior"] = { 11, 512, 0 },
 }
 
 return M

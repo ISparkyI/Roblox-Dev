@@ -23,7 +23,8 @@ local function tick()
 	local now = workspace:GetServerTimeNow()
 	local k = math.floor(now / BossPortalService.CYCLE)
 	local at = (k + 1) * BossPortalService.CYCLE
-	local openUntil = k * BossPortalService.CYCLE + BossPortalService.OPEN_FOR
+	-- 04.11.2026: портал «відкритий» на час реєстрації (останні 60 с перед BossAt; BossFightService)
+	local openUntil = (now >= at - BossPortalService.OPEN_FOR) and at or 0
 	if workspace:GetAttribute("BossAt") ~= at then workspace:SetAttribute("BossAt", at) end
 	if workspace:GetAttribute("BossOpenUntil") ~= openUntil then workspace:SetAttribute("BossOpenUntil", openUntil) end
 end
@@ -78,6 +79,7 @@ function BossPortalService.Start()
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
 		if not (hrp and hum and hum.Health > 0) then return end
 		if action == "Arena" then
+			do return end -- 04.11.2026: на арену — лише через реєстрацію (BossFightService)
 			if p:GetAttribute("InBossArena") == true or not inPortalRing(hrp :: BasePart) then return end
 			local spot = arenaSpot()
 			if not spot then return end

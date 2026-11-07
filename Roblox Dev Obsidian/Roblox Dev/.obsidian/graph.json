@@ -1,6 +1,6 @@
 {
   "collapse-filter": false,
-  "search": "",
+  "search": "-file:README",
   "showTags": false,
   "showAttachments": false,
   "hideUnresolved": false,
@@ -84,10 +84,10 @@
   "nodeSizeMultiplier": 1.2,
   "lineSizeMultiplier": 1,
   "collapse-forces": false,
-  "centerStrength": 0.25,
-  "repelStrength": 20,
-  "linkStrength": 0.8,
-  "linkDistance": 260,
-  "scale": 0.6316046762907414,
+  "centerStrength": 0.55,
+  "repelStrength": 9,
+  "linkStrength": 1,
+  "linkDistance": 110,
+  "scale": 0.16348370567220125,
   "close": false
 }

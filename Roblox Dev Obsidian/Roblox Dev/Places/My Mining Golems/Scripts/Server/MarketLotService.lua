@@ -12,7 +12,7 @@
 --   ("Buy", { seller = userId, id, p, c }) → { ok, err } — купівля чужого лота (03.11.2026): p / c — ціна й валюта, які бачив покупець
 --     (змінились — "changed"). Атомарно (блокування продавця й покупця): −ціна покупцю, +ціна × (1 − MARKET_FEE) продавцю,
 --     голем (той самий UID, новий id) з InvGolems продавця → InvGolems покупця (GolemRegistry.Move), лот знімається,
---     MarketServerService.LogTrade (RECENT TRADES, топи, History), SaveNow обом. Відмови: gone, busy, changed, money|diamonds|tickets, full.
+--     MarketServerService.LogTrade (RECENT TRADES, топи, History), SaveNow обом. Відмови: gone, busy, changed, money|diamonds|tickets, full, map (голем з ще не відкритої мапи, 06.11.2026).
 -- Збереження лотів (03.11.2026): секція DataService "MarketLots" = { lots = [{ id, u (UID), p, c, t }] }. На маркеті — з атрибута MktLots;
 --   у печері (M.StartMain) — старий список БЕЗ тих, чиїх големів уже немає (видалив, мутація, стенд печери) або які стоять на плоті
 --   (PlotPlaced) — поставив вдома на плот — лот знімається. У печері виставлені големи доступні як звичайні.
@@ -28,7 +28,7 @@ local DataService = require(script.Parent:WaitForChild("DataService"))
 local M = {}
 local HISTORY_MAX = 100
 local CURS = { money = true, diamonds = true, tickets = true }
-local MAX_PRICE = 1e15
+local MAX_PRICE = 1e300 -- 06.11.2026: було 1e15 — практично без ліміту (лише скінченне число)
 
 local function decode(p: Player, a: string, def: any): any
 	local s = p:GetAttribute(a)
@@ -61,6 +61,11 @@ local function doBuy(buyer: Player, seller: Player, id: number, seenP: any, seen
 	if tonumber(seenP) ~= lot.p or seenC ~= lot.c then return { ok = false, err = "changed" } end
 	local g = golemOf(seller, id)
 	if not g or isPlaced(seller, id) then M.RemoveLot(seller, id); return { ok = false, err = "gone" } end
+	-- 06.11.2026: голема з мапи, яку покупець ще не відкрив, купити не можна (ексклюзиви — можна); Stage ще не прийшов — не блокуємо
+	local okC, Catalog = pcall(require, RS.Shared:FindFirstChild("GolemCatalog"))
+	local def = okC and Catalog and Catalog.get(g.kind)
+	local st = tonumber(buyer:GetAttribute("Stage"))
+	if def and st and def.rarity ~= "Exclusive" and (tonumber(def.map) or 1) > st then return { ok = false, err = "map", map = tonumber(def.map) } end
 	local attr = CUR_ATTR[lot.c]
 	local bal = tonumber(buyer:GetAttribute(attr)) or 0
 	if bal < lot.p then return { ok = false, err = lot.c } end
@@ -99,6 +104,8 @@ end
 
 M._doBuy = doBuy -- для тестів з командного рядка / Play
 local function onAction(p: Player, action: any, arg: any): any
+	-- 06.11.2026: IsPaidItemTradingAllowed == false (PolicyNoTrade, MonetizationService) — без купівлі й виставлення лотів
+	if (action == "Buy" or action == "List") and p:GetAttribute("PolicyNoTrade") == true then return { ok = false, err = "region" } end
 	if action == "Buy" and type(arg) == "table" then
 		local seller = Players:GetPlayerByUserId(tonumber(arg.seller) or 0)
 		local id = tonumber(arg.id)

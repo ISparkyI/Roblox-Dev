@@ -184,7 +184,33 @@ local function buildPanel(board: BasePart, face: Enum.NormalId, index: number)
 	local btn = StyleA.new(ct, { size = Vector2.new(310, 84), position = Vector2.new(720, 206), color = "purple", text = "x2 TIME", textSize = 38,
 		clickable = true, zIndex = 5 })
 	StyleA.follow(btn, btnSh)
+	-- LOCKED (04.11.2026): платна машина (MutationConfig.UNLOCK) — затемнення поверх панелі, напис і кнопка купівлі за діаманти
+	local lock = nil
+	local price = MutCfg.UNLOCK and MutCfg.UNLOCK[index]
+	if price then
+		lock = frame(canvas, 0, 0, CW, CH - 12, BLACK, { BackgroundTransparency = 0.12, ZIndex = 20, Visible = false, Active = true })
+		stroke(lock, INK, 6)
+		local lt = label(lock, 0, 20, CW, 100, 86, "LOCKED", WHITE, 8, { ZIndex = 21, TextXAlignment = Enum.TextXAlignment.Center })
+		new("UIGradient", { Rotation = 90, Color = cseq({ { 0, "ffffff" }, { 1, "c58bff" } }) }, lt)
+		label(lock, 0, 118, CW, 44, 32, "Buy to unlock Mutation Machine " .. index .. " forever", C("e9edf1"), 4, { ZIndex = 21, TextXAlignment = Enum.TextXAlignment.Center })
+		local priceTxt = tostring(price):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+		local bw, bh = 400, 90
+		local bx, by = (CW - bw) / 2, 186
+		local ush = frame(lock, bx, by + 8, bw, bh, BLACK, { BackgroundTransparency = 0.7, ZIndex = 21 })
+		local ub = StyleA.new(lock, { size = Vector2.new(bw, bh), position = Vector2.new(bx, by), color = "blue", text = "     " .. priceTxt, textSize = 44,
+			clickable = true, zIndex = 22 })
+		StyleA.follow(ub, ush)
+		new("ImageLabel", { Name = "DiamondIcon", Image = "rbxassetid://126442692946356", BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit,
+			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, -62, 0.5, -3), Size = UDim2.fromOffset(58, 58), ZIndex = 40 }, ub.root)
+		StyleA.bind(ub, { debounce = 0.8, canClick = function()
+			if (tonumber(player:GetAttribute("Diamonds")) or 0) < price then toast("Not enough Diamonds!", "red"); return false end
+			return true
+		end, onClick = function()
+			remote:FireServer("Unlock", index)
+		end })
+	end
 	local P = {
+		lock = lock,
 		sg = sg, title = title, tg = tg, status = status, added = added, timer = timer, timerGrad = timerGrad, barBack = barBack, bar = bar,
 		barGrad = barGrad, pct = pct, fromL = fromL, toL = toL, arrow = arrow, speedCur = speedCur, btn = btn, startBtn = startBtn, startSh = startSh, cancelBtn = cancelBtn, cancelSh = cancelSh,
 	}
@@ -269,6 +295,13 @@ local function heldGolem()
 end
 
 local function applyPrompts(M, m)
+	-- платна машина ще не куплена: кнопки E — LOCKED (купівля — на панелі)
+	if not MutCfg.isUnlocked(player, M.index) then
+		for _, e in M.slots do setPrompt(e.prompt, true, "LOCKED", "gray", true) end
+		if M.start then setPrompt(M.start, false, "", "gray", true) end
+		if M.claim then setPrompt(M.claim, false, "", "gray", true) end
+		return
+	end
 	local ready = player:GetAttribute("MutReady") == true
 	local done = isDone(m)
 	local full = invFull()
@@ -398,13 +431,15 @@ local function applyMachine(M, m)
 		local col = res and mutColor(res.mut):Lerp(C("8a8f9e"), 0.35) or PAD_EMPTY
 		if M.out.pad.Color ~= col then M.out.pad.Color = col end
 	end
+	local locked = not MutCfg.isUnlocked(player, M.index)
+	for _, P in M.panels or {} do if P.lock and P.lock.Visible ~= locked then P.lock.Visible = locked end end
 	applyPrompts(M, m)
 end
 
 local function setup(machine: Model)
 	local index = machine:GetAttribute("MachineIndex")
 	if type(index) ~= "number" or machines[index] then return end
-	local M = { model = machine, slots = {}, screens = {} }
+	local M = { model = machine, slots = {}, screens = {}, index = index }
 	for _, c in machine:GetChildren() do
 		local si = c:GetAttribute("SlotIndex")
 		if type(si) == "number" then
@@ -468,7 +503,7 @@ end)
 local WATCH = { MutMachines = true, InvHeld = true, InvGolems = true, PlotPlaced = true, MutReady = true, ExtraSlots = true, MutSpeedTier = true }
 player.AttributeChanged:Connect(function(name)
 	if name == "MutClaimT" then UISfx.play("BuySound") end
-	if WATCH[name] then refreshAll() end
+	if WATCH[name] or string.sub(name, 1, 9) == "MutUnlock" then refreshAll() end
 end)
 
 -- ===== блискавки: від котушок до антени реактора (фіолетові, час від часу; під час мутації частіше) =====

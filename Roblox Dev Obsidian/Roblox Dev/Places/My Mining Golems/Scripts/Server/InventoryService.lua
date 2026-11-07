@@ -300,6 +300,24 @@ end
 function InventoryService.Pin(p: Player, key: string)
 	onAction(p, "Pin", { key = key, on = true })
 end
+-- 07.11.2026: видача з адмін-панелі (кейси, големи) — закріпити в хотбарі; хотбар повний і replace = true — предмет стає
+--   в ПЕРШИЙ слот, а те, що там було, просто лишається в інвентарі (знімається з хотбара й руки).
+function InventoryService.PinForce(p: Player, key: string, replace: boolean?)
+	if not exists(p, key) then return end
+	local h, pl = hotbar(p), pins(p)
+	if table.find(h, key) then
+		if not table.find(pl, key) then table.insert(pl, key); encode(p, "InvPinned", pl) end
+		return
+	end
+	if #h < N then onAction(p, "Pin", { key = key, on = true }); return end
+	if not replace then return end
+	local out = h[1]
+	h[1] = key
+	local j = table.find(pl, out); if j then table.remove(pl, j) end
+	table.insert(pl, key)
+	if p:GetAttribute("InvHeld") == out then p:SetAttribute("InvHeld", "") end
+	encode(p, "InvHotbar", h); encode(p, "InvPinned", pl)
+end
 
 -- reason — джерело для журналу GolemRegistry ("buy" за замовчуванням, "code:<код>", "admin:<userId>"); force — без ліміту MAX_GOLEMS (адмін).
 -- Повертає (true, uid) або false. UID видається ЛИШЕ тут (Mint), тобто в момент появи голема в профілі.

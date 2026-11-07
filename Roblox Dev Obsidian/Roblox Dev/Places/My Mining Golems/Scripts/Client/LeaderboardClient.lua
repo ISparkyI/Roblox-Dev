@@ -36,6 +36,8 @@ local INK = C("14161a")
 local WHITE = Color3.new(1, 1, 1)
 local PW, PH = 650, 850
 local BUILD_AT, DROP_AT = 200, 260
+-- 06.11.2026: на маркеті табла видно з будь-якої точки зали (зала ~420 × 420 стад)
+if MARKET then BUILD_AT, DROP_AT = 650, 720 end
 local A = StyleA.ASSETS or {}
 local TILES = { green = A.stylea_tile_green, blue = A.stylea_tile_blue_half, pink = A.stylea_tile_red, yellow = A.stylea_tile_yellow_half,
 	orange = A.stylea_tile_orange_half, purple = A.stylea_tile_purple_half, red = A.stylea_tile_red }
@@ -121,7 +123,8 @@ local function surface(name: string, screen: BasePart, cw: number, ch: number): 
 	local face = Enum.NormalId[screen:GetAttribute("Face") or "Front"] or Enum.NormalId.Front
 	-- атрибут Inset (стади) — відступ від країв грані, якщо рамка табла накриває екран (Selling Info — заокруглені кути)
 	local inset = tonumber(screen:GetAttribute("Inset")) or 0
-	local ppx = math.max(cw / (screen.Size.X - 2 * inset), ch / (screen.Size.Y - 2 * inset))
+	-- 06.11.2026: min (було max) — полотно ПОКРИВАЄ грань (лишнє по краях обрізається), а не вписується з порожніми смугами
+	local ppx = math.min(cw / (screen.Size.X - 2 * inset), ch / (screen.Size.Y - 2 * inset))
 	local g = new("SurfaceGui", { Name = name, Adornee = screen, Face = face,
 		SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud, PixelsPerStud = ppx, LightInfluence = 0, Brightness = 1.1,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ResetOnSpawn = false, ClipsDescendants = true, MaxDistance = DROP_AT + 40 }, playerGui)
@@ -297,7 +300,7 @@ local function ago(t: number): string
 	return (d // 3600) .. "h"
 end
 local function buildTrades(model: Model, screen: BasePart)
-	local TW = 900
+	local TW = 760 -- 06.11.2026: було 900 — вміст більший; Inset екрана прибрано (рамка — окремі деталі зовні Screen, UI на всю світлу панель)
 	local ins = 2 * (tonumber(screen:GetAttribute("Inset")) or 0)
 	local TH = math.floor(TW * (screen.Size.Y - ins) / (screen.Size.X - ins))
 	local g, root = surface("TradesBoard", screen, TW, TH)
@@ -352,7 +355,7 @@ local function buildTrades(model: Model, screen: BasePart)
 			local cur = CUR_ICON[e.cur] and e.cur or "money"
 			new("ImageLabel", { BackgroundTransparency = 1, Image = CUR_ICON[cur], ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(X + W - 222, 10),
 				Size = UDim2.fromOffset(34, 34), ZIndex = 7 }, card)
-			fitLabel(card, X + W - 184, 8, 184, 38, 32, cur == "money" and NF.money(e.p or 0) or NF.full(e.p or 0), C(CUR_COLOR[cur]), 3.5,
+			fitLabel(card, X + W - 184, 8, 184, 38, 32, cur == "money" and NF.money(e.p or 0) or NF.short(e.p or 0) --[[ 06.11.2026: short — величезні ціни скорочуються ]], C(CUR_COLOR[cur]), 3.5,
 				{ TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 7 })
 			-- 2: рідкість · клас і час
 			local cls = Catalog.cls(e.c)

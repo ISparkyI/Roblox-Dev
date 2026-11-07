@@ -377,7 +377,7 @@ local DESC = {
 	StarterPack = { fc(GOLD, "+$50K") .. " Money", { text = fc(GOLD, "3") .. " Luck Potions", icon = "Pot_Luck" }, "Stone Golem" },
 	PotionPack = {},
 	ExtraStorage = { fc(LIME, "+50") .. " golem inventory slots", "Buy as many as you want" },
-	Mega = { fc(GOLD, "+1,000") .. " Tickets", fc(GREEN, "10") .. " of each potion", fc(BLUE, "Diamond") .. " Ironclad Golem" },
+	MegaPack = { fc(GOLD, "+500") .. " Tickets", fc(GREEN, "10") .. " of each potion", fc(BLUE, "Diamond") .. " Obsidian Golem" },
 	FastRoll = { "Roll results appear " .. fc(GOLD, "instantly"), "No waiting between rolls" },
 	AutoRoll = { "The lever " .. fc(LIME, "rolls by itself"), "Stops on golems from your filter" },
 	AutoBuy = { fc(GOLD, "Buys golems") .. " from your filter", "Mutation, rarity, min damage" },
@@ -563,14 +563,16 @@ end
 
 -- заготовки (SOON): ціни — пропозиція, з'являться разом із системами
 local BUNDLES = {
-	{ key = "StarterPack", kind = "product", once = true, golem = "stone", mut = 4, name = "Starter Pack", desc = "+$50K Money, 3 Luck Potions and a Diamond Stone Golem. Once per player!",
+	-- 06.11.2026: паки — лише за Robux (noTickets: у режимі TICKETS теж ціна в Robux; сервер відмовляє BuyProduct)
+	{ key = "StarterPack", kind = "product", noTickets = true, once = true, golem = "stone", mut = 4, name = "Starter Pack", desc = "+$50K Money, 3 Luck Potions and a Diamond Stone Golem. Once per player!",
 		icon = "rbxassetid://97975821667403", tone = "7ef05a", tile = "green", robux = MonCfg.Products.StarterPack.robux, id = MonCfg.Products.StarterPack.id },
-	{ key = "PotionPack", kind = "product", vp = "Icon:PotionPack", name = "Potion Pack", desc = "5 of each potion: Luck, Speed, Money, Strength. Buy as many as you want!",
+	{ key = "PotionPack", kind = "product", noTickets = true, vp = "Icon:PotionPack", name = "Potion Pack", desc = "5 of each potion: Luck, Speed, Money, Strength. Buy as many as you want!",
 		icon = "rbxassetid://104193388781391", tone = "5cc8ff", tile = "blue", robux = MonCfg.Products.PotionPack.robux, id = MonCfg.Products.PotionPack.id },
-	{ key = "ExtraStorage", kind = "product", name = "Extra Storage", desc = "+50 golem slots in your inventory. Buy as many as you want!",
+	{ key = "ExtraStorage", kind = "product", noTickets = true, name = "Extra Storage", desc = "+50 golem slots in your inventory. Buy as many as you want!",
 		icon = "rbxassetid://107241982376806", tone = "ff8a3a", tile = "orange", robux = MonCfg.Products.ExtraStorage.robux, id = MonCfg.Products.ExtraStorage.id },
-	{ key = "Mega", kind = "soon", name = "Mega Pack", desc = "+1,000 Tickets, 10 potions of each kind and a Diamond Ironclad Golem.", icon = "rbxassetid://85164603125451",
-		tone = "c08cff", tile = "purple", robux = 399 },
+	-- 06.11.2026: Mega Pack — справжній продукт (MonetizationConfig.Products.MegaPack), один раз
+	{ key = "MegaPack", kind = "product", noTickets = true, once = true, golem = "obsidian", mut = 4, name = "Mega Pack", desc = "+500 Tickets, 10 of each potion and a Diamond Obsidian Golem. Once per player!",
+		icon = "rbxassetid://85164603125451", tone = "c08cff", tile = "purple", robux = MonCfg.Products.MegaPack.robux, id = MonCfg.Products.MegaPack.id },
 }
 -- пакети тікетів (MonetizationConfig.TicketProducts): лише за Robux, багаторазові; вигода — tickets / robux − 1
 local PRODUCTS = {}
@@ -654,8 +656,18 @@ for _, attr in { "Tickets", "Diamonds" } do
 		lastBuy = nil
 	end)
 end
+-- 06.11.2026: ArePaidRandomItemsRestricted (атрибут PolicyNoRandom ставить MonetizationService) — кейси й Lucky Roll не купуються (ні за Robux, ні за тікети, ні в подарунок)
+local function randomBlocked(key: string?): boolean
+	local d = key and MonCfg.Products[key]
+	return d ~= nil and (d.cases ~= nil or d.luckRoll ~= nil) and player:GetAttribute("PolicyNoRandom") == true
+end
+local function regionDeny(group)
+	if group then shakeGroup(group) end
+	balance.Text = "Not available in your region"
+end
 local function onBuy(c)
 	local item = c.item
+	if randomBlocked(item.key) then regionDeny(c.btn and c.btn.group); return end
 	local st = stateOf(item)
 	if st == "owned" and item.kind == "pass" and SETTINGS_PASSES[item.key] and hudEvent then
 		hudEvent:Fire("Settings")
@@ -929,12 +941,13 @@ do
 				local av = new("ImageLabel", { BackgroundColor3 = C("2a2e36"), Position = UDim2.fromOffset(8, 6), Size = UDim2.fromOffset(52, 52), ZIndex = 7,
 					Image = "rbxthumb://type=AvatarHeadShot&id=" .. pl.UserId .. "&w=150&h=150" }, row)
 				stroke(av, INK, 3)
-				textAt(row, 72, 24, 260, 22, pl.DisplayName, WHITE, 2.6, { TextXAlignment = LEFT, ZIndex = 7 })
+				textAt(row, 72, 24, 260, 22, pl.DisplayName, WHITE, 2.6, { TextXAlignment = LEFT, ZIndex = 7, AutoLocalize = false }) -- нік не перекладати
 				textAt(row, 72, 46, 260, 14, "@" .. pl.Name, MUTED, 1.6, { TextXAlignment = LEFT, ZIndex = 7, FontFace = XBOLD })
 				local b = makeGroupButton(row, GW - 76 - 150, 8, 140, 46, { name = "Send", shadowDy = 4, color = has and "gray" or "purple", z = 8,
 					text = has or "GIFT", textSize = 24 })
 				b.enabled = not has
 				b.onClick = function()
+					if randomBlocked(item.key) then shakeGroup(b.group); return end -- 06.11.2026: ArePaidRandomItemsRestricted
 					local res = giftCall(item.key, pl.UserId)
 					if res and res.ok and res.id then
 						close()
@@ -1179,6 +1192,7 @@ do
 			t.Text = NF.full(tix and MonCfg.ticketPrice(d and d.robux or 0) or (d and d.robux or 0))
 		end)
 		b.onClick = function()
+			if randomBlocked(key) then regionDeny(b.group); denySound(); return end -- 06.11.2026: ArePaidRandomItemsRestricted
 			if currency == "tickets" and d then
 				if tickets() < MonCfg.ticketPrice(d.robux) then shakeGroup(b.group); denySound(); return end
 				b.enabled = false

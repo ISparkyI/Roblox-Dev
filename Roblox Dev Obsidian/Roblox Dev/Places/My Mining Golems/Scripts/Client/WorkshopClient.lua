@@ -357,7 +357,7 @@ local function buildPanel(f: Model, screen: BasePart, ownerId: number)
 		for key, cd in cards do
 			-- наведення 1,04 завжди; натискання 0,92 + Back і запит, якщо можна; інакше (грошей нема / MAX / не працює) — хитання
 			-- tap = false: у покупки свій звук BuySound (без нашарування з tap)
-			StyleA.bind(cd.sa, { hoverAlways = true, tap = false, canClick = function() return pn.can[key] == true end,
+			StyleA.bind(cd.sa, { hoverAlways = true, tap = false, canClick = function() return pn.can[key] == true and Players.LocalPlayer:GetAttribute("TutStep") == nil end, -- 06.11.2026: не під час навчання
 				onClick = function() UISfx.play("BuySound"); Action:FireServer("Upgrade", key) end })
 		end
 	else
@@ -974,7 +974,9 @@ RunService.RenderStepped:Connect(function(dt)
 		-- кристал у руці (лише під час огранювання), летючий кристал, іскри; кристали середньої руки й верстата — лише з 3-ї карти
 		do
 			local c = r.cut
-			local col = c and CRY_COL[c.t] or CRY_COL[2]
+			-- 05.11.2026: колір кристала — руда мапи (CutType = номер руди мапи 1..3), а не лише кварц / аметист / сапфір 3-ї карти
+			local co = c and oreAt(c.t)
+			local col = co and { co.color:ToHex(), co.bar:ToHex() } or CRY_COL[2]
 			for i, kind in r.cryParts do
 				local p = r.parts[i]
 				p.Transparency = cutNow and (kind == "core" and 0.25 or 0.2) or 1

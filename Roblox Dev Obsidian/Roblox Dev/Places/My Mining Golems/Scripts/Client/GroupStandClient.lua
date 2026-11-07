@@ -193,18 +193,23 @@ local actBtn = makeButton(content, RX, 444, RW, 96, { shadowDy = 8, color = "ora
 	canClick = function() return not ownsMushroom() end })
 
 -- ===== стан =====
+local joinedLocal = false -- 06.11.2026: вікно вступу повернуло Joined / AlreadyMember — крок 1 позначаємо одразу (сервер підтвердить InGroup)
 local function refresh()
-	local inG = player:GetAttribute("InGroup") == true
+	local inG = player:GetAttribute("InGroup") == true or joinedLocal
 	local owned = ownsMushroom()
-	local done = { inG, inG, owned }
+	-- 06.11.2026: крок 2 (лайк) — атрибут GroupLiked від сервера (10 с після відкриття вікна, якщо увійшов уже учасником групи)
+	local liked = inG and (player:GetAttribute("GroupLiked") == true or player:GetAttribute("GroupGolem") == true)
+	local done = { inG, liked, owned }
 	for i, st in steps do
 		st.num.BackgroundColor3 = done[i] and C("7ef05a") or C("ffcf4a")
 		st.nl.Text = done[i] and "✓" or tostring(i)
 	end
 	if owned then
 		actBtn:setText("OWNED"); if actBtn.color ~= "gray" then actBtn:setColor("gray") end
-	elseif inG then
+	elseif liked then
 		actBtn:setText("CLAIM"); if actBtn.color ~= "green" then actBtn:setColor("green") end
+	elseif inG then
+		actBtn:setText("LIKE THE GAME"); if actBtn.color ~= "orange" then actBtn:setColor("orange") end
 	else
 		actBtn:setText("JOIN GROUP"); if actBtn.color ~= "orange" then actBtn:setColor("orange") end
 	end
@@ -215,13 +220,20 @@ local joining = false
 local function join()
 	if joining then return end
 	joining = true
-	local ok = pcall(function() GroupService:PromptJoinAsync(GROUP_ID) end)
+	local ok, res = pcall(function() return GroupService:PromptJoinAsync(GROUP_ID) end)
 	joining = false
-	if ok then remote:FireServer("Check") end
+	if ok then
+		local r = tostring(res)
+		if string.find(r, "Joined") or string.find(r, "AlreadyMember") then joinedLocal = true end
+		refresh()
+		remote:FireServer("Refresh") -- лише оновити InGroup (без повторного вікна вступу й видачі)
+		task.delay(3, function() remote:FireServer("Refresh") end) -- членство на серверах Roblox оновлюється не миттєво
+	end
 end
 actBtn.onClick = function()
 	if ownsMushroom() then return end
-	if player:GetAttribute("InGroup") == true then remote:FireServer("Check") else task.spawn(join) end
+	if player:GetAttribute("InGroup") ~= true then task.spawn(join); return end
+	if player:GetAttribute("GroupLiked") == true or player:GetAttribute("GroupGolem") == true then remote:FireServer("Check") end -- 06.11.2026: LIKE THE GAME — без підказки
 end
 remote.OnClientEvent:Connect(function(kind, a, b)
 	if kind == "Join" then task.spawn(join)
@@ -252,6 +264,7 @@ local function open()
 	fitWin()
 	if not vpSet then vpSet = true; pcall(ItemVP.set, vp, ItemVP.golemKey(KIND, "miner"), 1.0) end -- на 15% менше, щоб не вилазив за кадр
 	refresh()
+	remote:FireServer("Opened") -- 06.11.2026: сервер стартує 10-секундний таймер кроку «Like the game»
 	backdrop.Visible = false; modalRoot.Visible = true
 	popScale.Scale = 0.85 * WIN_SCALE
 	tween(popScale, 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Scale = 1.05 * WIN_SCALE }).Completed:Connect(function(state)
@@ -364,7 +377,7 @@ task.spawn(function()
 	end
 end)
 
-local WATCH = { InvGolems = true, CaveStandGolems = true, MutMachines = true, InGroup = true, BestMinerDmg = true }
+local WATCH = { InvGolems = true, CaveStandGolems = true, MutMachines = true, InGroup = true, BestMinerDmg = true, GroupLiked = true, GroupGolem = true }
 player.AttributeChanged:Connect(function(n) if WATCH[n] and isOpen then refresh() end end)
 
 local TITLE_PAL = { C("fff3a8"), C("ffcf4a"), C("ff8a3a"), C("ffcf4a") }
@@ -381,5 +394,4 @@ RunService.Heartbeat:Connect(function()
 	local ks = {}
 	for k = 0, 12 do ks[#ks + 1] = ColorSequenceKeypoint.new(k / 12, sample(TITLE_PAL, k / 12 * 2 + ph)) end
 	tg.Color = ColorSequence.new(ks)
-	glow.BackgroundTransparency = 0.78 + 0.08 * math.sin(os.clock() * 2.5)
 end)

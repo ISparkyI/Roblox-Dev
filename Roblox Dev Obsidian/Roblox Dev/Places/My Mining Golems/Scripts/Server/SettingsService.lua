@@ -54,6 +54,9 @@ local KEYS = {
 	Auras = "bool",
 	HidePlayers = "bool",
 	LowGfx = "bool",
+	HideGolems = "bool", -- 06.11.2026: маркет — сховати чужих големів-лотів
+	AnimDist = "percent", -- 06.11.2026: лоббі — відстань анімацій големів (Shared/GolemAnimRunner, 50 = як раніше)
+	UIDist = "percent", -- 06.11.2026: лоббі — відстань табел і написів ніш (NicheLOD, 50 = як раніше, 100 — завжди)
 	AutoEquip = "bool",
 	AutoRoll = "bool", -- лише з Pass_AutoRoll (RollService читає Set_AutoRoll ~= false)
 	AutoBuy = "bool", -- лише з Pass_AutoBuy
@@ -64,6 +67,7 @@ local KEYS = {
 	RollRars = "mask", -- фільтр AUTO ROLL: біти рідкостей (Catalog.RARITIES)
 	RollMinDmg = "num", -- фільтр AUTO ROLL: мінімум шкоди (носій — місткість)
 	Tag = "tag",
+	GiftMode = "giftmode", -- 06.11.2026: хто може дарувати мені големів: "all" | "friends" | "none" (GolemGiftConfig)
 }
 local RATE = 20 -- максимум змін за 5 с
 local hits: { [Player]: { number } } = {}
@@ -102,6 +106,8 @@ local function onSet(p: Player, key: any, v: any)
 		v = math.clamp(math.floor(v), 0, 1e15)
 	elseif kind == "tag" then
 		if type(v) ~= "string" or (v ~= "" and not MonCfg.ownsTag(p, v)) then return end
+	elseif kind == "giftmode" then
+		if v ~= "all" and v ~= "friends" and v ~= "none" then return end
 	end
 	p:SetAttribute("Set_" .. key, v)
 end

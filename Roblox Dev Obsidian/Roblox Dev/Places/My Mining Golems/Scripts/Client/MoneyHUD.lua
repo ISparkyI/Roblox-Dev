@@ -22,6 +22,7 @@ local UIS = game:GetService("UserInputService")
 local NF = require(RS:WaitForChild("Shared"):WaitForChild("NumberFormat"))
 local MultiCfg = require(RS:WaitForChild("Shared"):WaitForChild("MultiConfig"))
 local UISounds = require(RS:WaitForChild("Shared"):WaitForChild("UISounds")) -- звук натискання «+»
+local Loc = require(RS:WaitForChild("Shared"):WaitForChild("Loc")) -- «TOTAL MULTI» (RichText з числом — автопереклад його не ловить)
 local player = Players.LocalPlayer
 
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
@@ -85,6 +86,7 @@ local multi = frame(multiSlot, { AnchorPoint = Vector2.new(0, 1), Position = UDi
 local multiHover = new("UIScale", {}, multi)
 new("UIGradient", { Transparency = ns({ { 0, 0.5 }, { 0.55, 0.58 }, { 1, 1 } }) }, multi)
 local multLabel = new("TextLabel", { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.XY, Size = UDim2.fromOffset(0, 0),
+	Name = "TotalMulti", AutoLocalize = false, -- ім'я — для BossArenaClient (ховає плашку на арені; текст тепер перекладений)
 	FontFace = HEAVY, TextSize = MULTI_SIZE, TextColor3 = C("e6edf5"), RichText = true, Text = "TOTAL MULTI", ZIndex = 2 }, multi)
 new("UIPadding", { PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 22), PaddingTop = UDim.new(0, 3), PaddingBottom = UDim.new(0, 4) }, multLabel)
 new("UIStroke", { Color = INK, Thickness = 2, LineJoinMode = Enum.LineJoinMode.Round }, multLabel)
@@ -311,8 +313,9 @@ end)
 
 -- ===== дані =====
 local function setMulti(n: number)
-	multLabel.Text = 'TOTAL MULTI <font color="#5ff2ff">' .. multText(n) .. "</font>"
+	multLabel.Text = Loc.t("TOTAL MULTI") .. ' <font color="#5ff2ff">' .. multText(n) .. "</font>"
 end
+Loc.Ready:Connect(function() setMulti(player:GetAttribute("TotalMulti") or 1) end) -- перекладач готовий / змінилась мова
 local shown = player:GetAttribute("Money") or 0
 local lockW: number? = nil
 local animId = 0

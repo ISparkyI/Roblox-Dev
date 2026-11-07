@@ -362,6 +362,16 @@ if ev then
 		if type(data) ~= "table" then return end
 		if kind == "ann" and type(data.text) == "string" then
 			showBanner(data.text, tostring(data.color), math.clamp(tonumber(data.sec) or 8, 3, 60))
+			-- 06.11.2026: Admin Abuse на маркеті не діє (AdminService) — під банером короткий рядок, що бонус лише на головному сервері
+			if data.abuse == true and current then
+				local okH, Hub = pcall(function() return require(Shared:WaitForChild("HubConfig")) end)
+				if okH and Hub.isMarket() then
+					local sub, _, sl = textGroup("AnnSub", 900, 40, 26, 12, PALETTES.gray, false)
+					setText(sl, "Not on the Market - go back to the main server!")
+					sub.Parent = current
+					sub.Position = UDim2.new(0.5, 0, 1, -14)
+				end
+			end
 		elseif kind == "toast" and type(data.text) == "string" then
 			showToast(data.text, tostring(data.color))
 		end

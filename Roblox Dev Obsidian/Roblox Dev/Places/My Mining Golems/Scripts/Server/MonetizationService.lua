@@ -56,6 +56,20 @@ function MonetizationService.GrantProduct(p: Player, key: string): boolean
 			-- як після купівлі на підставці ролу: голем одразу в хотбарі (хотбар повний — лише в інвентарі)
 			if okA and added and Inv.Pin then pcall(Inv.Pin, p, "Golem_" .. gid) end
 		end
+	elseif key == "MegaPack" then -- 06.11.2026: +500 Tickets, 10 кожного зілля, Diamond Obsidian Golem (Miner), один раз
+		p:SetAttribute("Pass_MegaPack", true)
+		p:SetAttribute("Tickets", ((tonumber(p:GetAttribute("Tickets")) or 0) :: number) + d.tickets)
+		for _, pot in Items.POTIONS do
+			local k = "Pot_" .. pot.key
+			p:SetAttribute(k, ((tonumber(p:GetAttribute(k)) or 0) :: number) + d.potions)
+		end
+		local okI, Inv = pcall(require, script.Parent:FindFirstChild("InventoryService"))
+		local okC, Cave = pcall(require, script.Parent:FindFirstChild("CaveStandService"))
+		if okI and okC and Inv and Cave then
+			local gid = Cave.MaxId(p) + 1
+			local okA, added = pcall(Inv.AddGolem, p, gid, d.golem, d.cls, d.mut, "shop:mega", true)
+			if okA and added and Inv.Pin then pcall(Inv.Pin, p, "Golem_" .. gid) end
+		end
 	elseif key == "MarketSlots" then -- +3 слоти лотів на маркеті, один раз (03.11.2026)
 		p:SetAttribute("Pass_MarketSlots", true)
 	elseif key == "ExtraStorage" then
@@ -112,6 +126,14 @@ local function grantProductId(p: Player, productId: number, info: any?): boolean
 	return baseGrant(p, productId)
 end
 baseGrant = function(p: Player, productId: number): boolean
+	-- ексклюзиви Marketplace за Robux (Cyborg Golem, 05.11.2026): MarketExclusiveService.GrantProduct (nil — не його продукт)
+	do
+		local okX, MX = pcall(require, script.Parent:FindFirstChild("MarketExclusiveService"))
+		if okX and MX and MX.GrantProduct then
+			local r = MX.GrantProduct(p, productId)
+			if r ~= nil then return r end
+		end
+	end
 	local tier = tierOfProduct(productId)
 	if tier then MonetizationService.GrantMoneyTier(p, tier); return true end
 	for _, t in MonCfg.TicketProducts do
@@ -175,7 +197,9 @@ local function onShop(p: Player, action: any, key: any): any
 		grant = function() p:SetAttribute("Pass_" .. key, true); p:SetAttribute("PassOff_" .. key, nil) end
 	elseif action == "BuyProduct" and type(key) == "string" then
 		local d = MonCfg.Products[key]
-		if not d or d.diamonds then return { ok = false } end -- діаманти — лише за Robux; кейси — і за тікети (03.11.2026, клас — CaseBuyCls)
+		-- діаманти — лише за Robux; кейси — і за тікети (03.11.2026, клас — CaseBuyCls)
+		if not d or d.diamonds or d.noTickets then return { ok = false } end -- 06.11.2026: noTickets — паки лише за Robux
+		if (d.cases or d.luckRoll) and p:GetAttribute("PolicyNoRandom") == true then return { ok = false, err = "region" } end -- 06.11.2026: ArePaidRandomItemsRestricted
 		if d.once and p:GetAttribute("Pass_" .. key) == true then return { ok = false, err = "owned" } end
 		price = MonCfg.ticketPrice(d.robux)
 		grant = function() MonetizationService.GrantProduct(p, key) end
@@ -242,7 +266,25 @@ function MonetizationService.Start()
 		end
 	end)
 
+	-- 06.11.2026: PolicyService — обмеження за регіоном гравця (анкета Content rating: гра поважає обидва API):
+	--   PolicyNoRandom = true — ArePaidRandomItemsRestricted: не можна купувати за Robux / тікети випадкове (кейси, Lucky Roll);
+	--   PolicyNoTrade = true — IsPaidItemTradingAllowed == false: без торгівлі на маркеті й подарунків големів.
+	--   Клієнт (ShopWindow, MarketUI) читає атрибути; сервери (тут BuyProduct, MarketLotService, GolemGiftService) відмовляють. Не вдалося — повтор до 5 разів.
+	local function applyPolicy(p: Player)
+		local PS = game:GetService("PolicyService")
+		for _ = 1, 5 do
+			local ok, info = pcall(PS.GetPolicyInfoForPlayerAsync, PS, p)
+			if not p.Parent then return end
+			if ok and type(info) == "table" then
+				p:SetAttribute("PolicyNoRandom", info.ArePaidRandomItemsRestricted == true or nil)
+				p:SetAttribute("PolicyNoTrade", info.IsPaidItemTradingAllowed == false or nil)
+				return
+			end
+			task.wait(3)
+		end
+	end
 	local function onPlayer(p: Player)
+		task.spawn(applyPolicy, p)
 		if DataService.WaitLoaded(p) then checkPasses(p) end
 	end
 	Players.PlayerAdded:Connect(function(p) task.spawn(onPlayer, p) end)

@@ -159,9 +159,15 @@ local function stageOf(m: Instance): number
 	end
 	return 1
 end
-local function spawnOre(pl: Plot, grow: number): boolean
+-- forced (05.11.2026, навчання TutorialService): руда заданого виду, жила L, 1 HP, з неї гарантовано TUT_DROP шматків
+local TUT_DROP = 4
+local function spawnOre(pl: Plot, grow: number, forced: string?): boolean
 	local def = Cfg.rollOre(rng, stageOf(pl.model))
 	local size = Cfg.rollSize(rng)
+	if forced then
+		for _, d in Cfg.oresFor(stageOf(pl.model)) do if d.key == forced then def = d end end
+		for _, z in Cfg.SIZES do if z.key == "L" then size = z end end
+	end
 	local t = ASSETS.Ores:FindFirstChild(def.key .. "_" .. size.key) :: Model
 	local radius = (t:GetAttribute("Radius") :: number?) or 3.5
 	local p = freeSpot(pl, radius * 0.8)
@@ -170,7 +176,8 @@ local function spawnOre(pl: Plot, grow: number): boolean
 	-- випадковий поворот і легкий нахил, щоб руда не стояла «рядами»
 	m:PivotTo(CFrame.new(p + Vector3.new(0, bottomOffset(t) - 0.15, 0))
 		* CFrame.Angles(math.rad(rng:NextNumber(-5, 5)), rng:NextNumber() * math.pi * 2, math.rad(rng:NextNumber(-5, 5))))
-	local hp = Cfg.hpOf(def, size)
+	local hp = forced and 1 or Cfg.hpOf(def, size)
+	if forced then m:SetAttribute("Tut", true) end
 	m:SetAttribute("Ore", def.key)
 	m:SetAttribute("Size", size.key)
 	m:SetAttribute("HP", hp)
@@ -181,7 +188,7 @@ local function spawnOre(pl: Plot, grow: number): boolean
 	m.Name = def.key .. "_" .. size.key
 	enableScripts(m)
 	m.Parent = pl.model:FindFirstChild("Ores")
-	table.insert(pl.ores, { model = m, key = def.key, size = size, hp = hp, max = hp, pos = p, radius = radius * 0.8, miners = 0, dead = false, angles = {}, readyAt = t0 + grow })
+	table.insert(pl.ores, { model = m, key = def.key, size = size, hp = hp, max = hp, pos = p, radius = radius * 0.8, miners = 0, dead = false, angles = {}, readyAt = t0 + grow, tut = forced ~= nil })
 	return true
 end
 
@@ -294,6 +301,7 @@ local function breakOre(st: State, pl: Plot, o: Ore)
 	questAdd(st.player, "Mine", 1)
 	-- 1–3 шматки × розмір жили × картка Ore Drop; падають 1–3 купками навколо руди
 	local n = Cfg.rollDrop(rng, o.size, st.lv.Drop or 1)
+	if (o :: any).tut then n = TUT_DROP end -- навчальна руда: гарантована кількість
 	o.model:SetAttribute("Dropped", n)
 	-- дохід за хвилину (IncomeService): вартість добутої руди без множників
 	do
@@ -1019,6 +1027,23 @@ local function onAction(p: Player, action: any, arg: any)
 end
 
 local lastTick = 0
+-- навчання (05.11.2026, TutorialService): атрибут гравця TutOre — поки він є, звичайна руда НЕ з'являється;
+--   на першому плоті один раз прибирається наявна руда; TutOre = "run" — по черзі Coal, потім Iron (жила L, 1 HP),
+--   кожна наступна — коли попередню зламали; обидві зламані → TutOre = "mined".
+local function tutOre(st: State, pl: Plot)
+	local pa = pl :: any
+	if not pa.tutCleared then
+		pa.tutCleared = true
+		for _, o in pl.ores do if not o.dead then o.dead = true; o.model:Destroy() end end
+		table.clear(pl.ores)
+	end
+	if st.player:GetAttribute("TutOre") ~= "run" then return end
+	for _, o in pl.ores do if not o.dead then return end end
+	local k = pa.tutN or 0
+	if k >= 2 then st.player:SetAttribute("TutOre", "mined"); return end
+	if spawnOre(pl, 1.2, k == 0 and "Coal" or "Iron") then pa.tutN = k + 1 end
+end
+
 local function step()
 	local t = now()
 	local dt = t - lastTick
@@ -1036,7 +1061,9 @@ local function step()
 				-- доросла — темп той самий, що раніше; руди вже максимум (Ore Limit) або немає місця — чекаємо
 				local growing = false
 				for _, o in pl.ores do if not o.dead and o.readyAt > t then growing = true; break end end
-				if not growing and #pl.ores < Cfg.pointsOf(st.lv.Points or 1) then spawnOre(pl, math.max(interval, 0.25)) end
+				if st.player:GetAttribute("TutOre") ~= nil then
+					if i == 1 then tutOre(st, pl) end -- навчання: лише навчальна руда на першому плоті
+				elseif not growing and #pl.ores < Cfg.pointsOf(st.lv.Points or 1) then spawnOre(pl, math.max(interval, 0.25)) end
 				for _, g in pl.golems do
 					if g.role == "carrier" then tickCarrier(st, pl, g, t) else tickMiner(st, pl, g, t) end
 				end

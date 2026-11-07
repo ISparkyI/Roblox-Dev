@@ -13,6 +13,7 @@ local HttpService = game:GetService("HttpService")
 
 local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("PlotConfig"))
 local MultiCfg = require(RS.Shared:WaitForChild("MultiConfig"))
+local ForgeCfg = require(RS.Shared:WaitForChild("ForgeConfig")) -- MAX_STAGE: остання відкрита мапа (далі — COMING SOON)
 local NF = require(RS.Shared:WaitForChild("NumberFormat"))
 local StyleA = require(RS.Shared:WaitForChild("StyleA"))
 local player = Players.LocalPlayer
@@ -29,8 +30,8 @@ local PINK = C("ff4fa8")
 local GOLD = C("ffd23a")
 local PH = 1000
 -- зона натискання MAP N: прямокутник перед екраном (весь майданчик між стовпами табла)
-local ZONE_DEPTH = 48 -- стадів від екрана вперед
-local ZONE_HALF = 42 -- стадів вліво / вправо від центру екрана (екран 65 завширшки)
+local ZONE_DEPTH = 96 -- стадів від екрана вперед (05.11.2026: зона ×2)
+local ZONE_HALF = 84 -- стадів вліво / вправо від центру екрана (екран 65 завширшки; 05.11.2026: ×2)
 local ZONE_UP = 40 -- допуск по висоті
 local BUILD_AT, DROP_AT = 600, 700 -- дальність прогрузки табла (від ролів і плотів теж видно)
 -- назви мап (GDD - Maps)
@@ -191,6 +192,19 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		local b = ui and ui:FindFirstChild("Toast")
 		if b then b:Fire(text, color, sound) end
 	end
+	-- 05.11.2026: чи лежать големи в Mutation Machines (атрибут MutMachines: { ["1"] = { slots = { ["1"] = запис } } }) — тоді перехід закритий
+	local function mutBusy(): boolean
+		local raw = player:GetAttribute("MutMachines")
+		if type(raw) ~= "string" or raw == "" then return false end
+		local ok, t = pcall(HttpService.JSONDecode, HttpService, raw)
+		if not ok or type(t) ~= "table" then return false end
+		for _, m in t do
+			if type(m) == "table" and type(m.slots) == "table" then
+				for _, r in m.slots do if type(r) == "table" then return true end end
+			end
+		end
+		return false
+	end
 	local function near(): boolean
 		local ch = player.Character
 		local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
@@ -202,14 +216,16 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		return depth > -4 and depth <= ZONE_DEPTH and math.abs(rel.X) <= ZONE_HALF and math.abs(rel.Y) <= ZONE_UP
 	end
 	if mine then
-		StyleA.bind(sa, { hoverAlways = true, canClick = function() return pn.pct >= 1 and pn.rebOk == true and near() end, onClick = function()
+		StyleA.bind(sa, { hoverAlways = true, canClick = function() return not pn.soon and not mutBusy() and pn.pct >= 1 and pn.rebOk == true and near() end, onClick = function()
 			-- перехід на наступну мапу (сервер MapService перевіряє умови й скидає дані за GDD)
 			local r = RS:FindFirstChild("Remotes")
 			local ev = r and r:FindFirstChild("MapAction")
 			if ev then ev:FireServer("Next") end
 		end })
 		sa.button.Activated:Connect(function()
-			if not near() then screenToast("Come a bit closer to the board!", "red", "deny")
+			if pn.soon then screenToast("Map " .. ((tonumber(player:GetAttribute("Stage")) or 1) + 1) .. " is coming soon!", "yellow", "deny")
+			elseif mutBusy() then screenToast("Take your golems out of the Mutation Machines first!", "red", "deny")
+			elseif not near() then screenToast("Come a bit closer to the board!", "red", "deny")
 			elseif pn.pct < 1 then screenToast("Max all plot upgrades first!", "red", "deny")
 			elseif not pn.rebOk then screenToast("Do all rebirths of this map first!", "red", "deny") end
 		end)
@@ -228,8 +244,11 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		clip.Size = UDim2.fromOffset(W * pct, BH)
 		mult.Text = multText(MultiCfg.stageMult(stage)) .. " → " .. multText(MultiCfg.stageMult(nextStage))
 		mapName.Text = "Map " .. nextStage .. " · " .. (MAP_NAMES[nextStage] or "???")
-		upLbl.Text = "Upgrade to Map " .. nextStage
-		sa:setText("MAP " .. nextStage)
+		-- 05.11.2026: наступної мапи ще немає в грі — на кнопці COMING SOON (сіра, не натискається)
+		pn.soon = nextStage > ForgeCfg.MAX_STAGE
+		upLbl.Text = pn.soon and ("Map " .. nextStage .. " — next update") or ("Upgrade to Map " .. nextStage)
+		sa:setText(pn.soon and "COMING SOON" or ("MAP " .. nextStage))
+		if sa.label then sa.label.TextSize = pn.soon and 60 or 92 end
 		-- ребітхи цієї мапи: зроблено / ліміт (шкала — лише ребітхи цієї мапи: 0..5 на мапі 1, 5..8 на мапі 2 …)
 		local reb = owner and (tonumber(owner:GetAttribute("Rebirths")) or 0) or 0
 		local lim = MultiCfg.rebirthLimit(stage)
@@ -242,11 +261,11 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		reqText.Text = ready and "All upgrades & rebirths done!" or (pct >= 1 and "Do ALL rebirths of this map to unlock" or "Max ALL plot upgrades & rebirths to unlock")
 		reqText.TextColor3 = ready and LIME or C("e9edf1")
 		local close = mine and near()
-		local col = (mine and ready and close) and "green" or "gray"
+		local col = (mine and ready and close and not pn.soon) and "green" or "gray"
 		if col ~= pn.last then sa:setColor(col); pn.last = col end
 		if os.clock() > hintUntil then
 			if not mine then hint.Text = owner and ("@" .. owner.Name .. "'s mine") or ""
-			elseif ready and not close then hint.Text = "Come closer to the board!"; hint.TextColor3 = WHITE
+			elseif ready and not close and not pn.soon then hint.Text = "Come closer to the board!"; hint.TextColor3 = WHITE
 			else hint.Text = "" end
 		end
 	end
@@ -267,6 +286,7 @@ task.spawn(function()
 		elseif kind == "Deny" then
 			local t = arg == "soon" and "Next map is coming soon!" or arg == "plots" and "Max all plot upgrades first!"
 				or arg == "rebirths" and "Do all rebirths of this map first!"
+				or arg == "mutation" and "Take your golems out of the Mutation Machines first!"
 				or arg == "far" and "Come a bit closer to the board!" or "Can't move to the next map right now"
 			b:Fire(t, arg == "soon" and "yellow" or "red", "deny")
 		end

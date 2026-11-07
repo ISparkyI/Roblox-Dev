@@ -1,0 +1,45 @@
+Key,Context,Example,Source,ar,de,es,fr,hi,id,it,ja,ko,nl,pl,pt,ru,th,tr,vi,zh-cjv,zh-hans,zh-hant
+,,,+{number1} Roll Stand ({number2}/{number3}),,,,,,,,,,,,,+{number1} стойка ({number2}/{number3}),,,,,,
+,,,+{number1} Boss Slot,,,,,,,,,,,,,+{number1} слот босса,,,,,,
+,,,+{number1}% Luck,,,,,,,,,,,,,+{number1}% удачи,,,,,,
+,,,+{number1}% Damage,,,,,,,,,,,,,+{number1}% урона,,,,,,
+,,,+{number1}% bonus,,,,,,,,,,,,,+{number1}% бонус,,,,,,
+,,,"You can send feedback after {number1} minutes in game
+Available in {time1}",,,,,,,,,,,,,"Отзыв можно отправить через {number1} мин игры
+Доступно через {time1}",,,,,,
+,,,"of your
+BEST MINER",,,,,,,,,,,,,"от твоего
+ЛУЧШЕГО ШАХТЁРА",,,,,,
+,,,+{number1} Roll Stand,,,,,,,,,,,,,+{number1} стойка,,,,,,
+,,,+{number1} Roll Stand II,,,,,,,,,,,,,+{number1} стойка II,,,,,,
+,,,+{number1}% value,,,,,,,,,,,,,+{number1}% выгоды,,,,,,
+,,,+{number1}% BEST,,,,,,,,,,,,,+{number1}% ЛУЧШЕГО,,,,,,
+,,,- All Money,,,,,,,,,,,,,- Все деньги,,,,,,
+,,,- All ores & bars,,,,,,,,,,,,,- Всю руду и слитки,,,,,,
+,,,- Golems not saved in the Cave,,,,,,,,,,,,,- Големов не из пещеры,,,,,,
+,,,- Plot & Workshop upgrades,,,,,,,,,,,,,- Улучшения участков и мастерской,,,,,,
+,,,- Roll stands bought with Money,,,,,,,,,,,,,"- Стойки, купленные за деньги",,,,,,
+,,,"BOSS
+SHOP",,,,,,,,,,,,,"МАГАЗИН
+БОССА",,,,,,
+,,,"DIAMONDS
+SHOP",,,,,,,,,,,,,"МАГАЗИН
+АЛМАЗОВ",,,,,,
+,,,"+{number1} <font color=""#{number2}aa{number3}ad"">earned</font>",,,,,,,,,,,,,"+{number1} <font color=""#{number2}aa{number3}ad"">получено</font>",,,,,,
+,,,"No golems to sell
+Roll golems in the cave first!",,,,,,,,,,,,,"Нечего продать
+Сначала выбей големов в пещере!",,,,,,
+,,,"in game
+Available in",,,,,,,,,,,,,"в игре
+Доступно через",,,,,,
+,,,+{number1} roll stand,,,,,,,,,,,,,+{number1} стойка,,,,,,
+,,,"+${number1}K Money, {number2} Luck Potions and a Diamond Stone Golem. Once per player!",,,,,,,,,,,,,"+${number1}K денег, {number2} зелья удачи и Алмазный каменный голем. Один раз!",,,,,,
+,,,+{number1} golem slots in your inventory. Buy as many as you want!,,,,,,,,,,,,,+{number1} мест для големов в инвентаре. Покупай сколько хочешь!,,,,,,
+,,,"+{number1} Tickets, {number2} potions of each kind and a Diamond Ironclad Golem.",,,,,,,,,,,,,"+{number1} билетов, по {number2} зелий каждого вида и Алмазный броненосный голем.",,,,,,
+,,,"+{number1} SLOTS
+R$",,,,,,,,,,,,,"+{number1} СЛОТА
+R$",,,,,,
+,,,One more golem every roll. Two stages!,,,,,,,,,,,,,+1 голем за каждый бросок. Два этапа!,,,,,,
+,,,One more golem every roll (stage {number1}).,,,,,,,,,,,,,+1 голем за каждый бросок (этап {number1}).,,,,,,
+,,,+{number1}% roll luck · {number2} min,,,,,,,,,,,,,+{number1}% к удаче · {number2} мин,,,,,,
+,,,+{number1}% damage to ore · {number2} min,,,,,,,,,,,,,+{number1}% урона по руде · {number2} мин,,,,,,

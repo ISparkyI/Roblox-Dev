@@ -702,8 +702,8 @@
     },
     {
       "id": "Places/My Mining Golems/GDD/Plans.md",
-      "x": 665.4809395694424,
-      "y": 15.522466625118255
+      "x": 665.48095703125,
+      "y": 15.522466659545898
     },
     {
       "id": "Places/My Mining Golems/Locations/Niche Stage 2/Niche Stage 2.md",
@@ -714,6 +714,76 @@
       "id": "Places/My Mining Golems/Locations/Niche Stage 3/Niche Stage 3.md",
       "x": -292.1651611328125,
       "y": 336.04095458984375
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Boss Fight System.md",
+      "x": 733.5789091594752,
+      "y": -87.08473643016873
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Map 4 Magma Caverns Prefab.md",
+      "x": 2295.8955078125,
+      "y": -1053.3463134765625
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Map 6 Void Core Prefab.md",
+      "x": 2268.968017578125,
+      "y": -1994.8482666015625
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Map 5 Frozen Abyss Prefab.md",
+      "x": 2247.794189453125,
+      "y": -1510.0133056640625
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 5/Niche Stage 5.md",
+      "x": 1797.641357421875,
+      "y": -2332.117431640625
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 6/Niche Stage 6.md",
+      "x": 1326.2965087890625,
+      "y": -2181.791015625
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 4/Niche Stage 4.md",
+      "x": 1957.7762451171875,
+      "y": -1890.191162109375
+    },
+    {
+      "id": "Style/GDD - Промпт для генерації іконок.md",
+      "x": -1983.5321044921875,
+      "y": -2190.80615234375
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Localization.md",
+      "x": 2192.660400390625,
+      "y": 229.60336303710938
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Tutorial.md",
+      "x": 2195.203857421875,
+      "y": -86.63580322265625
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Market Exclusive Golems.md",
+      "x": 2049.2421875,
+      "y": -308.7977600097656
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Golem Gifting.md",
+      "x": 2031.4560546875,
+      "y": -526.9031372070312
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Trailer/README.md",
+      "x": -124.12358093261719,
+      "y": -1278.8717041015625
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Trailer/My Mining Golems - Trailer.md",
+      "x": -249.3345489501953,
+      "y": -2302.96728515625
     }
   ],
   "pinnedNodes": [

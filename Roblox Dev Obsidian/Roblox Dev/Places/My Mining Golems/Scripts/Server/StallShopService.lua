@@ -6,6 +6,10 @@
 -- Купівля: Remotes/StallShopAction (RemoteFunction) ("BuyDia", lotId) → { ok, err?, gain? }: запас > 0, діамантів вистачає,
 --   геймпаса ще немає → −Diamonds, видача (скіп: Money += IncomeService.Rate × хвилини; геймпас: Pass_<ключ> = true), −1 запас,
 --   SaveNow; голем-продавець радіє монеті (атрибут BuySeq моделі лавки, SellClient).
+-- 04.11.2026: BOSS SHOP — StallShops.BossLots (JSON, Cfg.bossLots(період)), BossPeriod, EventNextAt (кінець 6-годинного періоду).
+--   ("BuyBoss", lotId) → { ok, err?, kind, gain? }: валюта — FossilTeeth; запас особистий: атрибут гравця BossShopBuys =
+--   JSON { p = період, b = { [id] = куплено } } (новий період — лічильники з нуля). Видача: голем — InventoryService.AddGolem
+--   (воїн, Normal), зілля — Pot_<ключ> +1, скіп — Money += дохід × хвилини, тікети — Tickets += N.
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
@@ -18,6 +22,8 @@ local Service = {}
 local state: Folder
 local lots = {}
 local period = -1
+local bossPeriod = -1
+local bossLots = {}
 local rng = Random.new()
 
 local function pickWeighted(list, wf)
@@ -74,6 +80,65 @@ local function tick()
 	end
 	state:SetAttribute("DiaNextAt", Cfg.nextAt(now, Cfg.DIA_RESTOCK))
 	state:SetAttribute("EventNextAt", Cfg.nextAt(now, Cfg.EVENT_RESTOCK))
+	local bp = Cfg.periodOf(now, Cfg.EVENT_RESTOCK)
+	if bp ~= bossPeriod then
+		bossPeriod = bp
+		bossLots = Cfg.bossLots(bp)
+		state:SetAttribute("BossPeriod", bp)
+		state:SetAttribute("BossLots", HttpService:JSONEncode(bossLots))
+	end
+end
+
+-- особисті покупки в Boss Shop за поточний період
+local function bossBuys(p: Player): any
+	local raw = p:GetAttribute("BossShopBuys")
+	local ok, t = pcall(HttpService.JSONDecode, HttpService, type(raw) == "string" and raw or "")
+	if not ok or type(t) ~= "table" or t.p ~= bossPeriod or type(t.b) ~= "table" then t = { p = bossPeriod, b = {} } end
+	return t
+end
+local busyB: { [Player]: boolean } = {}
+local function buyBoss(p: Player, id: number): any
+	if busyB[p] or not DataService.IsLoaded(p) then return { ok = false } end
+	local lot = nil
+	for _, l in bossLots do if l.id == id then lot = l end end
+	if not lot then return { ok = false, err = "gone" } end
+	local t = bossBuys(p)
+	local k = tostring(lot.id)
+	local got = tonumber(t.b[k]) or 0
+	if got >= lot.max then return { ok = false, err = "soldout" } end
+	local teeth = tonumber(p:GetAttribute("FossilTeeth")) or 0
+	if teeth < lot.price then return { ok = false, err = "teeth" } end
+	busyB[p] = true
+	local gain = 0
+	if lot.kind == "golem" then
+		local okI, Inv = pcall(require, script.Parent:FindFirstChild("InventoryService"))
+		local okC, Cave = pcall(require, script.Parent:FindFirstChild("CaveStandService"))
+		if not (okI and okC and Inv and Cave) then busyB[p] = nil; return { ok = false } end
+		local added = Inv.AddGolem(p, Cave.MaxId(p) + 1, lot.golem, "warrior", 0, "bossshop")
+		if not added then busyB[p] = nil; return { ok = false, err = "full" } end
+	elseif lot.kind == "potion" then
+		local key = "Pot_" .. lot.potion
+		p:SetAttribute(key, (tonumber(p:GetAttribute(key)) or 0) + 1)
+	elseif lot.kind == "skip" then
+		local okI, Inc = pcall(require, script.Parent:FindFirstChild("IncomeService"))
+		local rate = (okI and Inc and Inc.Rate) and Inc.Rate(p) or 100
+		gain = math.floor(rate * lot.min)
+		p:SetAttribute("Money", (tonumber(p:GetAttribute("Money")) or 0) + gain)
+		p:SetAttribute("SkipGain", gain); p:SetAttribute("SkipT", os.clock())
+	elseif lot.kind == "tickets" then
+		gain = lot.tickets
+		p:SetAttribute("Tickets", (tonumber(p:GetAttribute("Tickets")) or 0) + lot.tickets)
+	end
+	p:SetAttribute("FossilTeeth", teeth - lot.price)
+	t.b[k] = got + 1
+	p:SetAttribute("BossShopBuys", HttpService:JSONEncode(t))
+	local cave = workspace:FindFirstChild("Cave")
+	local hub = cave and cave:FindFirstChild("Hub")
+	local shop = hub and hub:FindFirstChild("Shops") and hub.Shops:FindFirstChild("EventShop")
+	if shop then shop:SetAttribute("BuySeq", (tonumber(shop:GetAttribute("BuySeq")) or 0) + 1) end
+	task.spawn(function() pcall(DataService.SaveNow, p) end)
+	busyB[p] = nil
+	return { ok = true, gain = gain, kind = lot.kind }
 end
 
 local busy: { [Player]: boolean } = {}
@@ -141,6 +206,7 @@ local function teleport(p: Player, target: any): any
 end
 local function onAction(p: Player, action: any, id: any): any
 	if action == "Teleport" then return teleport(p, id) end
+	if action == "BuyBoss" and type(id) == "number" then return buyBoss(p, id) end
 	if action ~= "BuyDia" or type(id) ~= "number" then return { ok = false } end
 	if busy[p] or not DataService.IsLoaded(p) then return { ok = false } end
 	local lot = nil
@@ -184,7 +250,7 @@ function Service.Start()
 	local rf = remotes:FindFirstChild("StallShopAction") or Instance.new("RemoteFunction")
 	rf.Name = "StallShopAction"; rf.Parent = remotes
 	rf.OnServerInvoke = onAction
-	Players.PlayerRemoving:Connect(function(p) busy[p] = nil; tpAt[p] = nil end)
+	Players.PlayerRemoving:Connect(function(p) busy[p] = nil; busyB[p] = nil; tpAt[p] = nil end)
 	tick()
 	task.spawn(function()
 		while true do

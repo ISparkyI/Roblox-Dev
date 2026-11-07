@@ -312,6 +312,11 @@ local function onPull(p: Player, role: any, niche: Model)
 			n = i
 			local g = RollConfig.pick(pool, luckGolem, rnd)
 			local mu = RollConfig.pick(MUTS, luckMut, rnd)
+			-- навчання (05.11.2026, TutorialService): атрибут TutRig — завжди перший голем каталогу (Wooden, безкоштовний), Normal
+			if p:GetAttribute("TutRig") == true then
+				g = (Catalog.GOLEMS :: any)[Catalog.ORDER[1]] or g
+				mu = MUTS[1]
+			end
 			local rec = { kind = g.id, cls = cls, mut = mu.mut }
 			best = math.max(best, (tonumber(g.odds) or 1) * (tonumber(mu.odds) or 1))
 			pend[tostring(i)] = rec

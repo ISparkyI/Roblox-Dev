@@ -11,6 +11,10 @@
 --   стадів (персонажем); застигають у поточній позі, при наближенні оживають.
 -- 04.11.2026 (2): і СВОЇ големи застигають, коли гравець далі OWN_FAR стадів від голема, поза своєю нішею (LODNear = false)
 --   або голем поза екраном; оживають, щойно знову видно / підійшов.
+-- 06.11.2026: МАРКЕТ (HubConfig.isMarket) — големи без власника (стенди ексклюзивів, INDEX, HOME) анімуються завжди щокадру, без LOD за відстанню;
+--   виставлені големи ІНШИХ гравців (MarketUI: моделі «Lot_<UserId>_<id>») застигають далі FOREIGN_NEAR, свої — як звичайно.
+-- 06.11.2026: SETTINGS → ANIMATION DISTANCE (атрибут гравця Set_AnimDist 0–100, лише лоббі) — множник усіх відстаней LOD:
+--   0 % → ×0,25 (обрізаємо найсильніше, більше FPS), 50 % (за замовчуванням) → ×1, 100 % → ×4 (анімації далеко).
 -- Бюджет кадру: не більше BUDGET големів за кадр (по колу), решта чекає наступного кадру — час кадру не росте з кількістю големів.
 -- step(dt, low): dt — скільки часу минуло з попереднього кроку цього голема; low = true — далеко (без міміки обличчя).
 local RunService = game:GetService("RunService")
@@ -30,6 +34,18 @@ local SCREEN_PAD = 150 -- px запасу за краєм екрана
 local FOREIGN_NEAR = 40 -- стадів від персонажа до чужого голема, з яких він оживає
 local OWN_FAR = 80 -- стадів від персонажа: далі свій голем теж застигає
 local FROZEN = math.huge
+local okHub, HubCfg = pcall(function() return require(script.Parent:WaitForChild("HubConfig")) end)
+local function isMarket(): boolean
+	return okHub and HubCfg and HubCfg.isMarket and HubCfg.isMarket() or false
+end
+
+local function distMul(): number
+	if isMarket() then return 1 end
+	local lp = Players.LocalPlayer
+	local v = lp and tonumber(lp:GetAttribute("Set_AnimDist"))
+	if not v then return 1 end
+	return 2 ^ ((math.clamp(v, 0, 100) - 50) / 25)
+end
 
 type E = { model: Model, root: BasePart, step: (number, boolean) -> (), acc: number, iv: number, low: boolean, tierT: number, niche: Instance? | boolean, owner: Instance? | boolean }
 local list: { E } = {}
@@ -56,12 +72,20 @@ end
 local function retier(e: E, cam: Camera?, hrp: Vector3?)
 	local m = e.model
 	if not m:IsDescendantOf(workspace) then e.iv, e.low = 0, false; return end
+	local k = distMul()
 	if e.owner == nil or e.owner == false then e.owner = ownerOf(m) or false end
 	local o = e.owner
 	if typeof(o) == "Instance" and o:GetAttribute("OwnerUserId") ~= Players.LocalPlayer.UserId then
-		if not hrp or (hrp - e.root.Position).Magnitude > FOREIGN_NEAR then e.iv, e.low = FROZEN, true; return end
+		if not hrp or (hrp - e.root.Position).Magnitude > FOREIGN_NEAR * k then e.iv, e.low = FROZEN, true; return end
 	elseif typeof(o) == "Instance" then
-		if not hrp or (hrp - e.root.Position).Magnitude > OWN_FAR then e.iv, e.low = FROZEN, true; return end
+		if not hrp or (hrp - e.root.Position).Magnitude > OWN_FAR * k then e.iv, e.low = FROZEN, true; return end
+	end
+	if o == false and isMarket() then
+		local uid = tonumber(string.match(m.Name, "^Lot_(%d+)_"))
+		if uid == nil then e.iv, e.low = 0, false; return end -- стенди маркету: завжди
+		if uid ~= Players.LocalPlayer.UserId and (not hrp or (hrp - e.root.Position).Magnitude > FOREIGN_NEAR) then
+			e.iv, e.low = FROZEN, true; return
+		end
 	end
 	if e.niche == nil or e.niche == false then e.niche = nicheOf(m) or false end
 	local n = e.niche
@@ -70,7 +94,7 @@ local function retier(e: E, cam: Camera?, hrp: Vector3?)
 	local d = math.huge
 	if cam then d = (cam.CFrame.Position - p).Magnitude end
 	if hrp then d = math.min(d, (hrp - p).Magnitude) end
-	e.low = d > LOW_DIST
+	e.low = d > LOW_DIST * k
 	if cam and d > 12 then
 		local v = cam:WorldToViewportPoint(p)
 		local vs = cam.ViewportSize
@@ -78,7 +102,7 @@ local function retier(e: E, cam: Camera?, hrp: Vector3?)
 			e.iv = if typeof(e.owner) == "Instance" then FROZEN else IV.off; return
 		end
 	end
-	e.iv = if d <= NEAR then IV.near elseif d <= MID then IV.mid elseif d <= FAR then IV.far else IV.beyond
+	e.iv = if d <= NEAR * k then IV.near elseif d <= MID * k then IV.mid elseif d <= FAR * k then IV.far else IV.beyond
 end
 
 function M.add(model: Model, root: BasePart, step: (number, boolean) -> ())

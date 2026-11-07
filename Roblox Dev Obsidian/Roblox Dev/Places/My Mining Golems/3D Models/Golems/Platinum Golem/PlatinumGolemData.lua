@@ -23,9 +23,10 @@ return {
    return pose
   end,
   -- спокій: схиляє голову й розглядає гіроскоп
+  -- 06.11.2026: повільні хвилі — від неперервного часу (os.clock), а не від фази циклу p (при переході 2π → 0 був ривок)
   Idle=function(p, pose, rot)
-   local q = 0.5 + 0.5 * math.sin(0.6 * p)
-   pose.Head = { r = (pose.Head and pose.Head.r or CFrame.identity) * rot(0.14 * q, 0.05 * math.sin(0.3 * p), 0) }
+   local q = 0.5 + 0.5 * math.sin(1.571 * os.clock())
+   pose.Head = { r = (pose.Head and pose.Head.r or CFrame.identity) * rot(0.14 * q, 0.05 * math.sin(0.7854 * os.clock()), 0) }
    return pose
   end,
   -- носій: трохи відхиляється назад під вагою сейфа

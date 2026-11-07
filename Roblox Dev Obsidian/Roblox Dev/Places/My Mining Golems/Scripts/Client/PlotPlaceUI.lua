@@ -25,6 +25,7 @@ local CAS = game:GetService("ContextActionService")
 local HttpService = game:GetService("HttpService")
 
 local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("PlotConfig"))
+local Loc = require(RS.Shared:WaitForChild("Loc")) -- «PLOT N» — за рядком таблиці «PLOT {number1}» (старі записи «PLOT 3» давали «Сюжет»)
 local Items = require(RS.Shared:WaitForChild("ItemConfig"))
 local Catalog = require(RS.Shared:WaitForChild("GolemCatalog")) -- підпис статів (statText)
 local GolemSort = require(RS.Shared:WaitForChild("GolemSort")) -- сортування (спільне з інвентарем) і кнопка зі списком SORT BY
@@ -583,7 +584,7 @@ end
 render = function()
 	local a = assign[plotIdx] or { m = {}, c = nil }
 	local S = slotsN()
-	titleBk.Text = "PLOT " .. plotIdx; title.Text = "PLOT " .. plotIdx
+	titleBk.Text = Loc.f("PLOT {number1}", plotIdx); title.Text = Loc.f("PLOT {number1}", plotIdx)
 	-- вкладки
 	for k, t in tabBtns do
 		local on = tab == k
@@ -622,7 +623,7 @@ render = function()
 		s.holder.Visible = true
 		s.place(((i - 1) % GCOLS) * (GS + GG) + GP, math.floor((i - 1) / GCOLS) * (GS + GG) + GP + 4)
 		local w = whereIs(g.id)
-		s.set(g, { here = w == plotIdx, dim = w ~= 0 and w ~= plotIdx, tag = (w == plotIdx and "ON PLOT") or (w ~= 0 and ("PLOT " .. w)) or nil, tagHere = w == plotIdx })
+		s.set(g, { here = w == plotIdx, dim = w ~= 0 and w ~= plotIdx, tag = (w == plotIdx and "ON PLOT") or (w ~= 0 and Loc.f("PLOT {number1}", w)) or nil, tagHere = w == plotIdx })
 	end
 	for i = #list + 1, #gslots do gslots[i].holder.Visible = false end
 	setG(gscroll)
@@ -792,7 +793,7 @@ RunService.Heartbeat:Connect(function(dt)
 	curPlot = idx
 	if isOpen and idx ~= plotIdx then close() end
 	local show = idx > 0 and not isOpen
-	if show then bTag.Text = "PLOT " .. idx end
+	if show then bTag.Text = Loc.f("PLOT {number1}", idx) end
 	showButton(show)
 end)
 

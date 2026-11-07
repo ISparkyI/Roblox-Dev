@@ -69,7 +69,8 @@ local function markPlaced(p: Player)
 	end
 	if p.Parent then p:SetAttribute("PlotPlaced", HttpService:JSONEncode(placed)) end
 end
-local STRIP = { "Cave", "Cave_Inside", "NichePrefabs", "NicheSockets", "Boss Map", "Niches" }
+-- 06.11.2026: + OrePrefabs (в печері їх ховає PlotService, на маркеті вони виднілись за картою)
+local STRIP = { "Cave", "Cave_Inside", "NichePrefabs", "NicheSockets", "Boss Map", "Niches", "OrePrefabs" }
 local rng = Random.new()
 
 local function spawnPoints(): { BasePart }

@@ -62,7 +62,7 @@ local INDEX_TOTAL = 0
 do
 	local n = 0
 	for _, id in Catalog.ORDER do local g = Catalog.get(id); if g and g.rarity ~= "Exclusive" then n += 1 end end
-	INDEX_TOTAL = n * 3 * #Catalog.MUTATIONS + #(Catalog.EXCLUSIVES or {}) * 3 + #(PlotCfg.INDEX_ORES or PlotCfg.ORES) -- руда мап 1–6 (03.11.2026)
+	INDEX_TOTAL = n * 3 * #Catalog.MUTATIONS + (#Catalog.exclusivesFor("miner") + #Catalog.exclusivesFor("carrier") + #Catalog.exclusivesFor("warrior")) + #(PlotCfg.INDEX_ORES or PlotCfg.ORES) -- руда мап 1–6 (03.11.2026)
 	-- + оброблена руда (вкладка Crafted): усе, що плавиться
 	local okF, Forge = pcall(require, Shared:WaitForChild("ForgeConfig"))
 	if okF then
@@ -191,7 +191,7 @@ local function build(niche: Instance, screen: BasePart)
 	corner(avH, UDim.new(0.5, 0)); stroke(avH, INK, 5)
 	local av = new("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 6, ScaleType = Enum.ScaleType.Crop, Image = "" }, avH)
 	corner(av, UDim.new(0.5, 0))
-	local name = fitLabel(root, 136, 14, 494, 66, 56, "", WHITE, 6, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6 })
+	local name = fitLabel(root, 136, 14, 494, 66, 56, "", WHITE, 6, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6, AutoLocalize = false }) -- нік гравця не перекладати
 	local tg = new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, C("e9eef4")) }, name)
 	label(root, 138, 80, 490, 34, 26, "PLAYER STATS · PLOT " .. idx, WHITE, 3.5, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 6 })
 
@@ -228,7 +228,7 @@ local function build(niche: Instance, screen: BasePart)
 			B.uid = uid
 			av.Image = uid > 0 and ("rbxthumb://type=AvatarHeadShot&id=" .. uid .. "&w=150&h=150") or ""
 		end
-		name.Text = owner and owner.DisplayName or ("PLOT " .. idx)
+		name.Text = owner and owner.DisplayName or require(game:GetService("ReplicatedStorage").Shared.Loc).f("PLOT {number1}", idx) -- без власника — «УЧАСТОК N» (мітка з AutoLocalize = false)
 		for i, r in ROWS do
 			local ok, t = pcall(r[4], owner or player)
 			vals[i].Text = (owner and ok) and t or "—"

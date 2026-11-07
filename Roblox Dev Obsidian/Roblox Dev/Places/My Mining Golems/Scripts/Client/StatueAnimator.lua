@@ -178,7 +178,9 @@ local function step()
 		end
 	end
 end
-RunService.RenderStepped:Connect(step)
+-- 06.11.2026: анімації статуй (силуети топ-1 над лідербордами) вимкнено — стоять у вихідній позі. Увімкнути: ANIMATE = true.
+local ANIMATE = false
+if ANIMATE then RunService.RenderStepped:Connect(step) end
 
 local function watch(board: Instance)
 	local function try(ch)

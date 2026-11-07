@@ -8,6 +8,7 @@
 local M = {}
 local ev = Instance.new("BindableEvent")
 M.current = nil :: string?
+local reg: { [string]: () -> boolean } = {} -- 07.11.2026: зареєстровані вікна (для openList — SPECTATE в адмінці)
 
 function M.opened(name: string)
 	M.current = name
@@ -15,9 +16,21 @@ function M.opened(name: string)
 end
 
 function M.register(name: string, isOpen: () -> boolean, close: () -> ())
+	reg[name] = isOpen
 	ev.Event:Connect(function(other: string)
 		if other ~= name and isOpen() then close() end
 	end)
+end
+
+-- 07.11.2026: які вікна зараз відкриті (імена реєстрації, за алфавітом) — шле SpecFeedClient адміну, що стежить
+function M.openList(): { string }
+	local out = {}
+	for n, f in reg do
+		local ok, r = pcall(f)
+		if ok and r then table.insert(out, n) end
+	end
+	table.sort(out)
+	return out
 end
 
 return M

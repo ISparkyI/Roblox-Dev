@@ -22,12 +22,13 @@ return {
    return pose
   end,
   -- спокій: медитація — руки повільно розходяться вбік, голова дивиться вгору на кільце
+  -- 06.11.2026: повільні хвилі — від неперервного часу (os.clock), а не від фази циклу p (при переході 2π → 0 був ривок)
   Idle=function(p, pose, rot)
-   local q = 0.5 + 0.5 * math.sin(0.4 * p)
+   local q = 0.5 + 0.5 * math.sin(1.047 * os.clock())
    local uR, uL = pose.UpperArm_R or {}, pose.UpperArm_L or {}
    pose.UpperArm_R = { r = (uR.r or CFrame.identity) * rot(0, 0, 0.25 * q) }
    pose.UpperArm_L = { r = (uL.r or CFrame.identity) * rot(0, 0, -0.25 * q) }
-   pose.Head = { r = (pose.Head and pose.Head.r or CFrame.identity) * rot(-0.1 * q, 0.08 * math.sin(0.2 * p), 0) }
+   pose.Head = { r = (pose.Head and pose.Head.r or CFrame.identity) * rot(-0.1 * q, 0.08 * math.sin(0.5236 * os.clock()), 0) }
    return pose
   end,
   -- носій: корпус трохи вперед, скриня тримається на рівні грудей

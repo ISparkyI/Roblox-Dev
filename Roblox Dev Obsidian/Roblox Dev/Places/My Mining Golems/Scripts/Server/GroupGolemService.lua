@@ -8,7 +8,11 @@
 --   ніде (інвентар, печера, мутаційні машини). Атрибут GroupGolem = true (DataService) — вже забирав.
 -- Сила: GolemCatalog (dynamic = "bestMiner") — 50 % шкоди найкращого звичайного майнера гравця. Тут рахується атрибут
 --   гравця BestMinerDmg (інвентар + стенди печери + мутаційні машини) — оновлюється саме.
--- Remotes/GroupGolemAction (RemoteEvent): сервер → клієнт ("Join") | ("Toast", текст, колір); клієнт → сервер ("Check").
+-- Remotes/GroupGolemAction (RemoteEvent): сервер → клієнт ("Join") | ("Toast", текст, колір); клієнт → сервер ("Check") | ("Refresh").
+-- 06.11.2026: 3 кроки по черзі. 1 — вступ у групу (InGroup). 2 — лайк: перевірити не можна, тож зараховуємо (GroupLiked, DataService),
+--   коли гравець зайшов у гру вже учасником групи і відкрив вікно стенда: через LIKE_SEC секунд після відкриття ("Opened")
+--   зараховуємо. Вступив посеред сесії — у цій сесії крок 2 не зараховується (гравець перезаходить і ставить лайк).
+--   3 — CLAIM у вікні стенда: голем видається лише після кроків 1 і 2. "Refresh" (після вікна вступу) лише оновлює InGroup, нічого не видає.
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -25,9 +29,12 @@ local GroupGolemService = {}
 GroupGolemService.GROUP_ID = 996441586
 GroupGolemService.KIND = "mushroom"
 local REACH = 16
+local LIKE_SEC = 10 -- 06.11.2026: було 15
 
 local remote: RemoteEvent
 local last: { [Player]: number } = {}
+local startMember: { [Player]: boolean } = {} -- був у групі вже при вході в цю сесію
+local likeTimer: { [Player]: boolean } = {}
 
 local function decode(p: Player, attr: string, default: any): any
 	local s = p:GetAttribute(attr)
@@ -73,6 +80,18 @@ local function inGroup(p: Player): boolean
 	if not ok then ok, r = pcall(function() return p:IsInGroup(GroupGolemService.GROUP_ID) end) end
 	return ok and r == true
 end
+-- 06.11.2026: свіжа перевірка (IsInGroup кешується на сервері на всю сесію — вступ посеред гри не видно):
+--   GroupService:GetGroupsAsync — актуальний список груп гравця; не вдалося — звичайна inGroup
+local function inGroupFresh(p: Player): boolean
+	local ok, list = pcall(function() return game:GetService("GroupService"):GetGroupsAsync(p.UserId) end)
+	if ok and type(list) == "table" then
+		for _, g in list do
+			if type(g) == "table" and g.Id == GroupGolemService.GROUP_ID then return true end
+		end
+		return false
+	end
+	return inGroup(p)
+end
 
 local function toast(p: Player, text: string, color: string)
 	remote:FireClient(p, "Toast", text, color)
@@ -80,8 +99,11 @@ end
 
 local function tryClaim(p: Player)
 	if p:GetAttribute("InvReady") ~= true or p:GetAttribute("CaveReady") ~= true then return end
-	if not inGroup(p) then remote:FireClient(p, "Join"); return end
+	if not (p:GetAttribute("InGroup") == true or inGroupFresh(p)) then remote:FireClient(p, "Join"); return end
 	p:SetAttribute("InGroup", true)
+	if p:GetAttribute("GroupLiked") ~= true and p:GetAttribute("GroupGolem") ~= true then
+		toast(p, "Like the game, then rejoin - step 2 counts after 10 seconds in the game", "blue"); return
+	end
 	if ownsMushroom(p) then toast(p, "You already have the Mushroom Golem!", "gray"); return end
 	if Items.invGolemCount(decode(p, "InvGolems", {}), decode(p, "PlotPlaced", {})) >= Items.maxGolems(p) then
 		toast(p, "Your inventory is full!", "red"); return
@@ -134,18 +156,32 @@ function GroupGolemService.Start()
 	ev.Name = "GroupGolemAction"; ev.Parent = remotes
 	remote = ev :: RemoteEvent
 	remote.OnServerEvent:Connect(function(p, action)
-		if action == "Check" then
+		if action == "Opened" then
+			-- 06.11.2026: таймер лайку стартує з відкриття вікна (лише якщо гравець увійшов у сесію вже учасником групи)
+			if likeTimer[p] or not startMember[p] then return end
+			if p:GetAttribute("GroupLiked") == true or p:GetAttribute("GroupGolem") == true then return end
+			likeTimer[p] = true
+			task.delay(LIKE_SEC, function()
+				if p.Parent == Players then p:SetAttribute("GroupLiked", true) end
+			end)
+			return
+		end
+		if action == "Check" or action == "Refresh" then
 			if not nearStand(p) then return end
 			local t = os.clock()
 			if last[p] and t - last[p] < 1 then return end
 			last[p] = t
+			if action == "Refresh" then p:SetAttribute("InGroup", inGroupFresh(p)); return end
 			tryClaim(p)
 		end
 	end)
 	-- кнопка E (GroupPrompt) лише відкриває вікно на клієнті (GroupStandClient); видача — кнопка CLAIM у вікні → "Check"
 	local function onPlayer(p: Player)
 		task.spawn(function()
-			p:SetAttribute("InGroup", inGroup(p))
+			local g = inGroup(p)
+			p:SetAttribute("InGroup", g)
+			-- крок 2: зайшов у гру вже учасником групи → таймер лайку стартує, коли відкриє вікно стенда ("Opened")
+			startMember[p] = g
 		end)
 		for _, a in { "InvGolems", "CaveStandGolems", "MutMachines" } do
 			p:GetAttributeChangedSignal(a):Connect(function() updateBest(p) end)
@@ -154,7 +190,7 @@ function GroupGolemService.Start()
 	end
 	Players.PlayerAdded:Connect(onPlayer)
 	for _, p in Players:GetPlayers() do onPlayer(p) end
-	Players.PlayerRemoving:Connect(function(p) last[p] = nil end)
+	Players.PlayerRemoving:Connect(function(p) last[p] = nil; startMember[p] = nil; likeTimer[p] = nil end)
 	task.spawn(function()
 		local hub = workspace:WaitForChild("Cave"):WaitForChild("Hub")
 		local f = hub:WaitForChild("GroupStands", 30)

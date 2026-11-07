@@ -182,10 +182,15 @@ end
 -- майнер: dmg — шкода за удар, int — інтервал удару (с), mspd — рух (стад/с), anim — AnimSpeed (= Швидкість);
 -- носій: cap — руди за ходку, spd — рух (стад/с, ще × картка Carrier Speed)
 -- p — власник (для ексклюзів з динамічною шкодою, Mushroom Golem)
+-- (05.11.2026) прихований стандарт носіїв: множники для ВСІХ носіїв на плоті (опис / Index / картки не змінюються).
+--   Носій не встигав за 5 майнерами: місткість за ходку × CARRIER_CAP (вниз, мін. 1), рух × CARRIER_MOVE.
+Config.CARRIER_CAP = 3
+Config.CARRIER_MOVE = 1.5
 function Config.stats(kind: string, mut: number?, p: any?): any
 	local m = Catalog.stats(kind, "miner", mut, p)
 	local c = Catalog.stats(kind, "carrier", mut, p)
-	return { dmg = m.dmg, int = m.interval, mspd = m.move, anim = m.speed, cap = c.cap, spd = c.move }
+	return { dmg = m.dmg, int = m.interval, mspd = m.move, anim = m.speed,
+		cap = math.max(1, math.floor((c.cap or 1) * Config.CARRIER_CAP)), spd = c.move * Config.CARRIER_MOVE }
 end
 function Config.minerPower(kind: string, mut: number?, p: any?): number return Catalog.power(kind, "miner", mut, p) end
 function Config.carrierPower(kind: string, mut: number?, p: any?): number return Catalog.power(kind, "carrier", mut, p) end
@@ -196,8 +201,8 @@ Config.REACH_R = 2.8       -- радіус початкової моделі р�
 Config.ORE_GAP = 1.5       -- мінімальний проміжок між сусідніми рудами
 Config.MINE_CLIP = 1.4     -- тривалість кліпу Mine в аніматорі (с при AnimSpeed 1)
 Config.MINE_HIT = 0.62     -- момент удару в кліпі
-Config.PICK_TIME = 0.35    -- носій підбирає стак
-Config.DROP_TIME = 0.55    -- носій висипає ящичок
+Config.PICK_TIME = 0.25    -- носій підбирає стак (05.11.2026, було 0,35)
+Config.DROP_TIME = 0.4     -- носій висипає ящичок (05.11.2026, було 0,55)
 Config.STACK_RADIUS = 3.2  -- шматки однієї руди ближче за це зливаються в один стак (як предмети в Minecraft)
 Config.STACK_MAX = 99
 Config.STACK_LIFE = 10     -- с (було 30; 28.10.2026 — 10 за рішенням користувача): стак, який ніхто не підібрав (носій чи гравець), зникає (відлік від останнього шматка)

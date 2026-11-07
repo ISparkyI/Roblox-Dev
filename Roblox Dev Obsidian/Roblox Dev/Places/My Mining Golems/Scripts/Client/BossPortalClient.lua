@@ -158,7 +158,8 @@ RunService.RenderStepped:Connect(function()
 	local now = workspace:GetServerTimeNow()
 	local at = workspace:GetAttribute("BossAt")
 	local openUntil = workspace:GetAttribute("BossOpenUntil")
-	local isOpen = type(openUntil) == "number" and now < openUntil
+	local bph = workspace:GetAttribute("BossPhase") -- 04.11.2026: реєстрація / бій (BossFightService)
+	local isOpen = bph == "reg" or bph == "fight"
 	power += ((isOpen and 1 or 0.6) - power) * math.min(1, dt * 1.5)
 
 	spiralStep(t, 0.9 + (power - 0.6) * 4, power)
@@ -204,7 +205,7 @@ task.spawn(function()
 			inside = d.Magnitude < 13.8 and math.abs(hrp.Position.Y - ringCenter.Position.Y) < 8
 		end
 		if state == "idle" then
-			if inside then state = "counting"; t0 = os.clock(); shown = -1 end
+			if false and inside then --[[ 04.11.2026: коло відкриває вікно реєстрації (BossLobbyWindow), відліку й телепорту немає ]] state = "counting"; t0 = os.clock(); shown = -1 end
 		elseif state == "counting" then
 			if not inside then state = "idle"; hideBanner()
 			else

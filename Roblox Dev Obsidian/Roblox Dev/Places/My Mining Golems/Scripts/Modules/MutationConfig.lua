@@ -68,4 +68,11 @@ function M.same(a: any, b: any): boolean
 	return type(a) == "table" and type(b) == "table" and a.kind == b.kind and a.cls == b.cls and a.mut == b.mut
 end
 
+-- платні машини (04.11.2026): [номер] = ціна в діамантах. Куплена — атрибут гравця MutUnlock<N> = true
+--   (сервер: MutationService, Remotes/MutationAction "Unlock"; збереження — секція Mutation.unlocked).
+M.UNLOCK = { [2] = 1000 }
+function M.isUnlocked(p: Instance, idx: number): boolean
+	return not (M.UNLOCK and M.UNLOCK[idx]) or p:GetAttribute("MutUnlock" .. idx) == true
+end
+
 return M

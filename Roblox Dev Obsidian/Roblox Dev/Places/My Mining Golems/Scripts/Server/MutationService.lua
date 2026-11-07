@@ -183,7 +183,7 @@ end
 -- START з панелі (гравець поруч із машиною)
 local START_REACH = 45
 local function onAction(p: Player, action: any, idx: any)
-	if (action ~= "Start" and action ~= "Cancel") or type(idx) ~= "number" or idx < 1 or idx > MutCfg.MACHINES or idx ~= math.floor(idx) then return end
+	if (action ~= "Start" and action ~= "Cancel" and action ~= "Unlock") or type(idx) ~= "number" or idx < 1 or idx > MutCfg.MACHINES or idx ~= math.floor(idx) then return end
 	if p:GetAttribute("MutReady") ~= true then return end
 	local f = workspace:FindFirstChild("Cave") and workspace.Cave:FindFirstChild("Hub") and workspace.Cave.Hub:FindFirstChild("MutationMachines")
 	local machine = f and f:FindFirstChild("Machine" .. idx)
@@ -195,6 +195,18 @@ local function onAction(p: Player, action: any, idx: any)
 	local t = os.clock()
 	if last[p] and t - last[p] < 0.3 then return end
 	last[p] = t
+	-- UNLOCK (04.11.2026): платна машина (MutationConfig.UNLOCK) — купівля за діаманти
+	if action == "Unlock" then
+		local price = MutCfg.UNLOCK and MutCfg.UNLOCK[idx]
+		if not price or MutCfg.isUnlocked(p, idx) then return end
+		local dia = tonumber(p:GetAttribute("Diamonds")) or 0
+		if dia < price then return end
+		p:SetAttribute("Diamonds", dia - price)
+		p:SetAttribute("MutUnlock" .. idx, true)
+		task.spawn(function() pcall(DataService.SaveNow, p) end)
+		return
+	end
+	if not MutCfg.isUnlocked(p, idx) then return end
 	local st = stateOf(p)
 	local m = st[tostring(idx)]
 	if action == "Cancel" then
@@ -222,6 +234,7 @@ local function onTrigger(prompt: ProximityPrompt, p: Player)
 	if not machine then return end
 	local idx = machine:GetAttribute("MachineIndex")
 	if type(idx) ~= "number" or idx < 1 or idx > MutCfg.MACHINES then return end
+	if not MutCfg.isUnlocked(p, idx) then return end -- платна машина ще не куплена
 	local char = p.Character
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if not (hrp and hrp:IsA("BasePart")) or (hrp.Position - anchor.Position).Magnitude > REACH then return end
@@ -343,6 +356,13 @@ local function onPlayer(p: Player)
 			end
 		end
 	end
+	-- платні машини (04.11.2026): куплена — sec.unlocked; машина, де вже лежали големи / йшла мутація, — відкрита (нічого не застрягне)
+	for i, _ in MutCfg.UNLOCK or {} do
+		local m = st[tostring(i)]
+		local had = (type(sec) == "table" and type(sec.unlocked) == "table" and sec.unlocked[tostring(i)] == true)
+			or slotCount(m) > 0 or m.job ~= nil
+		p:SetAttribute("MutUnlock" .. i, had or nil)
+	end
 	GolemRegistry.CheckOwnership(p, checkList)
 	for _, rec in giveBack do returnToInventory(p, rec) end
 	publish(p, st)
@@ -353,7 +373,9 @@ end
 
 local function sectionOf(p: Player, old: any): any
 	if p:GetAttribute("MutReady") ~= true then return old end
-	return { machines = stateOf(p) }
+	local un = {}
+	for i, _ in MutCfg.UNLOCK or {} do if p:GetAttribute("MutUnlock" .. i) == true then un[tostring(i)] = true end end
+	return { machines = stateOf(p), unlocked = un }
 end
 
 function MutationService.Start()

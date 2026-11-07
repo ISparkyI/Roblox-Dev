@@ -28,7 +28,7 @@ local player = Players.LocalPlayer
 
 local ICON = { -- усі ID перевірені через MarketplaceService:GetProductInfo (ім'я hud_*)
 	shop = "rbxassetid://91791061262477", index = "rbxassetid://139239217489271", quests = "rbxassetid://140685411214992",
-	rebirth = "rbxassetid://124015236802911", cash = "rbxassetid://103015355952567", robux = "rbxassetid://139687766069559", boss = "rbxassetid://96163616047646",
+	rebirth = "rbxassetid://124015236802911", cash = "rbxassetid://103015355952567", robux = "rbxassetid://139687766069559", boss = "rbxassetid://137113714883300",
 	invite = "rbxassetid://109796913398904", settings = "rbxassetid://111541402429276", inventory = "rbxassetid://107241982376806",
 	feedback = "rbxassetid://84284099600077", codes = "rbxassetid://116306459544574", updates = "rbxassetid://133326399418460",
 	diamond = "rbxassetid://126442692946356", ticket = "rbxassetid://85299808396483", rebirth_c = "rbxassetid://134045976199050",
@@ -105,11 +105,12 @@ end
 
 -- кнопка: тримач (зона натискання) → content (масштабується від центру) → іконка (+ підпис) і прозора кнопка зверху
 local function button(parent, o)
-	local holder = frame(parent, { Position = pos(o.x, o.y, o.right, o.raw), Size = UDim2.fromOffset(o.w, o.h) })
+	local holder = frame(parent, { Name = "Btn_" .. tostring(o.key), Position = pos(o.x, o.y, o.right, o.raw), Size = UDim2.fromOffset(o.w, o.h) }) -- 05.11.2026: ім'я — щоб арена боса могла сховати Settings / Inventory
 	local content = frame(holder, { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1) })
 	local scale = new("UIScale", {}, content)
 	local ih = o.ih or o.h
 	local labelY = ih - (o.fs or 0) * 0.85
+	local iconCX = o.w / 2 -- центр іконки по X (підпис центрується під ним)
 	if o.tile then
 		-- підкладка (макет HUD B): плитка стилю A кольору o.tile; рожевої в StyleA немає — сіра, тонована ImageColor3.
 		-- Плитка ts × ts по центру, іконка ≈0,78 плитки трохи вище центру, підпис залазить на низ плитки.
@@ -124,11 +125,17 @@ local function button(parent, o)
 			Size = UDim2.fromOffset(ii, ii), Image = ICON[o.icon], ScaleType = Enum.ScaleType.Fit, ZIndex = 2 }, content)
 		labelY = ty + ts - (o.fs or 0) * 0.55
 	else
-		new("ImageLabel", { Name = "Icon", BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(o.w, ih),
-			Image = ICON[o.icon] ~= "" and ICON[o.icon] or "", ScaleType = Enum.ScaleType.Fit }, content)
+		-- 06.11.2026: o.iconK — іконка більша за кнопку (росте вгору й у боки від низу; підпис на місці)
+		local k = o.iconK or 1
+		-- біля правого краю екрана велика іконка росте вліво (права межа = права межа кнопки), щоб не обрізалась
+		local edge = k > 1 and o.right
+		-- o.iconFX — де по X у картинці «тіло» іконки (0..1): шолом без правого рогу — 0,457; підпис центрується під ним
+		if edge then iconCX = o.w - 6 - o.w * k * (1 - (o.iconFX or 0.5)) end
+		new("ImageLabel", { Name = "Icon", BackgroundTransparency = 1, AnchorPoint = Vector2.new(edge and 1 or 0.5, 1), Position = UDim2.fromOffset(edge and o.w - 6 or o.w / 2, ih),
+			Size = UDim2.fromOffset(o.w * k, ih * k), Image = ICON[o.icon] ~= "" and ICON[o.icon] or "", ScaleType = Enum.ScaleType.Fit }, content)
 	end
 	if o.label then
-		text(content, { Name = "Label", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, labelY),
+		text(content, { Name = "Label", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(iconCX, labelY),
 			Size = UDim2.fromOffset(o.w + 60, o.fs), Text = o.label, TextColor3 = o.lc or WHITE, ZIndex = 3 }, o.fs)
 	end
 	local b = new("TextButton", { Name = "Hit", BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Size = UDim2.fromScale(1, 1), ZIndex = 5 }, content)
@@ -158,7 +165,8 @@ local TOP_TS = 40 -- малі верхні кнопки на плитках: п�
 local topLayer = frame(gui, { Size = UDim2.fromScale(1, 1), Name = "TopRow" })
 local leftTop = {}
 do
-	for _, a in { { "invite", "Invite", "green" }, { "settings", "Settings", "gray" }, { "inventory", "Inventory", "orange" } } do
+	-- 07.11.2026: рюкзак (Inventory) переїхав праворуч під Rebirth — велика кнопка Backpack (нижче)
+	for _, a in { { "invite", "Invite", "green" }, { "settings", "Settings", "gray" } } do
 		local w = TOP_TS
 		local h = button(topLayer, { x = 0, y = TOP_CY - TOP_TS / 2, w = w, h = TOP_TS, icon = a[1], key = a[2], raw = true,
 			tile = a[3], ts = TOP_TS, ty = 0, iconIn = TOP_TS - 10, iconY = 0.45 })
@@ -169,7 +177,7 @@ do
 		-- 04.11.2026: на маркеті — лише Invite (без Settings і рюкзака-інвентаря)
 		local mkt = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HubConfig")).isMarket()
 		for _, t in leftTop do
-			t.holder.Visible = not (mkt and (t.key == "Settings" or t.key == "Inventory"))
+			t.holder.Visible = not (mkt and t.key == "Inventory") -- 06.11.2026: Settings на маркеті є (спрощені)
 			if not t.holder.Visible then continue end
 			t.holder.Position = UDim2.fromOffset(x, TOP_CY - TOP_TS / 2)
 			x += t.w + G
@@ -423,9 +431,19 @@ do
 
 	-- Rebirth: іконка 112, підпис 25
 	button(root, { x = 105, y = 272, w = 98, h = 98 + math.round(22 * 0.2), ih = 98, icon = "rebirth", label = "Rebirth", fs = 22, key = "Rebirth", right = true, tile = "pink" })
-	-- Daily (29.10.2026): під Rebirth, 3/5 його розміру (59), по центру під ним; вікно — StarterPlayerScripts/DailyWindow (HUDButton "Daily").
+	-- 07.11.2026: Backpack (рюкзак, HUDButton "Inventory") — такого ж розміру, як Rebirth, одразу під ним; на маркеті схований.
+	--   Ім'я Btn_Inventory (BossArenaClient ховає його на арені й «кидає» в нього нагороди).
+	local bagHolder = button(root, { x = 105, y = 388, w = 98, h = 98 + math.round(22 * 0.2), ih = 98, icon = "inventory", label = "Backpack", fs = 22, key = "Inventory", right = true, tile = "yellow" })
+	local function bagVis()
+		local okH, Hub = pcall(function() return require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HubConfig")) end)
+		bagHolder.Visible = not (okH and Hub.isMarket())
+	end
+	bagVis()
+	game:GetService("ReplicatedStorage"):GetAttributeChangedSignal("MarketMode"):Connect(bagVis)
+	task.delay(3, bagVis)
+	-- Daily (29.10.2026): 3/5 розміру Rebirth (59), по центру; 07.11.2026 — під Backpack; вікно — StarterPlayerScripts/DailyWindow (HUDButton "Daily").
 	-- Червона крапка «!» — сьогоднішню нагороду ще не забрано (DailyLast < ReplicatedStorage.DailyDay).
-	local dailyHolder = button(root, { x = 86, y = 384, w = 59, h = 59 + math.round(13 * 0.2), ih = 59, icon = "daily", label = "Daily", fs = 13, key = "Daily", right = true, tile = "orange" })
+	local dailyHolder = button(root, { x = 86, y = 504, w = 59, h = 59 + math.round(13 * 0.2), ih = 59, icon = "daily", label = "Daily", fs = 13, key = "Daily", right = true, tile = "orange" })
 	do
 		local dot = frame(dailyHolder, { Name = "Ready", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.fromOffset(20, 20),
 			BackgroundTransparency = 0, BackgroundColor3 = C("ff3b4e"), ZIndex = 8, Visible = false })
@@ -446,13 +464,23 @@ do
 
 	-- Boss: іконка 72, центр по вертикалі 669 (як центр плашки Money); таймер — плашка 250 × 54, права межа = центр іконки
 	local bs, cy = 72, 669
-	local timer = frame(root, { Position = UDim2.new(1, -(INSET + bs / 2 + 250), 0, cy - 27), Size = UDim2.fromOffset(250, 54), BackgroundTransparency = 0, BackgroundColor3 = PLATE })
+	local bi = bs * 1.5 -- 06.11.2026: іконка-шолом у 1,8 раза більша (iconK) — таймер зсунутий, щоб не накладалась
+	local timer = frame(root, { Position = UDim2.new(1, -(INSET + bi / 2 + 250), 0, cy - 27), Size = UDim2.fromOffset(250, 54), BackgroundTransparency = 0, BackgroundColor3 = PLATE })
 	new("UIGradient", { Transparency = ns({ { 0, 1 }, { 0.45, 0.5 }, { 1, 0.14 } }) }, timer)
-	local cap = text(timer, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -(bs / 2 + 10), 0, 6), Size = UDim2.fromOffset(160, 14), TextXAlignment = Enum.TextXAlignment.Right,
-		Text = "NEXT BOSS", TextColor3 = C("e7f0ff"), ZIndex = 2 }, 12)
-	local clock = text(timer, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -(bs / 2 + 10), 0, 18), Size = UDim2.fromOffset(160, 34), TextXAlignment = Enum.TextXAlignment.Right,
+	local cap = text(timer, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -(bi / 2 + 10), 0, 3), Size = UDim2.fromOffset(160, 17), TextXAlignment = Enum.TextXAlignment.Right,
+		Text = "NEXT BOSS", TextColor3 = C("e7f0ff"), ZIndex = 2 }, 15)
+	local clock = text(timer, { AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -(bi / 2 + 10), 0, 18), Size = UDim2.fromOffset(160, 34), TextXAlignment = Enum.TextXAlignment.Right,
 		Text = "--:--", ZIndex = 2 }, 32)
-	button(root, { x = bs, y = cy - bs / 2, w = bs, h = bs + math.round(18 * 0.2), ih = bs, icon = "boss", label = "Boss", fs = 18, key = "Boss", right = true })
+	local bossBtn = button(root, { x = bs, y = cy - bs / 2, w = bs, h = bs + math.round(18 * 0.2), ih = bs, icon = "boss", label = "BOSS", fs = 24, key = "Boss", right = true, iconK = bi / bs, iconFX = 0.457 })
+	-- 05.11.2026: на маркеті боса немає — кнопку BOSS і таймер NEXT BOSS ховаємо (режим маркету приходить із сервера)
+	local function bossVis()
+		local mkt = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HubConfig")).isMarket()
+		timer.Visible = not mkt
+		if typeof(bossBtn) == "Instance" and bossBtn:IsA("GuiObject") then bossBtn.Visible = not mkt end
+	end
+	bossVis()
+	game:GetService("ReplicatedStorage"):GetAttributeChangedSignal("MarketMode"):Connect(bossVis)
+	task.delay(3, bossVis)
 
 	task.spawn(function()
 		while gui.Parent do

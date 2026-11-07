@@ -34,6 +34,7 @@ local StyleA = require(Shared:WaitForChild("StyleA"))
 local WindowFit = require(Shared:WaitForChild("WindowFit"))
 local UISounds = require(Shared:WaitForChild("UISounds"))
 local WindowManager = require(Shared:WaitForChild("WindowManager"))
+local Loc = require(Shared:WaitForChild("Loc")) -- переклад текстів апдейт-логу: точний рядок з таблиці Updates → Source у хмарній таблиці локалізації
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -562,16 +563,53 @@ local function renderNews(g)
 		if metaTxt ~= "" then
 			label(meta, 0, 0, 0, 24, 16, metaTxt, MUTED, 1.6, { LayoutOrder = 3, AutomaticSize = Enum.AutomaticSize.X, FontFace = XBOLD, ZIndex = 5 })
 		end
-		label(col, 0, 0, textW, 0, 32, u.title ~= "" and u.title or "Update", hexColor(u.titleColor, WHITE), 3,
-			{ LayoutOrder = 2, AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, TextXAlignment = LEFT, ZIndex = 5 })
-		if u.text ~= "" then
-			label(col, 0, 0, textW, 0, 21, richText(u.text), hexColor(u.textColor, SUB_TXT), 1.9,
-				{ LayoutOrder = 3, AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, RichText = true, TextXAlignment = LEFT,
+		label(col, 0, 0, textW, 0, 32, Loc.t(u.title ~= "" and u.title or "Update"), hexColor(u.titleColor, WHITE), 3,
+			{ LayoutOrder = 2, AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, TextXAlignment = LEFT, ZIndex = 5, AutoLocalize = false })
+		-- 05.11.2026: текст з пунктами «1. …», «2. …» (кожен з нового рядка, ≥ 2 пунктів) — кожен пункт окремою плашкою
+		--   з жовтим квадратиком-номером; інакше — один абзац, як раніше
+		local items, numbered = {}, 0
+		for line in string.gmatch(u.text .. "\n", "([^\n]*)\n") do
+			local plain = string.gsub(string.gsub(string.gsub(line, "%[#%x+%]", ""), "%[/%]", ""), "%*%*", "")
+			local num = string.match(plain, "^%s*(%d+)[%.%)]%s")
+			if num then
+				local body = string.gsub(line, "^%s*%[#%x+%]%*%*%d+[%.%)]%*%*%[/%]%s*", "")
+				body = string.gsub(body, "^%s*%[#%x+%]%d+[%.%)]%[/%]%s*", "")
+				body = string.gsub(body, "^%s*%*%*%d+[%.%)]%*%*%s*", "")
+				body = string.gsub(body, "^%s*%d+[%.%)]%s*", "")
+				table.insert(items, { n = num, text = body }); numbered += 1
+			elseif string.match(line, "%S") then
+				table.insert(items, { text = line })
+			end
+		end
+		if numbered >= 2 then
+			for k, it in items do
+				local row = new("Frame", { Name = "Item_" .. k, LayoutOrder = 10 + k, Size = UDim2.fromOffset(textW, 0), AutomaticSize = Enum.AutomaticSize.Y,
+					BackgroundColor3 = C("101317"), BackgroundTransparency = 0.3, BorderSizePixel = 0, ZIndex = 5 }, col)
+				new("UICorner", { CornerRadius = UDim.new(0, 8) }, row)
+				stroke(row, INK, 2.5).LineJoinMode = Enum.LineJoinMode.Round -- Miter з UICorner малює квадратні кути
+				new("UISizeConstraint", { MinSize = Vector2.new(0, 54) }, row)
+				local tx = 16
+				if it.n then
+					local badge = new("Frame", { Name = "Num", BackgroundColor3 = C("ffd24a"), BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 0.5),
+						Position = UDim2.new(0, 10, 0.5, 0), Size = UDim2.fromOffset(36, 36), ZIndex = 6 }, row)
+					new("UICorner", { CornerRadius = UDim.new(0, 8) }, badge)
+					stroke(badge, INK, 2.5).LineJoinMode = Enum.LineJoinMode.Round
+					label(badge, 0, 0, 36, 36, 21, it.n, WHITE, 2.4, { ZIndex = 7 })
+					tx = 58
+				end
+				local t = label(row, tx, 0, textW - tx - 12, 0, 20, richText(Loc.t(it.text)), hexColor(u.textColor, SUB_TXT), 1.9,
+					{ AutoLocalize = false, AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, RichText = true, TextXAlignment = LEFT,
+						TextYAlignment = Enum.TextYAlignment.Center, FontFace = XBOLD, LineHeight = 1.1, ZIndex = 6 })
+				new("UIPadding", { PaddingTop = UDim.new(0, 14), PaddingBottom = UDim.new(0, 14) }, t)
+			end
+		elseif u.text ~= "" then
+			label(col, 0, 0, textW, 0, 21, richText(Loc.t(u.text)), hexColor(u.textColor, SUB_TXT), 1.9,
+				{ AutoLocalize = false, LayoutOrder = 3, AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, RichText = true, TextXAlignment = LEFT,
 					TextYAlignment = Enum.TextYAlignment.Top, FontFace = XBOLD, LineHeight = 1.15, ZIndex = 5 })
 		end
 		if img ~= "" then -- картинка велика: на всю ширину картки під текстом
 			local box = slotBg(col, 0, 0, textW, 300, 5)
-			box.LayoutOrder = 4
+			box.LayoutOrder = 100
 			new("ImageLabel", { Name = "Image", BackgroundTransparency = 1, Image = img, ScaleType = Enum.ScaleType.Fit,
 				Position = UDim2.fromOffset(8, 8), Size = UDim2.new(1, -16, 1, -16), ZIndex = 6 }, box)
 		end

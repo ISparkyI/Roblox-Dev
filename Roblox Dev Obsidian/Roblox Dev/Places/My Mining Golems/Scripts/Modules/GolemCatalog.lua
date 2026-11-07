@@ -165,6 +165,7 @@ M.GOLEMS.mushroom = { name = "Mushroom Golem", rarity = "Exclusive", map = 1, od
 	pickaxe = "MushroomPickaxe", sword = "MushroomSword", icon = nil, exclusive = "group", dynamic = "bestMiner", share = 0.5,
 	-- носій (29.10.2026, нагорода Daily кожен 7-й день): місткість = carrierShare × місткість найкращого звичайного носія (атрибут BestCarrierCap)
 	carrierShare = 0.75,
+	warriorShare = 0.5, -- 04.11.2026: воїн з Boss Shop — 50 % найкращого звичайного воїна (шкода й HP), «50% BEST» в Index
 	-- як отримати (Index, замість шансу ролу): за класом; nil — ще не можна отримати
 	how = { miner = "Join the group", carrier = "Weekly reward", warrior = "Boss Shop" }, -- 02.11.2026: Daily → Weekly; 03.11.2026: воїни-ексклюзиви — з Boss Shop
 	howShort = { miner = "Group", carrier = "Weekly", warrior = "Boss Shop" }, -- на картці Index (замість «1 in N»)
@@ -243,6 +244,28 @@ M.GOLEMS.chrono = { name = "Chrono Golem", rarity = "Exclusive", map = 1, odds =
 	carrier = { price = 0, cap = 2, speed = 2.0 },
 	warrior = { price = 0, dmg = 1, hp = 10, speed = 2.0 } }
 
+-- Ексклюзиви Marketplace (05.11.2026, exclusive = "market"; GDD/Plan - Market Exclusive Golems): продаються на стендах маркету,
+--   кожен — лише ОДИН клас (only): Cyborg — майнер 300 % best (1999 R$), Lamp Miner — носій 250 % best (Tickets, ціна росте),
+--   Spartan — воїн 200 % best (250K діамантів). В Index — лише у вкладці свого класу (M.exclusivesFor). Не мутуються (як усі ексклюзиви).
+M.GOLEMS.cyborg = { name = "Cyborg Golem", rarity = "Exclusive", map = 1, odds = 0, size = 1.5, model = "CyborgGolem", box = "CyborgCarryBox",
+	pickaxe = "CyborgPickaxe", sword = "CyborgSword", icon = nil, exclusive = "market", only = "miner", dynamic = "bestMiner", share = 3.0,
+	how = { miner = "Marketplace" }, howShort = { miner = "Market" },
+	miner = { price = 0, dmg = 1, speed = 2.2 },
+	carrier = { price = 0, cap = 2, speed = 2.2 },
+	warrior = { price = 0, dmg = 1, hp = 10, speed = 2.2 } }
+M.GOLEMS.lampminer = { name = "Lamp Miner Golem", rarity = "Exclusive", map = 1, odds = 0, size = 1.5, model = "LampMinerGolem", box = "LampMinerCarryBox",
+	pickaxe = "LampMinerPickaxe", sword = "LampMinerSword", icon = nil, exclusive = "market", only = "carrier", dynamic = "bestMiner", carrierShare = 2.5,
+	how = { carrier = "Marketplace" }, howShort = { carrier = "Market" },
+	miner = { price = 0, dmg = 1, speed = 2.2 },
+	carrier = { price = 0, cap = 2, speed = 2.2 },
+	warrior = { price = 0, dmg = 1, hp = 10, speed = 2.2 } }
+M.GOLEMS.spartan = { name = "Spartan Golem", rarity = "Exclusive", map = 1, odds = 0, size = 1.5, model = "SpartanGolem", box = "SpartanCarryBox",
+	pickaxe = "SpartanPickaxe", sword = "SpartanSword", icon = nil, exclusive = "market", only = "warrior", dynamic = "bestMiner", warriorShare = 2.0,
+	how = { warrior = "Marketplace" }, howShort = { warrior = "Market" },
+	miner = { price = 0, dmg = 1, speed = 2.1 },
+	carrier = { price = 0, cap = 2, speed = 2.1 },
+	warrior = { price = 0, dmg = 1, hp = 10, speed = 2.1 } }
+
 M.LEGACY = { wood = "wooden", iron = "ironclad", gold = "aurelian", crystal = "quartzling" }
 
 for i, id in M.ORDER do
@@ -253,11 +276,21 @@ end
 M.GOLEMS.mushroom.id = "mushroom"
 M.GOLEMS.mushroom.index = #M.ORDER + 1
 -- ексклюзиви по порядку (Index: група Exclusive після Celestial, лише сторінка Normal; 30.10.2026)
-M.EXCLUSIVES = { "mushroom", "honey", "snow", "cloud", "coral", "jade", "storm", "phantom", "chrono" }
+M.EXCLUSIVES = { "mushroom", "honey", "snow", "cloud", "coral", "jade", "storm", "phantom", "chrono", "cyborg", "lampminer", "spartan" }
 for i, id in M.EXCLUSIVES do
 	local g = (M.GOLEMS :: any)[id]
 	g.id = id
 	g.index = #M.ORDER + i
+end
+-- ексклюзиви, що є в класі cls (Index; 05.11.2026): ексклюзиви Marketplace (only) — лише у своєму класі, решта — в усіх
+function M.exclusivesFor(cls: any): { string }
+	local c = M.cls(cls)
+	local out = {}
+	for _, id in M.EXCLUSIVES do
+		local g = (M.GOLEMS :: any)[id]
+		if g and (g.only == nil or g.only == c) then table.insert(out, id) end
+	end
+	return out
 end
 -- як отримати ексклюзив цього класу (текст) або "Coming soon"; short — короткий (картка Index) або "Soon"
 function M.howToGet(kind: any, cls: any, short: boolean?): string

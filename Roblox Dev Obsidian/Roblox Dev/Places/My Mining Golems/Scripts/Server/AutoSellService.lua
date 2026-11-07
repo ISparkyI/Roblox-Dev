@@ -6,6 +6,7 @@
 --   ключів), заблоковане замком в інвентарі (InvLocks), а також руда, яку забирає Auto Workshop (плавиться в злитки).
 -- Продається лише НОВЕ (приріст атрибута), пачками раз на FLUSH с. Атрибути для клієнта: AutoSoldGain / AutoSoldT.
 -- Remotes/AutoSellAction (RemoteEvent): ("Master", bool) — увімк. / вимк.; ("Item", ключ, bool) — продавати цей предмет чи ні.
+--   ("All", bool) — SELL ALL / KEEP ALL (05.11.2026).
 --   Set_* зберігає DataService (префікс Set_). Вікно налаштувань — StarterPlayerScripts/AutoSellWindow (кнопка SETTINGS на картці).
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -103,6 +104,10 @@ ev.OnServerEvent:Connect(function(p: Player, action: any, a: any, b: any)
 	if not DataService.IsLoaded(p) then return end
 	if action == "Master" then
 		p:SetAttribute("Set_AutoSell", a == true)
+	elseif action == "All" then -- 05.11.2026: SELL ALL (a = true) / KEEP ALL (a = false)
+		local list = {}
+		if a ~= true then for k in ITEMS do table.insert(list, k) end; table.sort(list) end
+		p:SetAttribute("Set_AutoSellOff", HttpService:JSONEncode(list))
 	elseif action == "Item" and type(a) == "string" and ITEMS[a] then
 		local off = decodeList(p:GetAttribute("Set_AutoSellOff"))
 		off[a] = (b ~= true) or nil

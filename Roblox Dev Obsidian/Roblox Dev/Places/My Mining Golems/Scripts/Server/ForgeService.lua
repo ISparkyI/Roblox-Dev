@@ -72,6 +72,31 @@ local function palCount(f: Model): number
 	return c
 end
 
+-- 05.11.2026: префаби руди / продукції бувають складені (ChunkEmberite — Crust, ChunkEclipsium — Corona…): дочірні частини
+--   масштабуються й ставляться разом із основною, а видимість на піддоні перемикається для всіх (T0 — власна прозорість частини)
+local function fitSubs(g: BasePart, tpl: BasePart, k: number)
+	local tsubs, gsubs = {}, {}
+	for _, d in tpl:GetDescendants() do if d:IsA("BasePart") then table.insert(tsubs, d) end end
+	for _, d in g:GetDescendants() do if d:IsA("BasePart") then table.insert(gsubs, d) end end
+	for i, d in gsubs do
+		local src = tsubs[i]
+		if src then
+			local rel = tpl.CFrame:ToObjectSpace(src.CFrame)
+			d.Size = src.Size * k
+			d.CFrame = g.CFrame * (rel - rel.Position + rel.Position * k)
+		end
+		d.Anchored = true; d.CanCollide = false; d.CanQuery = false; d.CanTouch = false
+		d:SetAttribute("T0", src and src.Transparency or d.Transparency)
+		d.Transparency = 1
+	end
+end
+local function setVis(p: BasePart, on: boolean)
+	p.Transparency = on and ((p:GetAttribute("T0") :: number?) or 0) or 1
+	for _, d in p:GetDescendants() do
+		if d:IsA("BasePart") then d.Transparency = on and ((d:GetAttribute("T0") :: number?) or 0) or 1 end
+	end
+end
+
 -- ===== вигляд: табличка над колом, табло, піддони =====
 local function refresh(f: Model)
 	local ORE = oresOf(f)
@@ -88,18 +113,29 @@ local function refresh(f: Model)
 		if pin then
 			for _, c in pin:GetChildren() do
 				local t = c:GetAttribute("Ore") :: number?
-				if t then c.Transparency = (c:GetAttribute("Slot") :: number) <= attr(f, "Pal_" .. ORE[t].key) and 0 or 1 end
+				if t then setVis(c, (c:GetAttribute("Slot") :: number) <= attr(f, "Pal_" .. ORE[t].key)) end
 			end
 		end
 		local s = forges[f]
 		if pout and s then
+			-- 05.11.2026: на піддоні — згруповано за типом (знизу вгору), а не впереміш у порядку виготовлення
+			--   коли продукції більше, ніж місць, кожен тип отримує свою частку місць (по черзі), щоб було видно всі
+			local cap, left, disp = 0, {}, {}
+			for _, b in pout:GetChildren() do local k = b:GetAttribute("BarSlot") :: number?; if k and k > cap then cap = k end end
+			for _, t in s.bars do left[t] = (left[t] or 0) + 1 end
+			while #disp < cap do
+				local added = false
+				for t = 1, #ORE do if (left[t] or 0) > 0 and #disp < cap then table.insert(disp, t); left[t] -= 1; added = true end end
+				if not added then break end
+			end
+			table.sort(disp)
 			for _, b in pout:GetChildren() do
 				local k = b:GetAttribute("BarSlot") :: number?
 				if k then
-					local t = s.bars[k]
+					local t = disp[k]
 					local bt = b:GetAttribute("BarType") :: number?
 					if bt then -- на кожному місці по Union-злитку кожного типу (мідь / залізо): видно той, що збігається
-						b.Transparency = t == bt and 0 or 1
+						setVis(b, t == bt)
 					else
 						b.Transparency = t and 0 or 1
 						if t then b.Color = ORE[t].bar end
@@ -159,8 +195,92 @@ local function init(f: Model)
 			if d:IsA("BasePart") then
 				local t = d:GetAttribute("Ore") :: number?
 				local bt = d:GetAttribute("BarType") :: number?
-				if t and ORE[t] then d.Color = ORE[t].color end
+				if t and ORE[t] then d.Color = ORE[t].color; if d:IsA("UnionOperation") then d.UsePartColor = true end end -- кубики руди — Union: без UsePartColor лишались кольори мапи 1
 				if bt and ORE[bt] then d.Color = ORE[bt].bar; if d:IsA("UnionOperation") then d.UsePartColor = true end end
+			end
+		end
+		-- 05.11.2026: сира руда на піддоні Raw Ores — моделі Prefabs/ForgeProps/Chunk<Руда> (та сама руда, що випадає), а не перефарбовані кубики мапи 1
+		local pin0 = pal:FindFirstChild("PalletOre")
+		local fp0 = RS:FindFirstChild("Prefabs") and RS.Prefabs:FindFirstChild("ForgeProps")
+		if pin0 and fp0 then
+			for _, c in pin0:GetChildren() do
+				local t = c:GetAttribute("Ore") :: number?
+				local tpl = t and ORE[t] and fp0:FindFirstChild("Chunk" .. ORE[t].key)
+				if c:IsA("BasePart") and tpl and tpl:IsA("BasePart") then
+					local cs, gs = c.Size, tpl.Size
+					-- розмір: найбільший вимір брили ~L (крупно, як кубики-заглушки), висота — не більше H
+					local L, H = 1.4, 1.1
+					local tall = gs.Y > math.max(gs.X, gs.Z) -- висока брила лежить на боці
+					local k = math.min(L / math.max(gs.X, gs.Y, gs.Z), H / (tall and gs.X or gs.Y))
+					local h = (tall and gs.X or gs.Y) * k
+					local g = tpl:Clone()
+					g.Size = gs * k
+					g.CFrame = c.CFrame * CFrame.new(0, -cs.Y / 2 + h / 2, 0) * (tall and CFrame.Angles(0, 0, math.rad(90)) or CFrame.identity)
+					fitSubs(g, tpl, k)
+					g.Anchored = true; g.CanCollide = false; g.CanQuery = false; g.CanTouch = false
+					g.Name = c.Name
+					for k2, v in c:GetAttributes() do g:SetAttribute(k2, v) end
+					g:SetAttribute("T0", tpl.Transparency)
+					g.Transparency = 1
+					g.Parent = pin0
+					c:Destroy()
+				end
+			end
+		end
+		-- 05.11.2026: у префабі піддона є злитки лише типів 2 і 3 — продукт першої руди мапи не з'являвся; додаємо тип 1 (копія типу 2)
+		local pb0 = pal:FindFirstChild("PalletBars")
+		if pb0 and ORE[1] then
+			local has1 = {}
+			for _, b in pb0:GetChildren() do if b:GetAttribute("BarType") == 1 then has1[b:GetAttribute("BarSlot") or 0] = true end end
+			for _, b in pb0:GetChildren() do
+				local k = b:GetAttribute("BarSlot")
+				if b:IsA("BasePart") and b:GetAttribute("BarType") == 2 and k and not has1[k] then
+					has1[k] = true
+					local c = b:Clone(); c:SetAttribute("BarType", 1); c.Color = ORE[1].bar; c.Transparency = 1; c.Parent = pb0
+				end
+			end
+		end
+		-- 05.11.2026: руда з product = "Cut" — на піддоні лежать огранені кристали (Prefabs/ForgeProps/Cut<Руда>), а не злитки:
+		--   кожне місце злитка цього типу замінюємо моделлю кристала (лежить у межах злитка; найбільший масштаб із двох положень)
+		local pout = pal:FindFirstChild("PalletBars")
+		local fp = RS:FindFirstChild("Prefabs") and RS.Prefabs:FindFirstChild("ForgeProps")
+		if pout and fp then
+			for _, b in pout:GetChildren() do
+				local bt = b:GetAttribute("BarType") :: number?
+				local o = bt and ORE[bt]
+				local tpl = o and fp:FindFirstChild(Cfg.productModel(o.key)) -- Cut<Руда> або Bar<Руда> (злиток мапи)
+				if b:IsA("BasePart") and tpl and tpl:IsA("BasePart") then
+					-- рівна укладка в межах злитка (довга вісь злитка — X): видовжений кристал лежить на боці уздовж злитка (1 шт.),
+					--   круглий / приземистий самоцвіт стоїть рівно — 2 шт. у ряд
+					local bs, gs = b.Size, tpl.Size
+					local cut = Cfg.productOf(o.key) == "Cut"
+					local long = cut and gs.Y > 1.3 * math.max(gs.X, gs.Z)
+					local k, rot, h, offs
+					if not cut then -- злиток із префабів (Prefabs/ForgeProps/Bar<Руда>) — точно на місці злитка, свої кольори
+						k = math.min(bs.X / gs.X, bs.Y / gs.Y, bs.Z / gs.Z); rot = CFrame.identity; h = gs.Y * k; offs = { Vector3.zero }
+					elseif long then
+						k = math.min(bs.X / gs.Y, bs.Y / gs.X, bs.Z / gs.Z) * 0.92
+						rot = CFrame.Angles(0, 0, math.rad(90)); h = gs.X * k
+						-- тонкий кристал (обсидіан, кварц…) — два поруч поперек злитка, щоб шар був щільним
+						offs = gs.Z * k * 2.1 <= bs.Z and { Vector3.new(0, 0, -bs.Z / 4), Vector3.new(0, 0, bs.Z / 4) } or { Vector3.zero }
+					else
+						k = math.min(bs.X / 2 / gs.X, bs.Y / gs.Y, bs.Z / gs.Z) * 0.92
+						rot = CFrame.identity; h = gs.Y * k; offs = { Vector3.new(-bs.X / 4, 0, 0), Vector3.new(bs.X / 4, 0, 0) }
+					end
+					for _, o in offs do
+						local g = tpl:Clone()
+						g.Size = gs * k
+						g.CFrame = b.CFrame * CFrame.new(o.X, -bs.Y / 2 + h / 2, o.Z) * rot
+						fitSubs(g, tpl, k)
+						g.Anchored = true; g.CanCollide = false; g.CanQuery = false; g.CanTouch = false
+						g.Name = b.Name
+						for k2, v in b:GetAttributes() do g:SetAttribute(k2, v) end
+						g:SetAttribute("T0", tpl.Transparency)
+						g.Transparency = 1
+						g.Parent = pout
+					end
+					b:Destroy()
+				end
 			end
 		end
 	end
@@ -187,6 +307,7 @@ local function inRing(p: Player, f: Model): boolean
 end
 
 local function onAction(p: Player, action: any, arg: any)
+	if p:GetAttribute("TutStep") ~= nil then return end -- 06.11.2026: під час навчання (TutorialService) майстерня заблокована
 	if action == "Upgrade" then -- клік по екрану табла (табло стоїть окремо від кола, тому без перевірки кола)
 		local f = forgeOf(p)
 		if f and (arg == "Cap" or arg == "Spd" or arg == "Oph" or arg == "Auto") then upgrade(f, p, arg) end
@@ -298,7 +419,14 @@ local function step(dt: number)
 					f:SetAttribute("SmeltCount", #taken)
 					f:SetAttribute("SmeltStart", now()) -- вікно кузні заповнює рядок цієї руди від SmeltStart за SmeltDur
 					f:SetAttribute("SmeltDur", dur)
-					f:SetAttribute("SmeltSeq", attr(f, "SmeltSeq") + 1)
+					-- 05.11.2026: огранований продукт (ForgeConfig product = "Cut") — анімація огранювання (CutSeq / CutType, нижні руки
+					--   й різак), а не піч і ковадло (SmeltSeq)
+					if Cfg.productOf(ORE[taken[1]].key) == "Cut" then
+						f:SetAttribute("CutType", taken[1])
+						f:SetAttribute("CutSeq", attr(f, "CutSeq") + 1)
+					else
+						f:SetAttribute("SmeltSeq", attr(f, "SmeltSeq") + 1)
+					end
 					refresh(f)
 					task.delay(dur, function() -- злитки — у кінці інтервалу переплавки (прив'язано до швидкості)
 						if not f.Parent then return end

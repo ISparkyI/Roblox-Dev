@@ -6,7 +6,9 @@
 -- DIAMONDS SHOP: таймер оновлення (StallShops.DiaNextAt), баланс діамантів, картки лотів (StallShops.DiaLots): рідкість кольором,
 --   іконка, назва, що дає (скіп — «+$…» за поточним доходом), залишок на сервері «N / M LEFT», кнопка з ціною в діамантах
 --   (не вистачає — сіра й хитається; розпродано — SOLD OUT; геймпас уже є — OWNED). Купівля — Remotes/StallShopAction ("BuyDia", id).
--- EVENTS SHOP: таймер (StallShops.EventNextAt) і «COMING SOON».
+-- BOSS SHOP (04.11.2026): таймер (StallShops.EventNextAt, 6 год), баланс Fossil Tooth, 8 карток (StallShops.BossLots) у 2 ряди по 4:
+--   1-ша — ексклюзивний воїн (3D-модель, «N% BEST»), далі зілля / скіпи / тікети; «N / M LEFT» — ОСОБИСТИЙ запас (атрибут
+--   BossShopBuys), ціна в зубах. Купівля — Remotes/StallShopAction ("BuyBoss", id).
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local RS = game:GetService("ReplicatedStorage")
@@ -35,6 +37,10 @@ local EXIT_PAD = 0.5
 local DIA_ICON = "rbxassetid://126442692946356"
 local SKIP_ICON = "rbxassetid://76478987044650"
 local EVENT_ICON = "rbxassetid://133326399418460"
+local BOSS_ICON = "rbxassetid://137113714883300" -- шолом боса (Style/Roblox/boss_helmet_256_v2.png)
+local TOOTH_ICON = "rbxassetid://123134840549658" -- 04.11.2026: Fossil Tooth — валюта Boss Shop (2D/Main HUD/Roblox/Import/fossil_tooth.png)
+local TICKET_ICON = "rbxassetid://85299808396483"
+local Catalog = require(Shared:WaitForChild("GolemCatalog"))
 local CASH_ICON = "rbxassetid://103015355952567" -- купюра поверх годинника (як картки TIME SKIPS у SHOP)
 local PATTERN_TILE = 24 -- візерунок StyleA на картках (як у SHOP)
 
@@ -202,7 +208,7 @@ new("ImageLabel", { BackgroundTransparency = 1, Image = SKIP_ICON, ScaleType = E
 local timerText = label(timerBox, 72, 0, 440, 64, 34, "", WHITE, 4, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5, RichText = true })
 local balBox = frame(content, WIN_W - 40 - 330, 74, 330, 64, C("14161a"), { BackgroundTransparency = 0.35, ZIndex = 4 })
 corner(balBox, 12); stroke(balBox, INK, 4)
-new("ImageLabel", { BackgroundTransparency = 1, Image = DIA_ICON, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(10, 6), Size = UDim2.fromOffset(52, 52), ZIndex = 5 }, balBox)
+local balIcon = new("ImageLabel", { BackgroundTransparency = 1, Image = DIA_ICON, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(10, 6), Size = UDim2.fromOffset(52, 52), ZIndex = 5 }, balBox)
 local balText = label(balBox, 72, 0, 240, 64, 38, "", C("8fe0ff"), 4, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
 
 -- картки лотів
@@ -362,6 +368,141 @@ local function refreshCards()
 	end
 end
 
+-- ===== BOSS SHOP: 8 карток 2 × 4 (04.11.2026) =====
+local bossHolder = frame(content, 0, 0, WIN_W, WIN_H, nil, { BackgroundTransparency = 1, ZIndex = 4, Visible = false })
+local bossCards = {}
+local bossSig = nil
+local BC_W, BC_H, BC_GX, BC_GY, BC_Y = 262, 226, 16, 12, 150
+local BC_BODY = 164
+local function bossName(l): string
+	if l.kind == "golem" then local d = Catalog.get(l.golem); return d and d.name or tostring(l.golem) end
+	if l.kind == "tickets" then return NF.full(l.tickets or 0) .. " Tickets" end
+	return lotName(l)
+end
+local function bossBought(): any
+	local raw = player:GetAttribute("BossShopBuys")
+	local ok, t = pcall(HttpService.JSONDecode, HttpService, type(raw) == "string" and raw or "")
+	local st = RS:FindFirstChild("StallShops")
+	local p = st and st:GetAttribute("BossPeriod")
+	if not ok or type(t) ~= "table" or t.p ~= p or type(t.b) ~= "table" then return {} end
+	return t.b
+end
+local function buyBoss(c)
+	local l = c.lot
+	local rf = RS:FindFirstChild("Remotes") and RS.Remotes:FindFirstChild("StallShopAction")
+	if not rf then return end
+	local ok, res = pcall(rf.InvokeServer, rf, "BuyBoss", l.id)
+	if ok and type(res) == "table" and res.ok then
+		UISounds.play("purchase", 0.1)
+		if res.kind == "golem" then toast(bossName(l) .. " is yours!", "purple", "claim")
+		elseif res.kind == "potion" then toast("+1 " .. bossName(l) .. "!", "green", "claim")
+		elseif res.kind == "tickets" then toast("+" .. NF.full(res.gain or 0) .. " Tickets!", "yellow", "claim")
+		else toast("+" .. NF.money(res.gain or 0) .. " Money!", "green", "claim") end
+	else
+		shake(c.btn.group or c.btn.root)
+		local err = ok and type(res) == "table" and res.err
+		local msg = err == "teeth" and "Not enough Fossil Teeth!" or (err == "soldout" and "Sold out! Wait for the restock"
+			or (err == "full" and "Your inventory is full!" or "Can't buy right now"))
+		toast(msg, "red", "deny")
+	end
+end
+local function buildBossCards(lots)
+	for _, c in bossCards do c.root:Destroy() end
+	bossCards = {}
+	local x0 = (WIN_W - (4 * BC_W + 3 * BC_GX)) / 2
+	for i, l in lots do
+		local col_i, row_i = (i - 1) % 4, (i - 1) // 4
+		local x, y = x0 + col_i * (BC_W + BC_GX), BC_Y + row_i * (BC_H + BC_GY)
+		local pc = l.kind == "potion" and Cfg.potion(l.potion) or nil
+		local pd = l.kind == "potion" and potDef(l.potion) or nil
+		local col = pc and pc.col or (Cfg.RARITY[l.rarity] or Cfg.RARITY.Common)
+		local cw, ch = BC_W, BC_BODY
+		local root = frame(bossHolder, x, y, cw, BC_H, nil, { BackgroundTransparency = 1, ZIndex = 4 })
+		frame(root, 0, 8, cw, ch, BLACK, { BackgroundTransparency = 0.65, ZIndex = 4 })
+		local card = frame(root, 0, 0, cw, ch, WHITE, { ZIndex = 5, ClipsDescendants = true })
+		vgrad(card, { { 0, col[1] }, { 1, col[2] } }); stroke(card, l.kind == "golem" and C("ffd23a") or INK, l.kind == "golem" and 5 or 4)
+		local tile = pc and pc.tile or (Cfg.TILE[l.rarity] or "gray")
+		local A = StyleA.ASSETS
+		new("ImageLabel", { BackgroundTransparency = 1, Image = A["stylea_tile_" .. tile] or A["stylea_tile_" .. tile .. "_half"] or A.stylea_tile_gray,
+			ImageTransparency = 0.15, ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.fromOffset(PATTERN_TILE, PATTERN_TILE), Size = UDim2.fromOffset(cw, ch), ZIndex = 1 }, card)
+		local shade = frame(card, 0, 0, cw, ch, BLACK, { ZIndex = 1 })
+		new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.85), NumberSequenceKeypoint.new(1, 0.55) }) }, shade)
+		local rainIcon = l.kind == "golem" and TOOTH_ICON or (l.kind == "tickets" and TICKET_ICON or (pd and pd.icon or SKIP_ICON))
+		local clip = frame(card, 0, 0, cw, ch, nil, { BackgroundTransparency = 1, ZIndex = 2, ClipsDescendants = true })
+		startRain(clip, rainIcon, cw, ch, 1.1)
+		local tag = l.kind == "golem" and "EXCLUSIVE WARRIOR" or (l.kind == "potion" and "POTION" or (l.kind == "tickets" and "TICKETS" or string.upper(l.rarity or "")))
+		fit(label(card, 8, 6, cw - 16, 24, 20, tag, WHITE, 3, { ZIndex = 7 }), 20)
+		-- іконка ліворуч
+		local IS = 112
+		local icx, icy = 66, 96
+		if l.kind == "golem" or pd then
+			local ic = new("ImageLabel", { BackgroundTransparency = 1, Image = "", ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromOffset(icx, icy), Size = UDim2.fromOffset(IS, IS), ZIndex = 6 }, card)
+			if pd then ic.Image = pd.icon or ""; ItemViewport.set(ic, "Pot_" .. pd.key, 1.12)
+			else ItemViewport.set(ic, ItemViewport.golemKey(l.golem, "warrior"), 1.15) end
+		else
+			local icon = l.kind == "tickets" and TICKET_ICON or SKIP_ICON
+			local s = l.kind == "tickets" and 92 or 100
+			for _, m in { { 5, INK, 0.35, 5 }, { 0, WHITE, 0, 6 } } do
+				new("ImageLabel", { BackgroundTransparency = 1, Image = icon, ImageColor3 = m[2], ImageTransparency = m[3], ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 0.5),
+					Position = UDim2.fromOffset(icx, icy + m[1]), Size = UDim2.fromOffset(s, s), Rotation = -8, ZIndex = m[4] }, card)
+			end
+			if l.kind == "skip" then
+				for _, m in { { 3, INK, 0.35, 6 }, { 0, WHITE, 0, 7 } } do
+					new("ImageLabel", { BackgroundTransparency = 1, Image = CASH_ICON, ImageColor3 = m[2], ImageTransparency = m[3], ScaleType = Enum.ScaleType.Fit,
+						AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(icx + 30, icy + 30 + m[1]), Size = UDim2.fromOffset(56, 56), Rotation = -8, ZIndex = m[4] }, card)
+				end
+			end
+		end
+		-- текст праворуч
+		local tx, tw = 124, cw - 132
+		local nm = fit(label(card, tx, 34, tw, 56, 26, bossName(l), WHITE, 3.5, { ZIndex = 7, TextWrapped = true }), 26)
+		nm.TextXAlignment = Enum.TextXAlignment.Left
+		local gain = fit(label(card, tx, 92, tw, 28, 22, "", C("b8ff5a"), 3, { ZIndex = 7, TextXAlignment = Enum.TextXAlignment.Left, RichText = true }), 22)
+		local left = fit(label(card, tx, 124, tw, 26, 20, "", WHITE, 3, { ZIndex = 7, FontFace = XBOLD, TextXAlignment = Enum.TextXAlignment.Left }), 20)
+		local btn = makeButton(root, 0, ch + 6, cw, 54, { shadowDy = 5, color = "red", icon = nil, z = 6 })
+		local row = new("Frame", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cw / 2, 25),
+			Size = UDim2.fromOffset(0, 48), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 9 }, btn.root)
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, row)
+		local bIcon = new("ImageLabel", { BackgroundTransparency = 1, Image = TOOTH_ICON, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(34, 34), LayoutOrder = 1, ZIndex = 9 }, row)
+		local bText = new("TextLabel", { BackgroundTransparency = 1, FontFace = HEAVY, TextSize = 30, TextColor3 = WHITE, Text = NF.full(l.price),
+			Size = UDim2.fromOffset(0, 48), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 2, ZIndex = 10 }, row)
+		stroke(bText, INK, 3.2, 0, true)
+		local c = { root = root, lot = l, btn = btn, bIcon = bIcon, bText = bText, gain = gain, left = left }
+		btn.onClick = function() buyBoss(c) end
+		bossCards[i] = c
+	end
+end
+local function refreshBossCards()
+	local raw = RS:FindFirstChild("StallShops") and RS.StallShops:GetAttribute("BossLots")
+	local ok, lots = pcall(HttpService.JSONDecode, HttpService, type(raw) == "string" and raw or "[]")
+	if not ok or type(lots) ~= "table" then lots = {} end
+	local sig = {}
+	for _, l in lots do table.insert(sig, l.id .. ":" .. l.key .. ":" .. l.max) end
+	sig = table.concat(sig, ",")
+	if sig ~= bossSig then bossSig = sig; buildBossCards(lots) end
+	local teeth = tonumber(player:GetAttribute("FossilTeeth")) or 0
+	local rate = tonumber(player:GetAttribute("IncomePerMin")) or 0
+	local bought = bossBought()
+	for i, l in lots do
+		local c = bossCards[i]
+		if c then
+			c.lot = l
+			if l.kind == "golem" then c.gain.Text = '<font color="#ffd23a">' .. (Catalog.bestText(l.golem, "warrior") or "") .. "</font>"
+			elseif l.kind == "skip" then c.gain.Text = "+" .. NF.money(rate * (l.min or 0))
+			elseif l.kind == "potion" then local d = potDef(l.potion); c.gain.Text = d and d.desc or ""
+			else c.gain.Text = '<font color="#ffe27a">For the Shop</font>' end
+			local leftN = math.max(0, l.max - (tonumber(bought[tostring(l.id)]) or 0))
+			c.left.Text = leftN .. " / " .. l.max .. " LEFT"
+			if leftN <= 0 then c.btn:setColor("gray"); c.bIcon.Visible = false; c.bText.Text = "SOLD OUT"
+			else
+				c.bIcon.Visible = true; c.bText.Text = NF.full(l.price)
+				c.btn:setColor(teeth >= l.price and "red" or "gray")
+			end
+		end
+	end
+end
+
 local function refresh()
 	local st = RS:FindFirstChild("StallShops")
 	local now = workspace:GetServerTimeNow()
@@ -373,7 +514,9 @@ local function refresh()
 	else
 		local nx = st and tonumber(st:GetAttribute("EventNextAt")) or 0
 		timerText.Text = 'NEW ITEMS IN <font color="#ff6b6b">' .. fmtLeft(nx - now) .. "</font>"
-		balText.Text = NF.full(tonumber(player:GetAttribute("Diamonds")) or 0)
+		-- Boss Shop: баланс у Fossil Tooth (предмет інвентаря; поки — атрибут FossilTeeth, сховище визначить план боса)
+		balText.Text = NF.full(tonumber(player:GetAttribute("FossilTeeth")) or 0)
+		refreshBossCards()
 	end
 end
 
@@ -396,9 +539,12 @@ local function setMode(m)
 	mode = m
 	local txt = m == "dia" and "DIAMONDS SHOP" or "BOSS SHOP" -- лавка EventShop перейменована на Boss Shop (03.11.2026)
 	title.Text = txt; titleShadow.Text = txt
-	tIcon.Image = m == "dia" and DIA_ICON or EVENT_ICON; tIconS.Image = tIcon.Image
+	tIcon.Image = m == "dia" and DIA_ICON or BOSS_ICON; tIconS.Image = tIcon.Image -- 04.11.2026: Boss Shop — шолом боса (як кнопка BOSS у HUD)
+	balIcon.Image = m == "dia" and DIA_ICON or TOOTH_ICON
+	balText.TextColor3 = m == "dia" and C("8fe0ff") or C("fff1cf")
 	cardsHolder.Visible = m == "dia"
-	soon.Visible = m ~= "dia"
+	bossHolder.Visible = m ~= "dia"
+	soon.Visible = false -- 04.11.2026: Boss Shop відкритий (було COMING SOON)
 end
 local function open(m)
 	setMode(m)
@@ -408,6 +554,7 @@ local function open(m)
 	local my = animToken
 	fitWin()
 	lotsCache.sig = nil
+	bossSig = nil
 	refresh()
 	backdrop.Visible = true; modalRoot.Visible = true
 	backdrop.BackgroundTransparency = 1

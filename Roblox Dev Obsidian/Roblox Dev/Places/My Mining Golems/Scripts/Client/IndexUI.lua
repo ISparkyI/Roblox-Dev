@@ -29,6 +29,8 @@
 --   Bosses — заглушка в тому ж стилі.
 -- 30.10.2026: група Exclusive (GolemCatalog.EXCLUSIVES: Mushroom) — в кінці сторінки Normal кожного класу (після Celestial); замість шансу —
 --   як отримати (Catalog.howToGet: Group / Daily / Soon). У лічильники N / 576 не входять, Claim — як за Normal.
+-- 05.11.2026: голем з наступної мапи (GolemCatalog map > атрибут Stage гравця) — плашка «MAP N» поверх картки, у картці внизу
+--   «Drops from MAP N»; перехід на нову мапу — плашки оновлюються самі.
 -- Відкриття: кнопка Index у HUD (MainHUD → ReplicatedStorage/UIEvents/HUDButton "Index"; повторне натискання — закрити).
 --   Закриття — X, Esc, клік поза вікном. Одне вікно за раз: при відкритті закривається Inventory і ховаються Forge / Sell / PlotPlace;
 --   відкрили Inventory (кнопка або B) — Index закривається.
@@ -64,7 +66,7 @@ local ICON = {
 	-- копії лише для Index з ЧОРНИМ контуром (#040435 → #14161a, v8); оригінали (HUD, станція ролу) не змінювались
 	ores = "rbxassetid://138440040019462", -- index_ore_icon_ink (варіант A; Decal 102083657051701)
 	book = "rbxassetid://81868206271295", -- index_title_book_ink (книжка hud_index; Decal 99925081177892)
-	bosses = "rbxassetid://111613717383454", -- index_boss_ink (череп hud_boss; Decal 110358847350716)
+	bosses = "rbxassetid://137113714883300", -- 06.11.2026: нова іконка боса (шолом, як у HUD і вікні порталу); був череп index_boss_ink 111613717383454
 	diamond = "rbxassetid://126442692946356", -- hud_diamond (MainHUD)
 	miner = "rbxassetid://72243061675485",   -- index_class_*_ink — іконки класів станції ролу (Decal 85390237520635)
 	carrier = "rbxassetid://133110323029733", -- Decal 81676518505400
@@ -86,8 +88,9 @@ for _, id in Catalog.ORDER do
 end
 local PAGE = #GOLEMS
 -- 04.11.2026: лічильники враховують і ексклюзиви (лише сторінка Normal кожного класу): клас = 24 × 8 + 9, усе = × 3 класи
-local PER_CLASS = PAGE * NMUT + #(Catalog.EXCLUSIVES or {})
-local TOTAL = PER_CLASS * #CLS
+-- 05.11.2026: ексклюзиви Marketplace — лише у своєму класі (Catalog.exclusivesFor), тож суми класів різні
+local PER_CLASS = function(c: string): number return PAGE * NMUT + #Catalog.exclusivesFor(c) end
+local TOTAL = PER_CLASS("miner") + PER_CLASS("carrier") + PER_CLASS("warrior")
 
 -- руда мап 1–6 (03.11.2026; була лише мапа 1): HP і шанс спавну — PlotConfig.INDEX_ORES, ціна й переплавка — ForgeConfig.
 -- Мапа 7 — наступне оновлення, тут її немає.
@@ -404,7 +407,7 @@ end
 local function pageCount(cls: string, k: number): number
 	local n = 0
 	for _, g in GOLEMS do if found[keyOf(g.id, cls, k)] then n += 1 end end
-	if k == 0 then for _, id in Catalog.EXCLUSIVES or {} do if found[keyOf(id, cls, 0)] then n += 1 end end end
+	if k == 0 then for _, id in Catalog.exclusivesFor(cls) do if found[keyOf(id, cls, 0)] then n += 1 end end end
 	return n
 end
 local function classCount(cls: string): number
@@ -416,7 +419,7 @@ end
 local function pageClaim(cls: string, k: number): number
 	local n = 0
 	for _, g in GOLEMS do if claimable(keyOf(g.id, cls, k)) then n += 1 end end
-	if k == 0 then for _, id in Catalog.EXCLUSIVES or {} do if claimable(keyOf(id, cls, 0)) then n += 1 end end end
+	if k == 0 then for _, id in Catalog.exclusivesFor(cls) do if claimable(keyOf(id, cls, 0)) then n += 1 end end end
 	return n
 end
 local function classClaim(cls: string): number
@@ -435,7 +438,7 @@ local function totals(): (number, number)
 				if claimed[key] then d += REWARD[k + 1] end
 			end
 		end
-		for _, id in Catalog.EXCLUSIVES or {} do -- ексклюзиви: лише Normal, нагорода — Catalog.EXCLUSIVE_INDEX_REWARD
+		for _, id in Catalog.exclusivesFor(c[1]) do -- ексклюзиви: лише Normal, нагорода — Catalog.EXCLUSIVE_INDEX_REWARD
 			local key = keyOf(id, c[1], 0)
 			if found[key] then n += 1 end
 			if claimed[key] then d += Catalog.EXCLUSIVE_INDEX_REWARD or 100 end
@@ -813,6 +816,10 @@ local function makeCard(parent, x, y, name, scroll, sz)
 	local odds = textAt(card, P, P + S - 11 * k, S - 7 * k, T1, "", WHITE, 2, { TextXAlignment = RIGHT, FontFace = XBOLD, ZIndex = 5 })
 	local ring = frame(card, P - 2, P - 2, S + 4, S + 4, nil, { BackgroundTransparency = 1, ZIndex = 7, Visible = false })
 	stroke(ring, RING, 4)
+	-- 05.11.2026: плашка «MAP N» поверх голема з наступних мап (GolemCatalog map > Stage гравця) — де він почне випадати
+	local mapTag = frame(holder, P + S / 2 - 31 * k, P + S * 0.55, 62 * k, 21 * k, WHITE, { Name = "MapTag", ZIndex = 29, Visible = false })
+	vgrad(mapTag, { { 0, "ffc25a" }, { 1, "e0751c" } }); stroke(mapTag, INK, 2.5)
+	local mapTx = label(mapTag, 0, 0, 62 * k, 21 * k, math.floor(14 * k + 0.5), "", WHITE, 2, { ZIndex = 29 })
 	-- «можна забрати»: затемнення слота, діамант «+N», кнопка Claim (не нахиляються разом з карткою)
 	local dim = frame(card, P, P, S, S, BLACK, { Name = "Dim", BackgroundTransparency = 0.42, ZIndex = 6, Visible = false })
 	local rw = frame(holder, P, P + S * 0.24, S, 26 * k, nil, { Name = "Reward", BackgroundTransparency = 1, ZIndex = 32, Visible = false })
@@ -851,6 +858,8 @@ local function makeCard(parent, x, y, name, scroll, sz)
 		dim.Visible = can; rw.Visible = can; cb.root.Visible = can
 		if can then rwTxt.Text = "+" .. d.claim end
 		ring.Visible = d.sel == true
+		mapTag.Visible = d.map ~= nil
+		if d.map then mapTx.Text = "MAP " .. d.map end
 		holder.ZIndex = d.sel and 5 or 2
 		mfx.setMut((d.found and d.mut) or nil)
 		s.sel = d.sel == true
@@ -1009,17 +1018,65 @@ new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalA
 local rwIcon = new("ImageLabel", { LayoutOrder = 1, BackgroundTransparency = 1, Image = ICON.diamond, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(14, 18), ZIndex = 2 }, rwRow)
 local rwTx = label(rwRow, 0, 0, 0, 18, 13, "", SUB_TXT, 1.6, { LayoutOrder = 2, AutomaticSize = Enum.AutomaticSize.X, FontFace = XBOLD, RichText = true, ZIndex = 2 })
 
--- ===== заглушка розділу Bosses (у тому ж стилі) =====
+-- ===== розділ Bosses (06.11.2026): картки босів у порядку BossConfig.ROTATION, решта — «???» (наступні оновлення) =====
+--   Бос переможений (атрибут гравця Stat_BossKills > 0) — кольорова картинка (IconAtlas.BOSS), назва, «Defeated: N»;
+--   ще ні — чорний силует, «???», «Unlocks on Map 2». Знизу картки — що падає (зуб, діаманти).
 local soon = cardBg(content, 40, 92, 896, 400, 3)
 soon.Visible = false
-textAt(soon, 0, 60, 896, 34, "Bosses", WHITE, 3.4, { ZIndex = 2 })
-textAt(soon, 0, 330, 896, 17, "Every boss fought · unlocks with boss events", SUB_TXT, 1.9, { FontFace = XBOLD, ZIndex = 2 })
-for i = 1, 3 do
-	local r = frame(soon, (896 - (3 * 126 - 14)) / 2 + (i - 1) * 126, 124, 112, 112, WHITE, { ZIndex = 2 })
-	vgrad(r, SLOT_BG); stroke(r, INK, 4)
-	new("ImageLabel", { BackgroundTransparency = 1, Image = ICON.bosses, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(18, 16), Size = UDim2.fromOffset(76, 76),
-		ImageColor3 = BLACK, ImageTransparency = 0.5, ZIndex = 2 }, r)
-	textAt(r, 7, 15, 102, 18, "???", UNKNOWN, 2.2, { TextXAlignment = LEFT, ZIndex = 3 })
+do
+	local BossCfg = require(Shared:WaitForChild("BossConfig"))
+	local Loc = require(Shared:WaitForChild("Loc"))
+	local okA, Atlas = pcall(require, Shared:WaitForChild("IconAtlas"))
+	textAt(soon, 0, 40, 896, 34, "Bosses", WHITE, 3.4, { ZIndex = 2 })
+	textAt(soon, 0, 376, 896, 17, "Defeat bosses to fill the Index", SUB_TXT, 1.9, { FontFace = XBOLD, ZIndex = 2 })
+	local CW, CH, GAP = 250, 282, 20
+	local x0 = (896 - (3 * CW + 2 * GAP)) / 2
+	local cards = {}
+	for i = 1, 3 do
+		local id = BossCfg.ROTATION[i]
+		local def = id and BossCfg.BOSSES[id]
+		local r = frame(soon, x0 + (i - 1) * (CW + GAP), 70, CW, CH, WHITE, { ZIndex = 2, ClipsDescendants = true })
+		vgrad(r, SLOT_BG); stroke(r, INK, 4)
+		local b = okA and Atlas.BOSS
+		local aid = b and Atlas.ATLAS[b[1]]
+		local img
+		if def and type(aid) == "string" and aid ~= "" then
+			img = new("ImageLabel", { BackgroundTransparency = 1, Image = aid, ImageRectOffset = Vector2.new(b[2], b[3]), ImageRectSize = Vector2.new(b[4], b[5]),
+				ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(8, 38), Size = UDim2.fromOffset(CW - 16, 176), ZIndex = 3 }, r)
+		else
+			img = new("ImageLabel", { BackgroundTransparency = 1, Image = ICON.bosses, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset((CW - 140) / 2, 56),
+				Size = UDim2.fromOffset(140, 140), ImageColor3 = BLACK, ImageTransparency = 0.5, ZIndex = 3 }, r)
+		end
+		local name = textAt(r, 12, 22, CW - 24, 24, "???", UNKNOWN, 2.6, { TextXAlignment = LEFT, ZIndex = 4 })
+		local info = textAt(r, 0, 232, CW, 17, def and "Unlocks on Map 2" or "Coming soon", SUB_TXT, 1.9, { FontFace = XBOLD, ZIndex = 4 })
+		if def then -- що падає
+			local row = frame(r, 0, 248, CW, 26, nil, { BackgroundTransparency = 1, ZIndex = 4 })
+			new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+				VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, row)
+			label(row, 0, 0, 0, 26, 15, "Drops", C("ffd23a"), 1.8, { LayoutOrder = 1, AutomaticSize = Enum.AutomaticSize.X, ZIndex = 4 })
+			new("ImageLabel", { LayoutOrder = 2, BackgroundTransparency = 1, Image = BossCfg.ICON_TOOTH, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(24, 24), ZIndex = 4 }, row)
+			new("ImageLabel", { LayoutOrder = 3, BackgroundTransparency = 1, Image = BossCfg.ICON_DIAMOND, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(22, 22), ZIndex = 4 }, row)
+		end
+		cards[i] = { def = def, img = img, name = name, info = info }
+	end
+	local function refreshBosses()
+		local kills = tonumber(player:GetAttribute("Stat_BossKills")) or 0
+		for _, c in cards do
+			if c.def then
+				local open = kills > 0 -- поки один бос: будь-яка перемога — це він
+				c.img.ImageColor3 = open and WHITE or BLACK
+				c.img.ImageTransparency = open and 0 or 0.35
+				c.name.Text = open and c.def.name or "???"
+				c.name.TextColor3 = open and C("b8ff8a") or UNKNOWN
+				c.info.AutoLocalize = not open
+				c.info.Text = open and Loc.f("Defeated: {1}", kills) or "Unlocks on Map 2"
+			end
+		end
+	end
+	refreshBosses()
+	player:GetAttributeChangedSignal("Stat_BossKills"):Connect(refreshBosses)
+	soon:GetPropertyChangedSignal("Visible"):Connect(function() if soon.Visible then refreshBosses() end end)
+	Loc.Ready:Connect(refreshBosses)
 end
 
 -- =====================================================================
@@ -1060,14 +1117,26 @@ renderGrid = function(resetScroll: boolean)
 	gH = (mut == 0 and gstrip:GetAttribute("HAll")) or gstrip:GetAttribute("HNoEx") or gH
 	gstrip.Size = UDim2.fromOffset(GW, gH)
 	for _, grp in groups do
+		local list = grp.list
 		if grp.excl then
+			-- 05.11.2026: лише ексклюзиви цього класу (Marketplace — один клас): картки щільно по порядку, висота стрічки — від їх кількості
+			list = {}
+			for _, c in grp.items do
+				local on = mut == 0 and (c.g.only == nil or c.g.only == cls)
+				c.holder.Visible = on
+				if on then
+					table.insert(list, c.g)
+					local i = #list
+					c.holder.Position = UDim2.fromOffset(GP + ((i - 1) % GCOLS) * (S + GG) + S / 2, grp.y + HDR_H + HDR_GAP + math.floor((i - 1) / GCOLS) * (S + GG) + S / 2)
+				end
+			end
 			grp.cnt.Parent.Visible = mut == 0
-			for _, c in grp.items do c.holder.Visible = mut == 0 end
+			if mut == 0 then gH = grp.y + HDR_H + HDR_GAP + math.ceil(#list / GCOLS) * (S + GG) + GP; gstrip.Size = UDim2.fromOffset(GW, gH) end
 		end
 		local n = 0
-		for _, g in grp.list do if found[keyOf(g.id, cls, mut)] then n += 1 end end
-		local done = n == #grp.list
-		grp.cnt.Text = (done and (CHECK .. " ") or "") .. n .. " / " .. #grp.list
+		for _, g in list do if found[keyOf(g.id, cls, mut)] then n += 1 end end
+		local done = n == #list
+		grp.cnt.Text = (done and (CHECK .. " ") or "") .. n .. " / " .. #list
 		grp.cnt.TextColor3 = done and RING or SUB_TXT
 	end
 	for id, c in cards do
@@ -1075,7 +1144,8 @@ renderGrid = function(resetScroll: boolean)
 		local k = keyOf(id, cls, mut)
 		c.set({ found = found[k] == true, claim = claimable(k) and rewardOf(k) or nil, sel = sel == id, tone = Catalog.rarityColor(g.rarity),
 			name = g.name, icon = Catalog.icon(id), vp = ItemVP.golemKey(id, cls),
-			odds = g.rarity == "Exclusive" and Catalog.howToGet(id, cls, true) or oddsTxt(id, mut), mut = mut })
+			odds = g.rarity == "Exclusive" and Catalog.howToGet(id, cls, true) or oddsTxt(id, mut), mut = mut,
+			map = (g.rarity ~= "Exclusive" and (g.map or 1) > (tonumber(player:GetAttribute("Stage")) or 1)) and g.map or nil })
 	end
 	if resetScroll then gscroll = 0 end -- при відкритті й зміні класу / мутації — на початок
 	setG(gscroll)
@@ -1186,7 +1256,8 @@ renderInfo = function()
 	local k1 = math.max(info.AbsoluteSize.X / 646, 0.01) -- TextBounds — у пікселях екрана
 	infoMut.Position = UDim2.fromOffset(104 + infoSub.TextBounds.X / k1 + 4, infoMut.Position.Y.Offset)
 	local ex = g.rarity == "Exclusive" -- ексклюзив: замість шансу — як отримати
-	infoStat.Text = isFound and statRich(g.id, cls, mut) or L(ex and "Get it to reveal stats" or "Roll it to reveal stats")
+	infoStat.Text = isFound and statRich(g.id, cls, mut) or L(ex and "Get it to reveal stats"
+		or ((g.map or 1) > (tonumber(player:GetAttribute("Stage")) or 1) and ("Drops from MAP " .. g.map)) or "Roll it to reveal stats")
 	oddsTitle.Text = ex and "HOW TO GET" or "ROLL CHANCE"
 	oddsTx.Text = ex and Catalog.howToGet(g.id, cls) or oddsTxt(g.id, mut)
 	oddsTx.TextColor3 = isFound and WHITE or C("c9ced4")
@@ -1388,13 +1459,13 @@ render = function(animate: boolean?)
 		local on = k == cls
 		t.b:setColor(on and "blue" or "gray")
 		tween(t.hold, 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, { Position = UDim2.fromOffset(on and TX + 10 or TX, tabY(t.i)) })
-		t.c.Text = classCount(k) .. " / " .. PER_CLASS .. " found"
+		t.c.Text = classCount(k) .. " / " .. PER_CLASS(k) .. " found"
 	end
 	for i, ch in chips do
 		local k = i - 1
 		local on = k == mut
 		local n = pageCount(cls, k)
-		local pt = k == 0 and PAGE + #(Catalog.EXCLUSIVES or {}) or PAGE -- Normal — разом з ексклюзивами
+		local pt = k == 0 and PAGE + #Catalog.exclusivesFor(cls) or PAGE -- Normal — разом з ексклюзивами
 		ch.ring.Visible = on
 		setGlow(ch.glow, ch.color, on and GLOW_CHIP_ON or GLOW_CHIP_OFF)
 		ch.ct.Text = n == pt and (CHECK .. " " .. n .. "/" .. pt) or (n .. "/" .. pt)
@@ -1527,7 +1598,7 @@ end)
 -- дані: зміна IndexFound / IndexClaimed → лічильник на HUD і перемалювати відкрите вікно (раз за кадр)
 local pending = false
 player.AttributeChanged:Connect(function(name)
-	if name ~= "IndexFound" and name ~= "IndexClaimed" then return end
+	if name ~= "IndexFound" and name ~= "IndexClaimed" and name ~= "Stage" then return end -- Stage — плашки MAP N
 	if pending then return end
 	pending = true
 	task.defer(function()

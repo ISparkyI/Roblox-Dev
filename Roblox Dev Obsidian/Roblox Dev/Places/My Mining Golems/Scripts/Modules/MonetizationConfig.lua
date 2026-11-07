@@ -43,6 +43,9 @@ Config.Passes = {
 		desc = "One more golem every roll. Two stages!", stages = { "RollStand1", "RollStand2" } },
 	RollStand2 = { id = 2058509528, robux = 79, order = 7, name = "+1 Roll Stand II", icon = "rbxassetid://106904376756862", tone = "c9ced5",
 		desc = "One more golem every roll (stage 2).", requires = "RollStand1", hidden = true },
+	-- +2 Boss Slots (04.11.2026, Plan - Boss Fight System): 5 бійців на боса замість 3 (BossConfig.slots, BossLobbyWindow)
+	BossSlots = { id = 2066636326, robux = 79, order = 9.5, name = "+1 Boss Slot", icon = "rbxassetid://137113714883300", tone = "ff6b6b",
+		desc = "Unlock the 5th Warrior slot for boss fights!" }, -- 04.11.2026: геймпас створено (Creator Hub, іконка — шолом боса). 05.11.2026: 4-й слот — за 2500 діамантів (BossConfig.DIA_SLOT_PRICE)
 	-- Fast Roll — рол без анімації фейків: результат одразу (RollService, RollRevealClient)
 	FastRoll = { id = 2060926733, robux = 149, order = 8, name = "Fast Roll", icon = "rbxassetid://94434685510270", tone = "5cc8ff",
 		desc = "Roll results appear instantly. No waiting between rolls!" },
@@ -72,11 +75,15 @@ function Config.ticketBonus(t): number return t.tickets / t.robux - 1 end
 
 -- інші Developer Products (багаторазові): Potion Pack — по potions кожного зілля (ItemConfig.POTIONS). За тікети — ticketPrice(robux).
 Config.Products = {
-	PotionPack = { id = 3723334276, robux = 79, potions = 5 },
+	-- 06.11.2026: noTickets — паки лише за Robux (MonetizationService відмовляє ShopAction "BuyProduct")
+	PotionPack = { id = 3723334276, robux = 79, potions = 5, noTickets = true },
 	-- Starter Pack: +$50K Money, 3 Luck Potions, Diamond Stone Golem — один раз (Pass_StarterPack)
-	StarterPack = { id = 3722656338, robux = 19, once = true, money = 50000, luckPotions = 3 },
+	StarterPack = { id = 3722656338, robux = 19, once = true, money = 50000, luckPotions = 3, noTickets = true },
+	-- 06.11.2026: Mega Pack: +500 Tickets, 10 кожного зілля, Diamond Obsidian Golem (Miner) — один раз (Pass_MegaPack).
+	--   Developer Product «Mega Pack» 399 R$ (Creator Hub, 06.11.2026)
+	MegaPack = { id = 3728676846, robux = 399, once = true, tickets = 500, potions = 10, golem = "obsidian", cls = "miner", mut = 4, noTickets = true },
 	-- Extra Storage: +50 слотів големів (атрибут ExtraSlots), багаторазовий
-	ExtraStorage = { id = 3723334088, robux = 49, slots = 50 },
+	ExtraStorage = { id = 3723334088, robux = 49, slots = 50, noTickets = true },
 	-- Time Skips (SHOP → TIME SKIPS, багаторазові): одразу Money = дохід за хвилину (IncomeService.Rate) × skipMin.
 	--   Чим довший скіп, тим дешевша хвилина (бонус — skipBonus). Ціни — пропозиція.
 	TS5 = { id = 3723334727, robux = 15, skipMin = 5 },

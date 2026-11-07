@@ -57,10 +57,22 @@ local ATTRS = {
 	{ name = "MutSpeedTier", default = 0, scope = "global" },
 	{ name = "RebirthSkips", default = 0, scope = "global" }, -- куплені Skip Rebirth, що чекають на ліміт мапи (RebirthService)
 	{ name = "GroupGolem", default = nil, scope = "global" },  -- чи вже забрав групового Mushroom Golem (GroupGolemService)
+	{ name = "GroupLiked", default = nil, scope = "global" },  -- 06.11.2026: крок 2 «Like the game» зарахований (GroupGolemService)
 	{ name = "IncomeRate", default = 0, scope = "global" },     -- останній дохід $/хв (IncomeService; тайм-скіп одразу після входу)
 	{ name = "LuckRoll10", default = 0, scope = "global" },     -- Lucky Roll x10: скільки ролів у запасі (MonetizationService, RollService)
 	{ name = "LuckRoll99", default = 0, scope = "global" },     -- Lucky Roll x99   -- ступінь Fast Mutations (MonetizationConfig.MUT_SPEED_TIERS)
 	{ name = "RollRole", default = "Miner", scope = "global" },
+	-- бос (04.11.2026): зуби (валюта Boss Shop), покупки в Boss Shop за період (JSON), 4-й слот бойців за діаманти
+	{ name = "FossilTeeth", default = 0, scope = "global" },
+	{ name = "BossShopBuys", default = nil, scope = "global" },
+	{ name = "BossSlotDia", default = nil, scope = "global" },
+	-- офлайн-дохід (04.11.2026, OfflineService): коли востаннє був у грі (os.time), незабрана сума і час відсутності
+	{ name = "LastSeen", default = nil, scope = "global" },
+	{ name = "OfflinePending", default = nil, scope = "global" },
+	{ name = "OfflineSec", default = nil, scope = "global" },
+	-- навчання (05.11.2026, TutorialService): пройшов / пропустив і поточний крок
+	{ name = "TutorialDone", default = nil, scope = "global" },
+	{ name = "TutStep", default = nil, scope = "global" },
 	-- щоденні нагороди (DailyService, 29.10.2026)
 	{ name = "DailySeed", default = nil, scope = "global" },
 	{ name = "DailyIdx", default = 0, scope = "global" },

@@ -44,7 +44,7 @@ Config.STAGE_ORES = {
 		{ key = "Venomite", color = Color3.fromHex("2fbf5a"), bar = Color3.fromHex("5ae07d"), price = 3200000000, product = "Cut" },
 	},
 }
-Config.MAX_STAGE = 3 -- (04.11.2026: відкрито мапу 3 Crystal Depths) скільки мап уже відкрито в грі (перехід далі — «coming soon»; префаби NichePrefab_Stage1..N)
+Config.MAX_STAGE = 6 -- (04.11.2026: відкрито мапу 6 Void Core — остання в цьому оновленні) скільки мап уже відкрито в грі (перехід далі — «coming soon»; префаби NichePrefab_Stage1..N)
 Config.ORE_STAGES = #Config.STAGE_ORES -- скільки мап має руду в конфігу (7)
 Config.INDEX_STAGES = 6 -- руда яких мап видно в Index (мапа 7 — наступне оновлення, ніде не показується)
 -- усі руди всіх мап (інвентар, збереження, продаж старої руди)
@@ -131,7 +131,7 @@ local nice = MultiCfg.round2 -- 2 значущі цифри (590M, 8.2T)
 -- 04.11.2026 (рішення користувача): гроші пробудження задані вручну — мапа 1 $1K, мапа 2 $15M, мапа 3 $5B
 --   (було 50,000 × множник цін: $590M / $245B — пробудження коштувало ×500 від першого покращення Workshop).
 --   Мапи 4–7 (ще не відкриті) — та сама пропорція, що на мапі 3: WAKE_MONEY_BASE × множник цін мапи (≈1,020 × множник).
-Config.WAKE_FIXED = { [1] = 1000, [2] = 15e6, [3] = 5e9 }
+Config.WAKE_FIXED = { [1] = 1000, [2] = 15e6, [3] = 5e9, [4] = 2.5e12, [5] = 5e14, [6] = 1e17 }
 Config.WAKE_MONEY_BASE = 5e9 / MultiCfg.priceMult(3)
 for s = 1, #Config.WAKE do Config.WAKE[s].money = Config.WAKE_FIXED[s] or nice(Config.WAKE_MONEY_BASE * MultiCfg.priceMult(s)) end
 if Config.curStage and Config.curStage > 1 then Config.WAKE_MONEY = Config.wakeFor(Config.curStage).money end

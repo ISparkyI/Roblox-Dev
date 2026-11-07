@@ -201,16 +201,22 @@ local function action(name: string, arg: any): any
 	return ok and res or nil
 end
 -- "1.5K" / "2M" / "3B" / "12,500" → число
-local SUF = { k = 1e3, m = 1e6, b = 1e9, t = 1e12, qa = 1e15 }
+-- 06.11.2026: усі суфікси NumberFormat (K, M, B, T, Qa, Qi, Sx … Vg), регістр не важливий; і науковий запис 1.23e66
+local SUF = { k = 1e3 }
+for i, s in NF.SUFFIXES do SUF[string.lower(s)] = 10 ^ (3 * i + 3) end
 local function parsePrice(s: string): number?
 	s = string.lower((s or ""):gsub("[%s,%$]", ""))
-	local num, suf = string.match(s, "^([%d%.]+)(%a*)$")
-	local n = tonumber(num or "")
-	if not n then return nil end
-	if suf ~= "" then
-		if not SUF[suf] then return nil end
-		n *= SUF[suf]
+	local n = if string.match(s, "^[%d%.]+e%d+$") then tonumber(s) else nil
+	if not n then
+		local num, suf = string.match(s, "^([%d%.]+)(%a*)$")
+		n = tonumber(num or "")
+		if not n then return nil end
+		if suf ~= "" then
+			if not SUF[suf] then return nil end
+			n *= SUF[suf]
+		end
 	end
+	if n ~= n or n >= math.huge then return nil end
 	n = math.floor(n)
 	return n >= 1 and n or nil
 end
@@ -255,7 +261,9 @@ fit(label(pop, WIN_X + 10, 6 + 7, WIN_W - 140, 100, 84, "", INK, 9, { TextXAlign
 local title = fit(label(pop, WIN_X + 10, 6, WIN_W - 140, 100, 84, "", WHITE, 8, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 }), 84)
 local titleShadow = pop:FindFirstChild("TitleShadow")
 local titleGrad = new("UIGradient", { Rotation = 0 }, title)
-local counter = label(pop, WIN_X + WIN_W - 560, 22, 440, 60, 46, "", C("5cc8ff"), 6, { TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 4 })
+-- «Listed N/M» — переклад через Shared/Loc (таблиця локалізації), автопереклад на цій мітці вимкнений
+local Loc = require(RS:WaitForChild("Shared"):WaitForChild("Loc"))
+local counter = label(pop, WIN_X + WIN_W - 560, 22, 440, 60, 46, "", C("5cc8ff"), 6, { TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 4, AutoLocalize = false })
 local closeBtn = makeButton(pop, WIN_X + WIN_W - 86, WIN_Y - 42, 103, 103, { shadowDy = 10, color = "red", icon = StyleA.ASSETS.stylea_icon_x, iconPad = -0.05, z = 5 })
 local backBtn = makeButton(pop, WIN_X + WIN_W - 300, WIN_Y - 30, 190, 72, { shadowDy = 6, color = "gray", text = "< BACK", textSize = 30, z = 5 })
 local function setTitle(s: string)
@@ -364,17 +372,29 @@ local priceBox = new("TextBox", { BackgroundTransparency = 1, Size = UDim2.new(1
 -- 04.11.2026 v2 (телефон): TextScaled у полі вводу на деяких телефонах не діє під час набору — цифри вилазили за рамку.
 --   Тепер шрифт сталий (30), а в полі лише цифри, крапка, кома й суфікс K / M / B / T, не довше PRICE_MAX_LEN символів —
 --   так текст завжди влазить у рамку (10 символів × ~22 px < ширини поля).
-local PRICE_MAX_LEN = 10
+-- 06.11.2026: без ліміту довжини (лише захисна межа 320 символів — далі число все одно «нескінченність»); довший текст — менший шрифт.
+--   Після вводу (FocusLost) довге число скорочується: 1111111111111111 → 1.11Qa, далі Vg — 1.11e90. Суфікси — будь-які літери.
+local PRICE_MAX_LEN = 320
 local priceFixing = false
 priceBox:GetPropertyChangedSignal("Text"):Connect(function()
 	if priceFixing then return end
-	local s = priceBox.Text:gsub("[^%d%.,kKmMbBtT]", "")
+	local s = priceBox.Text:gsub("[^%d%.,%a]", "")
 	if #s > PRICE_MAX_LEN then s = s:sub(1, PRICE_MAX_LEN) end
+	priceBox.TextSize = #s <= 10 and 30 or math.max(12, math.floor(30 * 10 / #s))
 	if s ~= priceBox.Text then
 		priceFixing = true
 		priceBox.Text = s
 		priceBox.CursorPosition = #s + 1
 		priceFixing = false
+	end
+end)
+-- 06.11.2026: довге число після вводу — короткий запис (ціна = скорочене число, як у Price:)
+priceBox.FocusLost:Connect(function()
+	if #priceBox.Text <= 10 then return end
+	local p = parsePrice(priceBox.Text)
+	if p and p >= 1e6 then
+		local t = NF.short(p)
+		if t ~= priceBox.Text then priceBox.Text = t end
 	end
 end)
 local rGet = fit(label(right, 10, 512, RPW - 20, 28, 22, "", WHITE, 3, { ZIndex = 7, FontFace = XBOLD, RichText = true }), 22)
@@ -385,9 +405,10 @@ local sellEmpty = label(pSell, 0, PH / 2 - 60, PW, 120, 40, "No golems to sell\n
 -- ===== сторінка 3: HISTORY =====
 local pHist = page("History")
 local hTab = "b"
-local tabB = makeButton(pHist, PW / 2 - 250, 4, 230, 64, { shadowDy = 5, color = "green", text = "BOUGHT", textSize = 32, z = 6 })
-local tabS = makeButton(pHist, PW / 2 + 20, 4, 230, 64, { shadowDy = 5, color = "gray", text = "SOLD", textSize = 32, z = 6 })
-local histScroll = scroll(pHist, 0, 84, PW, PH - 84, nil, nil, 12)
+-- 06.11.2026: вкладки нижче (y 4 → 30) — на малому екрані заголовок HISTORY налазив на BOUGHT
+local tabB = makeButton(pHist, PW / 2 - 250, 30, 230, 64, { shadowDy = 5, color = "green", text = "BOUGHT", textSize = 32, z = 6 })
+local tabS = makeButton(pHist, PW / 2 + 20, 30, 230, 64, { shadowDy = 5, color = "gray", text = "SOLD", textSize = 32, z = 6 })
+local histScroll = scroll(pHist, 0, 110, PW, PH - 110, nil, nil, 12)
 local histEmpty = label(pHist, 0, PH / 2, PW, 40, 30, "", WHITE, 4, { ZIndex = 6 })
 
 -- ===== сторінка 4: лоти іншого гравця (купівля) =====
@@ -480,7 +501,7 @@ function renderListed()
 	clear(listedScroll)
 	local lots = decode("MktLots", {})
 	local max = HubCfg.marketSlots(player)
-	counter.Text = "Listed " .. #lots .. "/" .. max
+	counter.Text = Loc.f("Listed {1}/{2}", #lots, max)
 	-- CREATE
 	local cc = frame(listedScroll, 0, 0, 190, 236, nil, { BackgroundTransparency = 1, LayoutOrder = 0, ZIndex = 5 })
 	local cb = makeButton(cc, 0, 0, 190, 190, { shadowDy = 6, color = "green", z = 5 })
@@ -589,11 +610,45 @@ end
 for k, b in curBtns do b.onClick = function() setCur(k) end end
 priceBox:GetPropertyChangedSignal("Text"):Connect(updateGet)
 
+-- 06.11.2026: вибір голема без перебудови сітки (раніше клік → renderSell/renderSeller → усі клітинки заново, фон рідкості «мерехтів»):
+--   пам'ятаємо клітинки та їхню обводку, по кліку лише перекидаємо рамку й оновлюємо панель справа / рядок покупки
+local PK = { sell = {}, seller = {} } -- [сторінка][id] = { tile, c, th, tr, data }
+function PK.remember(map, id, tile, data)
+	local st = tile:FindFirstChildOfClass("UIStroke")
+	map[id] = { tile = tile, data = data, c = st and st.Color, th = st and st.Thickness, tr = st and st.Transparency, had = st ~= nil }
+end
+function PK.swap(map, oldId, newId)
+	local o = oldId ~= nil and map[oldId] or nil
+	if o and o.tile.Parent then
+		local st = o.tile:FindFirstChildOfClass("UIStroke")
+		if st then
+			if o.had then st.Color, st.Thickness, st.Transparency = o.c, o.th, o.tr else st:Destroy() end
+		end
+	end
+	local n = newId ~= nil and map[newId] or nil
+	if n and n.tile.Parent then pickRing(n.tile) end
+end
+function PK.showSell(pick)
+	right.Visible = pick ~= nil
+	if pick then
+		rRar.Text = pick.def.rarity or ""
+		rRar.TextColor3 = Catalog.rarityColor(pick.def.rarity)
+		-- 04.11.2026: точний множник (NF.short округлював 1.25 → «x1»): 1.25 / 1.5 / 2 / 3 / 5 / 10 / 25
+		local mm = Catalog.mult(pick.mut)
+		rMut.Text = mutName(pick.mut) .. " [x" .. (string.format("%.2f", mm):gsub("0+$", ""):gsub("%.$", "")) .. "]"
+		pcall(MutationText.apply, rMut, pick.mut)
+		pcall(ItemViewport.set, rImg, ItemViewport.golemKey(pick.def.id, pick.cls), 1)
+		rName.Text = pick.def.name
+		rPow.Text = Catalog.bestText(pick.def.id, pick.cls) or Catalog.statText(pick.def.id, pick.cls, pick.mut)
+	end
+	updateGet()
+end
 function renderSell()
 	clear(sellScroll)
+	table.clear(PK.sell)
 	local list = golems()
 	local lots = decode("MktLots", {})
-	counter.Text = "Listed " .. #lots .. "/" .. HubCfg.marketSlots(player)
+	counter.Text = Loc.f("Listed {1}/{2}", #lots, HubCfg.marketSlots(player))
 	if pickId then
 		local still = false
 		for _, g in list do if g.id == pickId then still = true end end
@@ -608,23 +663,18 @@ function renderSell()
 			local mt = fit(label(tile, 4, 4, SC - 8, 26, 22, mutName(g.mut), WHITE, 3, { ZIndex = 8 }), 22)
 			pcall(MutationText.apply, mt, g.mut)
 		end
+		PK.remember(PK.sell, g.id, tile, g)
 		if g.id == pickId then pick = g; pickRing(tile) end
-		btn.MouseButton1Click:Connect(function() pickId = g.id; StyleA.tap(); renderSell() end)
+		btn.MouseButton1Click:Connect(function()
+			if pickId == g.id then return end
+			StyleA.tap()
+			PK.swap(PK.sell, pickId, g.id)
+			pickId = g.id
+			PK.showSell(g)
+		end)
 	end
 	sellEmpty.Visible = #list == 0 -- по центру сторінки (не в клітинці сітки)
-	right.Visible = pick ~= nil
-	if pick then
-		rRar.Text = pick.def.rarity or ""
-		rRar.TextColor3 = Catalog.rarityColor(pick.def.rarity)
-		-- 04.11.2026: точний множник (NF.short округлював 1.25 → «x1»): 1.25 / 1.5 / 2 / 3 / 5 / 10 / 25
-		local mm = Catalog.mult(pick.mut)
-		rMut.Text = mutName(pick.mut) .. " [x" .. (string.format("%.2f", mm):gsub("0+$", ""):gsub("%.$", "")) .. "]"
-		pcall(MutationText.apply, rMut, pick.mut)
-		pcall(ItemViewport.set, rImg, ItemViewport.golemKey(pick.def.id, pick.cls), 1)
-		rName.Text = pick.def.name
-		rPow.Text = Catalog.bestText(pick.def.id, pick.cls) or Catalog.statText(pick.def.id, pick.cls, pick.mut)
-	end
-	updateGet()
+	PK.showSell(pick)
 end
 sellBtn.onClick = function()
 	if not pickId then StyleA.shake(sellBtn); return end
@@ -643,7 +693,7 @@ sellBtn.onClick = function()
 	else
 		local err = res and res.err
 		StyleA.shake(sellBtn)
-		toast(err == "full" and "No free slots!" or err == "price" and "Invalid price" or err == "min" and ("Min price: " .. priceText(MIN_PRICE[curSel] or 1, curSel)) or err == "blocked" and "This golem can't be sold" or "Can't list this golem", "red", "deny")
+		toast(err == "full" and "No free slots!" or err == "price" and "Invalid price" or err == "min" and ("Min price: " .. priceText(MIN_PRICE[curSel] or 1, curSel)) or err == "blocked" and "This golem can't be sold" or err == "region" and "Trading is not available in your region" or "Can't list this golem", "red", "deny")
 	end
 end
 
@@ -694,8 +744,19 @@ local function sellerLots(p: Player): ({ any }, { [number]: any })
 	for _, l in dec("MktLots") do if type(l) == "table" and inv[l.id] then table.insert(out, l) end end
 	return out, inv
 end
+-- 06.11.2026: голем з мапи, яку покупець ще не відкрив (GolemCatalog map > атрибут Stage; ексклюзиви — без обмеження),
+--   купити не можна: на слоті в меню продавця — затемнення й «Unlocks on Map N», кнопка BUY сіра. Над големами у світі — нічого.
+--   Сервер (MarketLotService.doBuy) перевіряє те саме (err = "map").
+function PK.mapLock(kind): number?
+	local def = Catalog.get(kind)
+	local st = tonumber(player:GetAttribute("Stage"))
+	if not (def and st) or def.rarity == "Exclusive" then return nil end
+	local m = tonumber(def.map) or 1
+	return m > st and m or nil
+end
 function renderSeller()
 	clear(sellerScroll)
+	table.clear(PK.seller)
 	counter.Text = ""
 	if not (sellerP and sellerP.Parent) then sellerEmpty.Visible = true; buyBar.Visible = false; return end
 	setTitle(string.upper(sellerP.DisplayName) .. "'S GOLEMS")
@@ -716,10 +777,26 @@ function renderSeller()
 		new("ImageLabel", { BackgroundTransparency = 1, Image = ICON[l.c] or "", ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(4, 4),
 			Size = UDim2.fromOffset(32, 32), ZIndex = 7 }, chip)
 		fit(label(chip, 38, 2, 132, 36, 26, l.c == "money" and NF.money(l.p) or NF.short(l.p), WHITE, 3.5, { ZIndex = 7 }), 26)
+		local lk = PK.mapLock(g.kind)
+		if lk then
+			local veil = frame(tile, 0, 0, 190, 190, BLACK, { BackgroundTransparency = 0.35, ZIndex = 8 })
+			fit(label(veil, 6, 62, 178, 34, 30, "MAP " .. lk, C("ffd23a"), 3.5, { ZIndex = 9, AutoLocalize = false }), 30)
+			fit(label(veil, 6, 98, 178, 30, 22, Loc.f("Unlocks on Map {number1}", lk), WHITE, 3, { ZIndex = 9, AutoLocalize = false, TextWrapped = true }), 22)
+		end
+		PK.remember(PK.seller, l.id, tile, { l = l, g = g })
 		if buyPick == l.id then pickLot = { l = l, g = g }; pickRing(tile) end
-		btn.MouseButton1Click:Connect(function() buyPick = l.id; StyleA.tap(); renderSeller() end)
+		btn.MouseButton1Click:Connect(function()
+			if buyPick == l.id then return end
+			StyleA.tap()
+			PK.swap(PK.seller, buyPick, l.id)
+			buyPick = l.id
+			PK.showBuy({ l = l, g = g })
+		end)
 	end
 	sellerEmpty.Visible = #lots == 0
+	PK.showBuy(pickLot)
+end
+function PK.showBuy(pickLot)
 	buyBar.Visible = pickLot ~= nil
 	if pickLot then
 		local def = Catalog.get(pickLot.g.kind)
@@ -727,6 +804,9 @@ function renderSeller()
 		local nm = (mut > 0 and (mutName(mut) .. " ") or "") .. (def and def.name or "Golem")
 		buyText.Text = "Buy " .. nm .. " for <font color=\"#" .. (CUR_COL[pickLot.l.c] or "ffffff") .. "\">" .. priceText(pickLot.l.p, pickLot.l.c) .. "</font>?"
 		buyBtn.pick = pickLot.l
+		buyBtn.locked = PK.mapLock(pickLot.g.kind)
+		if buyBtn.locked then buyText.Text = "<font color=\"#ffd23a\">" .. Loc.f("Unlocks on Map {number1}", buyBtn.locked) .. "</font>" end
+		buyBtn:setColor(buyBtn.locked and "gray" or "green")
 	else
 		buyPick = nil
 	end
@@ -734,6 +814,7 @@ end
 buyBtn.onClick = function()
 	local l = buyBtn.pick
 	if not (l and sellerP) then return end
+	if buyBtn.locked then StyleA.shake(buyBtn); toast(Loc.f("Unlocks on Map {number1}", buyBtn.locked), "red", "deny"); return end
 	if (tonumber(player:GetAttribute(({ money = "Money", diamonds = "Diamonds", tickets = "Tickets" })[l.c])) or 0) < l.p then
 		StyleA.shake(buyBtn); toast("Not enough " .. (CUR_NAME[l.c] or "") .. "!", "red", "deny"); return
 	end
@@ -747,8 +828,8 @@ buyBtn.onClick = function()
 	else
 		local e = res and res.err
 		StyleA.shake(buyBtn)
-		toast(e == "full" and "Your inventory is full!" or e == "changed" and "The price has changed!" or (e == "money" or e == "diamonds" or e == "tickets") and ("Not enough " .. CUR_NAME[e] .. "!")
-			or e == "busy" and "Try again" or "This golem is no longer for sale", "red", "deny")
+		toast(e == "map" and Loc.f("Unlocks on Map {number1}", res.map or 2) or e == "full" and "Your inventory is full!" or e == "changed" and "The price has changed!" or (e == "money" or e == "diamonds" or e == "tickets") and ("Not enough " .. CUR_NAME[e] .. "!")
+			or e == "busy" and "Try again" or e == "region" and "Trading is not available in your region" or "This golem is no longer for sale", "red", "deny")
 		renderSeller()
 	end
 end
@@ -936,36 +1017,65 @@ end
 local function makeSign(m: Model, def, lot, mut)
 	local root = m:FindFirstChild("Root") or m.PrimaryPart
 	if not root then return end
+	-- 06.11.2026 v2: менше тексту — без назви голема й «Listed for:»; мутація (лише якщо є), сила, ціна з іконкою валюти
+	--   (усі валюти скорочено: 477K, 3.2K, 1.5M).
 	-- розмір у стадах (а не в пікселях): віддаляєш камеру — табличка зменшується разом з големом; далі 45 стадів — ховається
-	local bb = new("BillboardGui", { Name = "LotSign", Size = UDim2.fromScale(5.5, 2.4), StudsOffsetWorldSpace = Vector3.new(0, GolemModel.headTop(m) + 1.3, 0),
+	local hasMut = Catalog.mut(mut) > 0
+	local H = hasMut and 72 or 50
+	local bb = new("BillboardGui", { Name = "LotSign", Size = UDim2.fromScale(4.4, 4.4 * H / 220), StudsOffsetWorldSpace = Vector3.new(0, GolemModel.headTop(m) + 0.4 + 2.2 * H / 220, 0),
 		AlwaysOnTop = false, MaxDistance = 45, LightInfluence = 0 }, root)
-	new("UIScale", { Scale = 1 }, bb)
-	local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(220, 96) }, bb)
-	new("UIAspectRatioConstraint", { AspectRatio = 220 / 96 }, holder)
-	holder.Size = UDim2.fromScale(1, 1)
-	local function line(y, h, size, text, color, sw, props)
-		local t = label(holder, 0, 0, 0, 0, size, text, color, sw, props)
-		t.Position = UDim2.fromScale(0, y / 96); t.Size = UDim2.fromScale(1, h / 96)
+	local holder = new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1) }, bb)
+	new("UIAspectRatioConstraint", { AspectRatio = 220 / H }, holder)
+	local function line(y, h, text, color, sw, props)
+		local t = label(holder, 0, 0, 0, 0, 20, text, color, sw, props)
+		t.Position = UDim2.fromScale(0, y / H); t.Size = UDim2.fromScale(1, h / H)
 		t.TextScaled = true
 		return t
 	end
-	local nm = line(0, 24, 20, def.name, WHITE, 1.5, { ZIndex = 1 })
-	pcall(MutationText.apply, nm, mut)
+	local y = 0
+	if hasMut then
+		local mt = line(0, 20, mutName(mut), WHITE, 1.5, { ZIndex = 1 })
+		pcall(MutationText.apply, mt, mut)
+		y = 22
+	end
 	-- сила за класом: майнер / воїн — шкода (+HP), носій — місткість
 	-- ексклюзив: «65% BEST» (його сила — частка найкращого голема власника, у кожного своя), 03.11.2026
 	local best = Catalog.bestText(def.id, m:GetAttribute("Role"))
 	local okS, st = pcall(Catalog.statText, def.id, m:GetAttribute("Role"), mut)
 	local stat = best or (okS and st and (string.split(st, " · Speed")[1]) or "")
-	line(25, 21, 19, stat, best and Catalog.BEST_COLOR or C("b6ff5c"), 1.5, { ZIndex = 1 })
-	line(47, 20, 18, "Listed for:", WHITE, 1.5, { FontFace = XBOLD, ZIndex = 1 })
-	line(68, 27, 24, priceText(lot.p, lot.c), C(CUR_COL[lot.c] or "ffffff"), 2, { ZIndex = 1 })
+	line(y, 20, stat, best and Catalog.BEST_COLOR or C("b6ff5c"), 1.5, { ZIndex = 1 })
+	-- ціна: іконка валюти + скорочене число, разом по центру (ширина тексту — за кількістю символів)
+	-- скорочення для всіх валют: 477K, 3.2K, 1.5M, 2B (валюту показує іконка)
+	local txt
+	do
+		local v = math.floor((tonumber(lot.p) or 0) + 0.5)
+		txt = if v >= 1e15 then NF.short(v) else tostring(v) -- 06.11.2026: від Qa — суфікси NumberFormat (Qa, Qi … і 1.2e90)
+		for _, u in (if v >= 1e15 then {} else { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } }) do
+			if v >= u[1] then
+				local x = v / u[1]
+				txt = (x >= 100 and tostring(math.floor(x)) or (string.gsub(string.format("%.1f", x), "%.0$", ""))) .. u[2]
+				break
+			end
+		end
+	end
+	local row = new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromScale(0, (y + 22) / H), Size = UDim2.fromScale(1, 28 / H) }, holder)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0.02, 0), SortOrder = Enum.SortOrder.LayoutOrder }, row)
+	local ic = new("ImageLabel", { LayoutOrder = 1, BackgroundTransparency = 1, Image = ICON[lot.c] or "", ScaleType = Enum.ScaleType.Fit,
+		Size = UDim2.fromScale(1, 1), ZIndex = 1 }, row)
+	new("UIAspectRatioConstraint", { AspectRatio = 1, DominantAxis = Enum.DominantAxis.Height }, ic)
+	local pt = label(row, 0, 0, 0, 0, 24, txt, C(CUR_COL[lot.c] or "ffffff"), 2, { ZIndex = 1, LayoutOrder = 2, TextXAlignment = Enum.TextXAlignment.Left, AutoLocalize = false })
+	pt.Size = UDim2.fromScale(math.clamp(0.075 * #txt + 0.04, 0.2, 0.8), 1)
+	pt.TextScaled = true
 end
 local function sync()
 	for _, p in Players:GetPlayers() do
 		local want = {}
 		local inv = invOf(p)
 		local i = 0 -- безперервна нумерація, щоб ряд центрувався без дірок
-		for _, l in lotsOf(p) do
+		-- 06.11.2026: SETTINGS → HIDE GOLEMS — чужих големів-лотів не будуємо (лише в мене)
+		local skip = p ~= player and player:GetAttribute("Set_HideGolems") == true
+		for _, l in (skip and {} or lotsOf(p)) do
 			local g = type(l) == "table" and inv[l.id]
 			if g then i += 1; want[l.id] = { i = i, g = g, l = l } end
 		end
@@ -1026,3 +1136,130 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 	end
 end)
+
+-- ===== 06.11.2026: TRADE FEED — тонке напівпрозоре сповіщення вгорі по центру екрана, коли хтось у когось щось купив =====
+-- Бачать усі гравці сервера. Джерело — атрибут Trades табла RECENT TRADES (MarketServerService.LogTrade, нові — на початку списку).
+-- Одночасно до 3 рядків (новий зверху), кожен ~4,5 с, поява / зникнення плавні. Текст — Shared/Loc «{1} bought {2} from {3} for {4}».
+do
+	local FEED_MAX, FEED_LIFE = 3, 4.5
+	local feedGui = new("ScreenGui", { Name = "TradeFeed", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 20,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, playerGui)
+	local feedRoot = new("Frame", { Name = "Root", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 74),
+		Size = UDim2.fromOffset(900, 140) }, feedGui)
+	new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 6) }, feedRoot)
+	local feedScale = new("UIScale", {}, feedRoot)
+	local function fitFeed()
+		local cam = workspace.CurrentCamera
+		local vs = cam and cam.ViewportSize or Vector2.new(1280, 720)
+		feedScale.Scale = math.clamp(math.min(vs.Y / 720, vs.X / 960), 0.55, 1.4)
+		feedRoot.Position = UDim2.new(0.5, 0, 0, math.floor(GuiService.TopbarInset.Max.Y + 18 * feedScale.Scale))
+	end
+	fitFeed()
+	if workspace.CurrentCamera then workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fitFeed) end
+	local order = 0
+	local rows = {}
+	local function esc(s: string): string return (string.gsub(s, "[<>&]", { ["<"] = "&lt;", [">"] = "&gt;", ["&"] = "&amp;" })) end
+	local function show(e)
+		local def = e.k and Catalog.get(e.k)
+		local mut = tonumber(e.m) or 0
+		local base = def and def.name or "Golem"
+		local rc = def and Catalog.rarityColor(def.rarity) or Color3.new(1, 1, 1)
+		local cur = CUR_COL[e.cur] and e.cur or "money"
+		local price = cur == "money" and NF.money(e.p or 0) or (NF.short(e.p or 0) .. " " .. Loc.t(CUR_NAME[cur] or ""))
+		-- 06.11.2026 v2: назва голема — окремими мітками: слово мутації переливається (MutationText), решта — кольором рідкості голема.
+		--   Перекладена повна назва ділиться на перше слово (мутація) і решту: «Rainbow | Obsidian Golem», «Радужный | обсидиановый голем».
+		local mutWord, nameRest = nil, Loc.t(base)
+		if mut > 0 then
+			local full = Loc.t(mutName(mut) .. " " .. base)
+			mutWord, nameRest = string.match(full, "^(%S+)%s+(.+)$")
+			if not mutWord then mutWord, nameRest = mutName(mut), Loc.t(base) end
+		end
+		local SEP = "\u{1}"
+		local whole = Loc.f("{1} bought {2} from {3} for {4}",
+			'<font color="#ffffff">' .. esc(tostring(e.bn or "?")) .. "</font>", SEP,
+			'<font color="#ffffff">' .. esc(tostring(e.sn or "?")) .. "</font>",
+			'<font color="#' .. (CUR_COL[cur] or "ffffff") .. '">' .. price .. "</font>")
+		local left, right = string.match(whole, "^(.-)" .. SEP .. "(.*)$")
+		if not left then left, right = whole, "" end
+		order -= 1
+		local pill = new("Frame", { Name = "Trade", BackgroundColor3 = C("0e1014"), BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X,
+			Size = UDim2.fromOffset(0, 34), LayoutOrder = order }, feedRoot)
+		new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, pill)
+		new("UIPadding", { PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16) }, pill)
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center,
+			SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5) }, pill)
+		local st = new("UIStroke", { Color = C("ffffff"), Transparency = 1, Thickness = 1.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, pill)
+		local labels, strokes = {}, {}
+		local n = 0
+		local function part(text: string, color: Color3?, rich: boolean): TextLabel?
+			if text == "" then return nil end
+			n += 1
+			local l = new("TextLabel", { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 34), FontFace = XBOLD,
+				TextSize = 19, TextColor3 = color or C("d9dee5"), RichText = rich, AutoLocalize = false, Text = text, TextTransparency = 1, LayoutOrder = n }, pill)
+			table.insert(labels, l)
+			table.insert(strokes, new("UIStroke", { Color = INK, Thickness = 1.6, Transparency = 1 }, l))
+			return l
+		end
+		-- проміжки між частинами — Padding списку (5 px), пробіли по краях обрізаємо
+		part((string.gsub(left, "%s+$", "")), nil, true)
+		if mutWord then
+			local ml = part(mutWord, nil, false)
+			if ml then pcall(MutationText.apply, ml, mut) end
+		end
+		part(nameRest, rc, false)
+		part((string.gsub(right, "^%s+", "")), nil, true)
+		table.insert(rows, 1, pill)
+		while #rows > FEED_MAX do local old = table.remove(rows); old:Destroy() end
+		local ti = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		TweenService:Create(pill, ti, { BackgroundTransparency = 0.45 }):Play()
+		TweenService:Create(st, ti, { Transparency = 0.85 }):Play()
+		for _, l in labels do TweenService:Create(l, ti, { TextTransparency = 0 }):Play() end
+		for _, s in strokes do TweenService:Create(s, ti, { Transparency = 0.3 }):Play() end
+		task.delay(FEED_LIFE, function()
+			if not pill.Parent then return end
+			local to = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			TweenService:Create(pill, to, { BackgroundTransparency = 1 }):Play()
+			TweenService:Create(st, to, { Transparency = 1 }):Play()
+			for _, s in strokes do TweenService:Create(s, to, { Transparency = 1 }):Play() end
+			local tw
+			for _, l in labels do tw = TweenService:Create(l, to, { TextTransparency = 1 }); tw:Play() end
+			task.delay(0.45, function()
+				local i = table.find(rows, pill)
+				if i then table.remove(rows, i) end
+				pill:Destroy()
+			end)
+		end)
+	end
+	-- нові угоди = записи перед попереднім першим (ключ: час, продавець, покупець, ціна)
+	local function keyOf(e) return tostring(e.t) .. ":" .. tostring(e.s) .. ":" .. tostring(e.b) .. ":" .. tostring(e.p) end
+	local lastKey: string? = nil
+	local board: Instance? = nil
+	local function read(): { any }
+		local raw = board and board:GetAttribute("Trades")
+		local ok, data = pcall(HttpService.JSONDecode, HttpService, type(raw) == "string" and raw or "[]")
+		return (ok and type(data) == "table") and data or {}
+	end
+	local function onTrades(init: boolean?)
+		local data = read()
+		local first = data[1]
+		if init then lastKey = first and keyOf(first) or ""; return end -- перший прохід: старі угоди не показуємо
+		if not first then return end
+		local fresh = {}
+		for _, e in data do
+			if keyOf(e) == lastKey then break end
+			table.insert(fresh, e)
+			if #fresh >= FEED_MAX then break end
+		end
+		lastKey = keyOf(first)
+		for i = #fresh, 1, -1 do pcall(show, fresh[i]) end -- найстаріша з нових першою, найновіша — зверху
+	end
+	task.spawn(function()
+		while not board do
+			board = HubCfg.tradesBoard and HubCfg.tradesBoard()
+			if not board then task.wait(2) end
+		end
+		local b = board :: Instance
+		b:GetAttributeChangedSignal("Trades"):Connect(function() onTrades() end)
+		onTrades(true)
+	end)
+end

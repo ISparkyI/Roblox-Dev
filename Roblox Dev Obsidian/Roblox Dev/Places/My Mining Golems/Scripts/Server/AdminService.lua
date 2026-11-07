@@ -25,12 +25,15 @@
 -- Події: workspace атрибути EventLuck / EventLuckUntil (Roll Luck — рідкість голема), EventMutLuck / EventMutLuckUntil
 --   (Mutation Luck — шанс мутації), EventMoney / EventMoneyUntil (os.time). Читають RollService і MultiService.
 --
+-- Руда (05.11.2026): Give what = "Ore" (сира руда, Ore_<ключ>) | "Bars" (оброблена — злиток / огранений, Bars_<ключ>), item = ключ руди,
+--   amount < 0 — забрати (не нижче 0).
 -- Дії панелі (AdminAction): Players, PlayerInfo { u | name }, Give { u, what, amount, item, mode = "set"? }, Kick { u, reason },
 --   Ban { u, hours (0 — назавжди), reason }, Unban { u }, BanHistory { u }, FindUid { uid }, Announce { text, color, sec },
 --   DM { u, text, color } (банер лише цьому гравцю), Teleport { u } (до гравця; інший сервер — TeleportService),
 --   Bring { u } (лише цей сервер), Freeze { u, on }, GrantAll { what, amount, item, window (хв) },
 --   Event { kind = "luck" | "money", mult, minutes } (mult 1 — стоп), Events, Servers, Shutdown, Logs,
---   Roles (список адмінів), SetRole { u | name, role = "admin" | "mod" | "none" }.
+--   Roles (список адмінів), SetRole { u | name, role = "admin" | "mod" | "none" },
+--   SetMap { u, stage, full? } (05.11.2026: перевести на мапу, ребітхи підтягуються; гравець — на цьому сервері).
 -- Ролі (рівні доступу): owner — userId з AdminConfig.ADMINS (змінити можна лише в конфігу); admin — усе, крім Shutdown і
 --   керування адмінами; mod — перегляд, кік, бан до 24 год, оголошення, DM, телепорт / bring / freeze, пошук UID, журнал.
 --   Видані ролі — DataStore AdminRoles (ключ "roles": { ["<userId>"] = { r, by, t, name } }); зміна розсилається всім серверам
@@ -71,6 +74,14 @@ local TX_KEEP = 200
 local START_T = os.time()
 local RESOURCES = { Money = true, Diamonds = true, Tickets = true, LuckLvl = true, LuckRoll10 = true, LuckRoll99 = true }
 local MultiCfg = require(RS.Shared:WaitForChild("MultiConfig"))
+local ForgeCfg = require(RS.Shared:WaitForChild("ForgeConfig"))
+-- руда (05.11.2026): Give what = "Ore" (сира, атрибут Ore_<ключ>) | "Bars" (оброблена — злитки / огранені, Bars_<ключ>), item = ключ руди
+local function oreDef(key: any): any
+	for s = 1, ForgeCfg.MAX_STAGE do
+		for _, o in ForgeCfg.STAGE_ORES[s] or {} do if o.key == key then return o end end
+	end
+	return nil
+end
 local TIER_MAX = { MoneyTier = function() return MultiCfg.maxDonateTier() end, MutTier = function() return #MonCfg.MUT_SPEED_TIERS end }
 local TIER_ATTR = { MoneyTier = "DonateTier", MutTier = "MutSpeedTier" }
 local MAX_AMOUNT = 1e60 -- межа видачі за раз (NumberFormat показує до Vg); точність double — ~15 значущих цифр
@@ -108,8 +119,21 @@ end
 local function isAdmin(p: Player): boolean
 	return roleOf(p) ~= nil
 end
+-- 06.11.2026: ранг гравця за userId (owner 3 · admin 2 · mod 1 · гравець 0) — банити / кікати / заморожувати / скидати
+--   можна лише тих, у кого ранг НИЖЧИЙ за свій (модератор — не адмінів і не інших модераторів, адмін — не власників і т. д.)
+local function rankOfId(id: number): number
+	if isOwnerId(id) then return LEVEL.owner end
+	local e = roles[tostring(id)]
+	return (type(e) == "table" and LEVEL[e.r]) or 0
+end
 AdminService.IsAdmin = isAdmin
 AdminService.RoleOf = roleOf
+-- 06.11.2026: персонал за userId (власники з AdminConfig + видані в панелі ролі; STUDIO_ALL не враховується) — StatsService ховає їх з лідербордів
+function AdminService.IsStaffId(id: number): boolean
+	if isOwnerId(id) then return true end
+	local e = roles[tostring(id)]
+	return type(e) == "table" and LEVEL[e.r] ~= nil
+end
 local function rstore()
 	if not rolesStore then rolesStore = DataStoreService:GetDataStore("AdminRoles" .. SFX) end
 	return rolesStore
@@ -274,7 +298,20 @@ local function infoLocal(p: Player): any
 		passes = passList(a),
 		tiers = { MoneyTier = a("DonateTier") or 0, MutTier = a("MutSpeedTier") or 0, LuckRoll10 = a("LuckRoll10") or 0, LuckRoll99 = a("LuckRoll99") or 0 },
 		cases = (function() local t = {} for _, d in Items.CASES do t[d.key] = a("Case_" .. d.key) or 0 end return t end)(),
+		ores = (function() -- { [ключ] = { сира, оброблена } } (05.11.2026)
+			local t = {}
+			for s = 1, ForgeCfg.MAX_STAGE do for _, o in ForgeCfg.STAGE_ORES[s] or {} do t[o.key] = { a("Ore_" .. o.key) or 0, a("Bars_" .. o.key) or 0 } end end
+			return t
+		end)(),
 		golems = packGolems(decodeAttr(p, "InvGolems", {}), decodeAttr(p, "PlotPlaced", {}), decodeAttr(p, "CaveStandGolems", {}), decodeAttr(p, "InvLocks", {})),
+		-- 07.11.2026: повний інвентар для панелі (кнопка INVENTORY): зілля, активні бусти (с до кінця), хотбар, предмет у руці
+		potions = (function() local t = {} for _, d in Items.POTIONS do t[d.key] = a("Pot_" .. d.key) or 0 end return t end)(),
+		boosts = (function()
+			local t, now = {}, workspace:GetServerTimeNow()
+			for _, d in Items.POTIONS do local u = tonumber(a("Boost_" .. d.key)) if u and u > now then t[d.key] = math.floor(u - now) end end
+			return t
+		end)(),
+		hotbar = decodeAttr(p, "InvHotbar", {}), held = a("InvHeld") or "",
 	}
 end
 
@@ -302,6 +339,15 @@ local function infoOffline(userId: number): any
 		tiers = { MoneyTier = at.DonateTier or 0, MutTier = at.MutSpeedTier or 0, LuckRoll10 = at.LuckRoll10 or 0, LuckRoll99 = at.LuckRoll99 or 0 },
 		cases = (type(sec.Inventory) == "table" and type(sec.Inventory.cases) == "table") and sec.Inventory.cases or {},
 		golems = packGolems(inv, placed, cave, locks),
+		-- 07.11.2026: інвентар зі збереження (кнопка INVENTORY)
+		potions = (type(sec.Inventory) == "table" and type(sec.Inventory.potions) == "table") and sec.Inventory.potions or {},
+		boosts = (type(sec.Inventory) == "table" and type(sec.Inventory.boosts) == "table") and sec.Inventory.boosts or {},
+		hotbar = (type(sec.Inventory) == "table" and type(sec.Inventory.hotbar) == "table") and sec.Inventory.hotbar or {},
+		ores = (function()
+			local t = {}
+			for s = 1, ForgeCfg.MAX_STAGE do for _, o in ForgeCfg.STAGE_ORES[s] or {} do t[o.key] = { at["Ore_" .. o.key] or 0, at["Bars_" .. o.key] or 0 } end end
+			return t
+		end)(),
 	}
 end
 
@@ -334,6 +380,10 @@ local function validGrant(g: any): (boolean, string?)
 	if RESOURCES[g.what] then return true end
 	if g.what == "Potion" then return potionKey(g.item) ~= nil and n > 0, "potion" end
 	if g.what == "Case" then return Items.case(tostring(g.item or "")) ~= nil and n > 0 and n <= 1000, "case" end -- кейси (02.11.2026)
+	if g.what == "Ore" or g.what == "Bars" then
+		local o = oreDef(g.item)
+		return o ~= nil and n == math.floor(n) and math.abs(n) <= 1e9 and (g.what == "Ore" or ForgeCfg.canSmelt(o) ~= false), "ore"
+	end
 	if g.what == "Golem" then
 		return parseGolem(g.item) ~= nil and n > 0 and n <= MAX_GOLEMS_GRANT, "golem"
 	end
@@ -368,6 +418,9 @@ local function grantText(g: any): string
 	elseif g.what == "Case" then
 		local d = Items.case(tostring(g.item or ""))
 		return "+" .. f(n) .. " " .. ((d and d.name) or "Case")
+	elseif g.what == "Ore" or g.what == "Bars" then
+		local nm = g.what == "Ore" and (tostring(g.item) .. " Ore") or ForgeCfg.productName(tostring(g.item))
+		return (n >= 0 and "+" or "") .. f(n) .. " " .. nm
 	elseif g.what == "LuckLvl" then
 		return (n >= 0 and "+" or "") .. f(n) .. " Roll Luck"
 	elseif g.what == "MoneyTier" then
@@ -394,19 +447,25 @@ local function applyGrant(p: Player, g: any, tx: string, silent: boolean?): (boo
 		local new = math.max(attr == "RollLuckLvl" and 1 or 0, math.floor((g.mode == "set" and 0 or cur) + n))
 		p:SetAttribute(attr, new)
 		if attr == "RollLuckLvl" then p:SetAttribute("RollLuck", RollConfig.luckPercent(new)) end -- % удачі рахує RollUpgradeService лише при покупці
+	elseif g.what == "Ore" or g.what == "Bars" then
+		local key = (g.what == "Ore" and "Ore_" or "Bars_") .. tostring(g.item)
+		p:SetAttribute(key, math.max(0, ((tonumber(p:GetAttribute(key)) or 0) :: number) + math.floor(n)))
 	elseif g.what == "Case" then
 		local key = "Case_" .. Items.case(tostring(g.item)).key
 		p:SetAttribute(key, math.max(0, ((tonumber(p:GetAttribute(key)) or 0) :: number) + math.floor(n)))
+		if n > 0 then InventoryService.PinForce(p, key, true) end -- 07.11.2026: у хотбар (повний — у перший слот)
 	elseif g.what == "Potion" then
 		local key = "Pot_" .. (potionKey(g.item) :: string)
 		p:SetAttribute(key, math.max(0, ((p:GetAttribute(key) :: number?) or 0) + math.floor(n)))
 	elseif g.what == "Golem" then
 		local id, cls, mut = parseGolem(g.item)
-		for _ = 1, math.floor(n) do
+		for k = 1, math.floor(n) do
 			local newId = CaveStandService.MaxId(p) + 1
 			if not InventoryService.AddGolem(p, newId, id :: string, cls, mut, "admin:" .. tostring(g.by or 0), true) then
 				return false, "inventory"
 			end
+			-- 07.11.2026: у хотбар, поки є місце; хотбар повний — перший виданий голем стає в перший слот (решта — в інвентар)
+			InventoryService.PinForce(p, "Golem_" .. newId, k == 1)
 		end
 	elseif g.what == "Pass" then
 		for key in MonCfg.Passes do
@@ -538,9 +597,12 @@ local function currentSeg(e: any, now: number): any
 end
 -- атрибути workspace: <Attr> = поточний множник, <Attr>Until = кінець поточного відрізка,
 -- <Attr>Queue = JSON наступних { m, d (с) } — для панелі (написи гравцям показують лише поточний)
+-- 06.11.2026: Admin Abuse діє лише в лобі з плотами — на маркеті (HubConfig.isMarket) атрибути подій не ставимо (і прибираємо)
+local HubCfgEv = require(RS.Shared:WaitForChild("HubConfig"))
 local function applyEvents(state: any)
 	state = type(state) == "table" and state or {}
 	local now = os.time()
+	local market = HubCfgEv.isMarket()
 	for kind, attr in EVENT_ATTR do
 		local e = normalize(state[kind], now)
 		events[kind] = e
@@ -552,6 +614,7 @@ local function applyEvents(state: any)
 		local qs = #nextQ > 0 and HttpService:JSONEncode(nextQ) or nil
 		local m = cur and (tonumber(cur.m) or 1) or nil
 		if m and m <= 1 then m = nil end
+		if market then m = nil; qs = nil end
 		if workspace:GetAttribute(attr) ~= m then workspace:SetAttribute(attr, m) end
 		local u = m and cur.untilT or nil
 		if workspace:GetAttribute(attr .. "Until") ~= u then workspace:SetAttribute(attr .. "Until", u) end
@@ -616,7 +679,7 @@ local function onMessage(raw: any)
 			reply(msg.req, { ok = okW, why = why, job = JOB_SHORT })
 		end
 	elseif c == "ann" then
-		if broadcast then broadcast:FireAllClients("ann", { text = msg.text, color = msg.color, sec = msg.sec }) end
+		if broadcast then broadcast:FireAllClients("ann", { text = msg.text, color = msg.color, sec = msg.sec, abuse = msg.abuse }) end
 	elseif c == "ggrant" then
 		local g = msg.g
 		if type(g) ~= "table" then return end
@@ -828,6 +891,56 @@ end
 -- бани цього сервера (29.10.2026): BanAsync не працює в Studio / Team Test і доходить до серверів із затримкою —
 -- забанений не зайде назад на цей сервер (u → { till = os.time або math.huge, reason })
 local sessionBans: { [number]: { till: number, reason: string } } = {}
+-- 06.11.2026: історія банів для панелі (PLAYERS → BANS): DataStore AdminBans (ключ "list"), нові — на початку, до BANS_KEEP записів.
+--   Запис: { u, n (ім'я), by, bn (хто забанив), t (коли), h (годин, 0 — назавжди), till (os.time, 0 — назавжди), r (причина),
+--   un / unn / ut (хто й коли зняв бан) }. Studio без доступу до API — у пам'яті.
+local BANS_KEEP = 300
+local bansMem: { any }? = nil
+local bansStore = nil
+local function bstore()
+	if not bansStore then bansStore = DataStoreService:GetDataStore("AdminBans" .. SFX) end
+	return bansStore
+end
+local function nameOfId(u: number): string
+	local pl = Players:GetPlayerByUserId(u)
+	if pl then return pl.Name end
+	local ok, n = pcall(function() return Players:GetNameFromUserIdAsync(u) end)
+	return (ok and type(n) == "string") and n or tostring(u)
+end
+local function banListUpdate(fn: (list: { any }) -> ())
+	if bansMem then fn(bansMem); return end
+	local ok, err = pcall(function()
+		bstore():UpdateAsync("list", function(old)
+			local list = type(old) == "table" and old or {}
+			fn(list)
+			while #list > BANS_KEEP do table.remove(list) end
+			return list
+		end)
+	end)
+	if not ok then
+		if STUDIO then bansMem = {}; fn(bansMem) else warn("AdminService: bans list: " .. tostring(err)) end
+	end
+end
+local function banListGet(): { any }
+	if bansMem then return bansMem end
+	local ok, v = pcall(function() return bstore():GetAsync("list") end)
+	if ok then return type(v) == "table" and v or {} end
+	if STUDIO then bansMem = {}; return bansMem end
+	return {}
+end
+function A.BanList(p, arg)
+	local now = os.time()
+	local out = {}
+	for i, e in banListGet() do
+		if i > 150 then break end
+		if type(e) == "table" then
+			local h = tonumber(e.h) or 0
+			local active = e.un == nil and (h <= 0 or (tonumber(e.till) or 0) > now)
+			table.insert(out, { u = e.u, n = e.n, by = e.by, bn = e.bn, t = e.t, h = h, till = e.till, r = e.r, un = e.un, unn = e.unn, ut = e.ut, active = active })
+		end
+	end
+	return { ok = true, bans = out }
+end
 function A.Ban(p, arg)
 	local u = resolveUser(arg)
 	if not u then return { ok = false, error = "User not found" } end
@@ -843,6 +956,11 @@ function A.Ban(p, arg)
 	send({ c = "kick", u = u, reason = reason ~= "" and reason or "Banned by an admin." })
 	local here = Players:GetPlayerByUserId(u)
 	if here then pcall(function() here:Kick(sessionBans[u].reason) end) end
+	if ok or STUDIO then
+		local rec = { u = u, n = nameOfId(u), by = p.UserId, bn = p.Name, t = os.time(), h = hours,
+			till = hours > 0 and os.time() + math.floor(hours * 3600) or 0, r = reason }
+		task.spawn(banListUpdate, function(list) table.insert(list, 1, rec) end)
+	end
 	if not ok then
 		if game:GetService("RunService"):IsStudio() then return { ok = true, text = "Banned on this server (Studio: no Roblox ban)" } end
 		return { ok = false, error = "BanAsync: " .. tostring(err) }
@@ -856,7 +974,18 @@ function A.Unban(p, arg)
 	sessionBans[u] = nil
 	local ok, err = pcall(function() Players:UnbanAsync({ UserIds = { u }, ApplyToUniverse = true }) end)
 	audit(p.UserId, "unban", { u = u, ok = ok })
-	if not ok then return { ok = false, error = "UnbanAsync: " .. tostring(err) } end
+	if ok or STUDIO then
+		local by, bn, t = p.UserId, p.Name, os.time()
+		banListUpdate(function(list)
+			for _, e in list do
+				if type(e) == "table" and e.u == u and e.un == nil then e.un = by; e.unn = bn; e.ut = t end
+			end
+		end)
+	end
+	if not ok then
+		if STUDIO then return { ok = true, text = "Unbanned (Studio: no Roblox ban)" } end
+		return { ok = false, error = "UnbanAsync: " .. tostring(err) }
+	end
 	return { ok = true, text = "Unbanned" }
 end
 
@@ -934,7 +1063,7 @@ function A.Event(p, arg)
 		local cur = currentSeg(normalize(state[kind], os.time()), os.time())
 		if cur and cur.m == mult then
 			local col = kind == "luck" and "green" or (kind == "mutluck" and "purple" or "yellow")
-			send({ c = "ann", text = "ADMIN ABUSE! " .. label .. " for " .. minutes .. " min!", color = col, sec = 8 })
+			send({ c = "ann", text = "ADMIN ABUSE! " .. label .. " for " .. minutes .. " min!", color = col, sec = 8, abuse = true }) -- abuse: на маркеті клієнт дописує, що там не діє
 			return { ok = true, text = label .. " started" }
 		end
 		return { ok = true, text = label .. " queued — starts after the bigger multiplier" }
@@ -965,6 +1094,200 @@ function A.Shutdown(p)
 	audit(p.UserId, "shutdown", {})
 	send({ c = "shutdown", by = p.UserId })
 	return { ok = true, text = "Shutdown sent" }
+end
+
+-- 07.11.2026: INVENTORY у профілі — «сирі» атрибути інвентаря для вікна BACKPACK (InventoryUI у режимі перегляду):
+--   гравець на цьому сервері — живі атрибути; інакше — останнє збереження (DataStore).
+local RAW_KEYS = { InvGolems = true, PlotPlaced = true, MktLots = true, InvLocks = true, InvPinned = true, InvHotbar = true, InvHeld = true, FossilTeeth = true }
+local function rawKey(n: string): boolean
+	return RAW_KEYS[n] == true or string.sub(n, 1, 4) == "Ore_" or string.sub(n, 1, 5) == "Bars_" or string.sub(n, 1, 5) == "Case_" or string.sub(n, 1, 4) == "Pot_"
+end
+function A.InvRaw(p, arg)
+	local u = resolveUser(arg)
+	if not u then return { ok = false, error = "User not found" } end
+	local here = Players:GetPlayerByUserId(u)
+	if here then
+		local t = {}
+		for n, v in here:GetAttributes() do if rawKey(n) then t[n] = v end end
+		return { ok = true, name = here.Name, attrs = t, live = true }
+	end
+	local ok, rec = pcall(function()
+		return DataStoreService:GetDataStore(STUDIO and "PlayerData_Studio" or "PlayerData"):GetAsync("P_" .. u)
+	end)
+	if not ok then return { ok = false, error = "DataStore error, try again" } end
+	if type(rec) ~= "table" or type(rec.data) ~= "table" then return { ok = false, error = "No saved data" } end
+	local at = type(rec.data.attrs) == "table" and rec.data.attrs or {}
+	local sec = type(rec.data.sections) == "table" and rec.data.sections or {}
+	local inv = type(sec.Inventory) == "table" and sec.Inventory or {}
+	local t = {}
+	for n, v in at do if type(n) == "string" and rawKey(n) then t[n] = v end end
+	local function js(v) return HttpService:JSONEncode(type(v) == "table" and v or {}) end
+	t.InvGolems = js(inv.golems); t.InvLocks = js(inv.locks); t.InvHotbar = js(inv.hotbar); t.InvPinned = js(inv.pinned)
+	for k, n in (type(inv.potions) == "table" and inv.potions or {}) do t["Pot_" .. tostring(k)] = n end
+	for k, n in (type(inv.cases) == "table" and inv.cases or {}) do t["Case_" .. tostring(k)] = n end
+	local okN, name = pcall(function() return Players:GetNameFromUserIdAsync(u) end)
+	return { ok = true, name = okN and name or tostring(u), attrs = t, live = false }
+end
+
+-- 07.11.2026: ІСТОРІЯ ВХОДІВ (PLAYERS → VISITS): кожен вхід у гру пише в OrderedDataStore AdminVisits (userId → час входу).
+--   Панель бере найсвіжіших (до 1000), ніки — пачками через UserService; пошук і фільтр — у панелі.
+local visitsStore = nil
+local function visitsOf()
+	if not visitsStore then visitsStore = DataStoreService:GetOrderedDataStore("AdminVisits" .. SFX) end
+	return visitsStore
+end
+local function recordVisit(pl: Player)
+	task.spawn(function()
+		local okV, err = pcall(function() visitsOf():SetAsync(tostring(pl.UserId), os.time()) end)
+		if not okV then warn("AdminService visits: " .. tostring(err)) end
+	end)
+end
+function A.Visits(p, arg)
+	local want = math.clamp(math.floor(tonumber(type(arg) == "table" and arg.n or nil) or 300), 50, 1000)
+	local ok, pages = pcall(function() return visitsOf():GetSortedAsync(false, 100) end)
+	if not ok then return { ok = false, error = "DataStore error, try again" } end
+	local list = {}
+	while true do
+		for _, e in pages:GetCurrentPage() do
+			local u = tonumber(e.key)
+			if u then table.insert(list, { u = u, t = e.value }) end
+		end
+		if #list >= want or pages.IsFinished then break end
+		if not pcall(function() pages:AdvanceToNextPageAsync() end) then break end
+	end
+	local UserService = game:GetService("UserService")
+	for i = 1, #list, 100 do
+		local ids, idx = {}, {}
+		for j = i, math.min(i + 99, #list) do table.insert(ids, list[j].u); idx[list[j].u] = list[j] end
+		local okI, infos = pcall(function() return UserService:GetUserInfosByUserIdsAsync(ids) end)
+		if okI and type(infos) == "table" then
+			for _, inf in infos do local e = idx[inf.Id] if e then e.n = inf.Username; e.d = inf.DisplayName end end
+		end
+	end
+	local on = {}
+	pcall(function() for _, s in readPresence() do for _, x in s.players or {} do on[x[1]] = true end end end)
+	for _, e in list do
+		local pl = Players:GetPlayerByUserId(e.u)
+		if pl then e.here = true; e.n = e.n or pl.Name end
+		if on[e.u] then e.on = true end
+	end
+	return { ok = true, visits = list, more = not pages.IsFinished }
+end
+
+-- 07.11.2026: повна історія голема за UID — з журналу GolemLog (mint / move / burn / dupe / foreign…) від дня мінту
+--   (не більше HIST_DAYS днів) + історія запису глобального індексу. Події від старих до нових, з іменами гравців.
+local HIST_DAYS = 21
+local nameCache: { [number]: string } = {}
+local function histName(u: number?): string?
+	u = tonumber(u)
+	if not u or u <= 0 then return nil end
+	if nameCache[u] then return nameCache[u] end
+	local pl = Players:GetPlayerByUserId(u)
+	local n = pl and pl.Name
+	if not n then
+		local ok, r = pcall(function() return Players:GetNameFromUserIdAsync(u) end)
+		n = ok and r or nil
+	end
+	if n then nameCache[u] = n end
+	return n
+end
+function A.GolemHistory(p, arg)
+	local uid = type(arg) == "table" and type(arg.uid) == "string" and string.upper((string.gsub(arg.uid, "%s", ""))) or ""
+	if not GolemRegistry.IsUid(uid) then return { ok = false, error = "Not a valid UID (26 chars)" } end
+	local minted = GolemRegistry.TimeOf(uid) or os.time()
+	local from = math.max(minted, os.time() - HIST_DAYS * 86400)
+	local evs, seen = {}, {}
+	local d = from - (from % 86400)
+	while d <= os.time() do
+		for _, e in GolemRegistry.History(os.date("!%Y%m%d", d), 20000) do
+			if e.g == uid then
+				local key = tostring(e.t) .. tostring(e.e) .. tostring(e.u) .. tostring(e.x)
+				if not seen[key] then seen[key] = true; table.insert(evs, e) end
+			end
+		end
+		d += 86400
+	end
+	local ix = GolemRegistry.Lookup(uid)
+	for _, h in (type(ix) == "table" and ix.h) or {} do
+		local key = tostring(h.t) .. tostring(h.e) .. tostring(h.u)
+		local dup = false
+		for _, e in evs do if math.abs((e.t or 0) - (h.t or 0)) <= 2 and (e.e == h.e or (h.e == "move" and e.e == "move")) then dup = true end end
+		if not dup and not seen[key] then seen[key] = true; table.insert(evs, { t = h.t, e = h.e, u = h.u, r = h.r, src = "index" }) end
+	end
+	table.sort(evs, function(a, b) return (a.t or 0) < (b.t or 0) end)
+	local out = {}
+	for i, e in evs do
+		if i > 80 then break end
+		local to = tonumber(e.x)
+		table.insert(out, { t = e.t, e = e.e, u = e.u, un = histName(e.u), x = to, xn = to and histName(to) or nil, r = e.r, k = e.k, m = e.m, c = e.c })
+	end
+	return { ok = true, uid = uid, minted = minted, partial = minted < from, events = out,
+		index = type(ix) == "table" and { o = ix.o, on = histName(ix.o), k = ix.k, c = ix.c, m = ix.m } or nil }
+end
+
+-- 07.11.2026: SPECTATE з подробицями — гравець (цей сервер), за яким стежить адмін, шле через Remotes/SpecFeed: камеру,
+--   курсор, відкриті вікна й кліки (StarterPlayerScripts/SpecFeedClient, лише поки атрибут Spectated = true).
+--   Сервер пересилає це лише адмінам, що стежать (SpecStart / SpecStop), з обмеженням частоти й перевіркою даних.
+local specWatch: { [Player]: { [Player]: boolean } } = {} -- ціль → { адмін → true }
+local specFeed: RemoteEvent = nil
+local function specUpdate(target: Player)
+	local w = specWatch[target]
+	local any = w ~= nil and next(w) ~= nil
+	if not any then specWatch[target] = nil end
+	if target.Parent == Players then target:SetAttribute("Spectated", any or nil) end
+end
+local function specDrop(admin: Player)
+	for t, w in specWatch do if w[admin] then w[admin] = nil; specUpdate(t) end end
+end
+function A.SpecStart(p, arg)
+	local u = resolveUser(arg)
+	local t = u and Players:GetPlayerByUserId(u)
+	if not t then return { ok = false, error = "Player is not on this server" } end
+	if t == p then return { ok = false, error = "Can't spectate yourself" } end
+	specDrop(p)
+	specWatch[t] = specWatch[t] or {}
+	specWatch[t][p] = true
+	specUpdate(t)
+	audit(p.UserId, "spectate", { u = u })
+	return { ok = true, text = "Spectating @" .. t.Name }
+end
+function A.SpecStop(p, arg)
+	specDrop(p)
+	return { ok = true, text = "Stopped" }
+end
+local feedRate: { [Player]: { n: number, t: number } } = {}
+local function cleanStr(s: any, n: number): string? return type(s) == "string" and string.sub(s, 1, n) or nil end
+local function specNum(v: any, lo: number, hi: number): number?
+	v = tonumber(v)
+	if not v or v ~= v then return nil end
+	return math.clamp(v, lo, hi)
+end
+local function onSpecFeed(p: Player, data: any)
+	local w = specWatch[p]
+	if not w or type(data) ~= "table" then return end
+	local r = feedRate[p]
+	local now = os.clock()
+	if not r or now - r.t > 1 then r = { n = 0, t = now }; feedRate[p] = r end
+	r.n += 1
+	if r.n > 25 then return end
+	local out = {}
+	if type(data.cam) == "table" then
+		local c = {}
+		for i = 1, 6 do c[i] = specNum(data.cam[i], -1e6, 1e6) or 0 end
+		out.cam = c
+	end
+	if type(data.m) == "table" then out.m = { specNum(data.m[1], 0, 1) or 0.5, specNum(data.m[2], 0, 1) or 0.5 } end
+	if type(data.win) == "table" then
+		local l = {}
+		for i, s in data.win do if i > 8 then break end local v = cleanStr(s, 32) if v then table.insert(l, v) end end
+		out.win = l
+	end
+	if type(data.click) == "table" then
+		out.click = { text = cleanStr(data.click.text, 48) or "?", x = specNum(data.click.x, 0, 1) or 0.5, y = specNum(data.click.y, 0, 1) or 0.5 }
+	end
+	for admin in w do
+		if admin.Parent == Players then specFeed:FireClient(admin, p.UserId, out) end
+	end
 end
 
 function A.BanHistory(p, arg)
@@ -1030,6 +1353,40 @@ function A.Freeze(p, arg)
 	audit(p.UserId, "freeze", { u = u, on = arg.on == true })
 	send({ c = "freeze", u = u, on = arg.on == true })
 	return { ok = true, text = arg.on and "Frozen" or "Unfrozen" }
+end
+
+-- SET MAP (05.11.2026, admin+): перевести гравця на потрібну мапу — «скіп прогресу». Лише гравець на ЦЬОМУ сервері.
+--   Вперед — по одній мапі через MapService.Advance(force) (як справжній перехід: скидання грошей, плотів, руди, големів інвентаря
+--   крім Exclusive тощо). Назад — Stage = мапа, скидання даних етапу (DataService.ResetStageScope) і перебудова ніші.
+--   Ребітхи підтягуються: arg.full ~= true — усі ребітхи попередніх мап (як щойно прийшов на мапу) = MultiConfig.rebirthLimit(мапа − 1);
+--   arg.full == true — ще й усі ребітхи цієї мапи (одразу можна переходити далі) = rebirthLimit(мапа).
+function A.SetMap(p, arg)
+	local u = resolveUser(arg)
+	local t = u and Players:GetPlayerByUserId(u)
+	if not t then return { ok = false, error = "Player must be on this server" } end
+	if not DataService.IsLoaded(t) then return { ok = false, error = "Player data is still loading" } end
+	local Forge = require(RS.Shared:WaitForChild("ForgeConfig"))
+	local target = math.floor(tonumber(arg.stage) or 0)
+	if target < 1 or target > Forge.MAX_STAGE then return { ok = false, error = "Map must be 1–" .. Forge.MAX_STAGE } end
+	local MapService = require(script.Parent:WaitForChild("MapService"))
+	local NicheService = require(script.Parent:WaitForChild("NicheService"))
+	local cur = tonumber(t:GetAttribute("Stage")) or 1
+	if target > cur then
+		for _ = cur, target - 1 do
+			local ok, why = MapService.Advance(t, true)
+			if not ok then return { ok = false, error = "Stopped on map " .. tostring(t:GetAttribute("Stage")) .. ": " .. tostring(why) } end
+		end
+	elseif target < cur then
+		t:SetAttribute("Stage", target)
+		DataService.ResetStageScope(t)
+		NicheService.Rebuild(t)
+	end
+	local reb = arg.full == true and MultiCfg.rebirthLimit(target) or (target > 1 and MultiCfg.rebirthLimit(target - 1) or 0)
+	t:SetAttribute("Rebirths", reb)
+	task.spawn(function() pcall(DataService.SaveNow, t) end)
+	audit(p.UserId, "setmap", { u = u, from = cur, to = target, rebirths = reb })
+	toast(t, "An admin moved you to Map " .. target .. "!", "green")
+	return { ok = true, text = "Map " .. target .. " · Rebirths " .. reb }
 end
 
 function A.Roles(p)
@@ -1098,7 +1455,10 @@ end
 local PERM = {
 	Players = "mod", PlayerInfo = "mod", Kick = "mod", Ban = "mod", BanHistory = "mod", FindUid = "mod", Announce = "mod",
 	DM = "mod", Teleport = "mod", Bring = "mod", Freeze = "mod", Servers = "mod", Logs = "mod", Events = "mod",
-	Unban = "admin", Give = "admin", GrantAll = "admin", Event = "admin",
+	Unban = "mod", BanList = "mod", -- 06.11.2026: модератори теж знімають бани; історія банів
+	GolemHistory = "mod", SpecStart = "mod", SpecStop = "mod", InvRaw = "mod", Visits = "mod", -- + INVENTORY (вікно BACKPACK), VISITS
+	 -- 07.11.2026: історія голема, spectate з подробицями
+	Give = "admin", GrantAll = "admin", Event = "admin", SetMap = "admin",
 	Shutdown = "owner", Roles = "owner", SetRole = "owner",
 }
 local function onInvoke(p: Player, action: any, arg: any)
@@ -1111,6 +1471,13 @@ local function onInvoke(p: Player, action: any, arg: any)
 	if action == "Ban" and roleOf(p) == "mod" then
 		local h = tonumber(type(arg) == "table" and arg.hours) or 0
 		if h <= 0 or h > 24 then return { ok = false, error = "Moderators can ban for up to 24 h" } end
+	end
+	-- 06.11.2026: ранги — бан / кік / freeze / скидання лише тих, хто НИЖЧЕ за рангом (собі — окремі перевірки в діях)
+	if (action == "Ban" or action == "Kick" or action == "Freeze" or action == "Wipe") and type(arg) == "table" then
+		local u = resolveUser(arg)
+		if u and u ~= p.UserId and rankOfId(u) >= (LEVEL[roleOf(p) or ""] or 0) then
+			return { ok = false, error = "Can't do this to staff of equal or higher rank" }
+		end
 	end
 	local ok, res = pcall(fn, p, type(arg) == "table" and arg or {})
 	if not ok then
@@ -1184,6 +1551,10 @@ function AdminService.Start()
 	fn.OnServerInvoke = onInvoke
 	broadcast = remotes:FindFirstChild("AdminBroadcast") or Instance.new("RemoteEvent")
 	broadcast.Name = "AdminBroadcast"; broadcast.Parent = remotes
+	-- 07.11.2026: SPECTATE — канал даних від гравця, за яким стежать (SpecFeedClient → тут → адміну)
+	specFeed = remotes:FindFirstChild("SpecFeed") or Instance.new("RemoteEvent")
+	specFeed.Name = "SpecFeed"; specFeed.Parent = remotes
+	specFeed.OnServerEvent:Connect(onSpecFeed)
 
 	DataService.RegisterSection("AdminTx", function(p, old)
 		return txOf[p] or old
@@ -1192,9 +1563,11 @@ function AdminService.Start()
 		local b = sessionBans[p.UserId]
 		if b and b.till > os.time() then p:Kick(b.reason); return end
 		task.spawn(onPlayer, p)
+		recordVisit(p) -- 07.11.2026: історія входів (VISITS)
 	end)
-	for _, p in Players:GetPlayers() do task.spawn(onPlayer, p) end
+	for _, p in Players:GetPlayers() do task.spawn(onPlayer, p); recordVisit(p) end
 	Players.PlayerRemoving:Connect(function(p)
+		specDrop(p); specWatch[p] = nil; feedRate[p] = nil -- 07.11.2026: spectate
 		task.delay(5, function() txOf[p] = nil; rate[p] = nil end) -- після фінального збереження (DataService знімає знімок синхронно)
 		task.defer(writePresence)
 	end)

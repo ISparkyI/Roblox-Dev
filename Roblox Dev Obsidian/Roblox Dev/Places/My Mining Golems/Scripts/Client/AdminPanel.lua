@@ -841,31 +841,127 @@ end
 -- =====================================================================
 local Spectate = {}
 do
-	local bar = new("Frame", { Name = "SpectateBar", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 70),
-		Size = UDim2.fromOffset(520, 64), Visible = false, ZIndex = 20 }, gui)
+	-- 07.11.2026 v2: SPECTATE з подробицями (гравець має бути на цьому сервері). Сервер (AdminService SpecStart / SpecStop) ставить
+	--   цілі атрибут Spectated, її клієнт (StarterPlayerScripts/SpecFeedClient) шле камеру, курсор, відкриті вікна й кліки → Remotes/SpecFeed → сюди.
+	--   Панелька: STOP, FOLLOW CAM (камера дивиться туди ж, куди гравець; вимикається), баланс наживо, відкриті вікна, останні кліки;
+	--   на екрані — курсор гравця (кружечок) і спалах у місці кліку.
+	local BW = 640
+	local bar = new("Frame", { Name = "SpectateBar", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 64),
+		Size = UDim2.fromOffset(BW, 236), Visible = false, ZIndex = 20 }, gui)
 	local barScale = new("UIScale", {}, bar)
-	local txt = label(bar, 0, 0, 340, 64, 22, "", WHITE, 2.6, { TextXAlignment = LEFT, ZIndex = 21 })
-	button(bar, 350, 8, 170, 48, "STOP", "red", function() Spectate.stop() end, { z = 21, textSize = 20 })
-	local conn
-	function Spectate.start(target: Player)
-		local hum = target.Character and target.Character:FindFirstChildOfClass("Humanoid")
+	cardBg(bar, 0, 0, BW, 236, 20)
+	local txt = label(bar, 14, 6, BW - 200, 34, 22, "", WHITE, 2.6, { TextXAlignment = LEFT, ZIndex = 21 })
+	button(bar, BW - 176, 8, 162, 44, "STOP", "red", function() Spectate.stop() end, { z = 22, textSize = 20 })
+	local bal = label(bar, 14, 44, BW - 28, 26, 18, "", GOLD, 2, { TextXAlignment = LEFT, ZIndex = 21 })
+	local followBtn
+	local follow = true
+	followBtn = button(bar, 14, 76, 230, 40, "FOLLOW CAM: ON", "green", function()
+		follow = not follow
+		followBtn:setText(follow and "FOLLOW CAM: ON" or "FOLLOW CAM: OFF")
+		followBtn:setColor(follow and "green" or "gray")
+		if not follow then Spectate._free() end
+	end, { z = 22, textSize = 16 })
+	local winL = label(bar, 256, 76, BW - 270, 40, 15, "Windows: —", WHITE, 1.6, { TextXAlignment = LEFT, ZIndex = 21, TextWrapped = true })
+	local clicksL = label(bar, 14, 122, BW - 28, 108, 15, "", C("cfe3ff"), 1.6, { TextXAlignment = LEFT, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 21, TextWrapped = true })
+	-- шар курсора й кліків (повний екран)
+	local ov = new("ScreenGui", { Name = "SpecOverlay", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 95, Enabled = false }, player:WaitForChild("PlayerGui"))
+	local cursor = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = C("ffd23a"), BackgroundTransparency = 0.35, Visible = false }, ov)
+	new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, cursor)
+	new("UIStroke", { Color = INK, Thickness = 3 }, cursor)
+	local target: Player? = nil
+	local camData = nil
+	local lastFeed = 0
+	local clicks = {}
+	local conn, rconn, fconn
+	local cam = workspace.CurrentCamera
+	function Spectate._free()
+		cam = workspace.CurrentCamera
+		cam.CameraType = Enum.CameraType.Custom
+		local hum = target and target.Character and target.Character:FindFirstChildOfClass("Humanoid")
+		if hum then cam.CameraSubject = hum end
+	end
+	local function flash(x, y)
+		local f = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, y), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1 }, ov)
+		new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, f)
+		local st = new("UIStroke", { Color = C("ff5a5a"), Thickness = 5 }, f)
+		TweenService:Create(f, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(90, 90) }):Play()
+		TweenService:Create(st, TweenInfo.new(0.5), { Transparency = 1 }):Play()
+		task.delay(0.55, function() f:Destroy() end)
+	end
+	local feedEv = RS:WaitForChild("Remotes"):WaitForChild("SpecFeed", 30)
+	if feedEv then
+		feedEv.OnClientEvent:Connect(function(uid, d)
+			if not target or target.UserId ~= uid or type(d) ~= "table" then return end
+			lastFeed = os.clock()
+			if d.cam then camData = d.cam end
+			if d.m then cursor.Position = UDim2.fromScale(d.m[1], d.m[2]); cursor.Visible = true end
+			if d.win then winL.Text = "Windows: " .. (#d.win > 0 and table.concat(d.win, ", ") or "—") end
+			if d.click then
+				table.insert(clicks, 1, os.date("%H:%M:%S") .. "  clicked  " .. tostring(d.click.text))
+				while #clicks > 4 do table.remove(clicks) end
+				clicksL.Text = table.concat(clicks, "\n")
+				flash(d.click.x, d.click.y)
+			end
+		end)
+	end
+	function Spectate.start(t: Player)
+		local hum = t.Character and t.Character:FindFirstChildOfClass("Humanoid")
 		if not hum then setStatus("Player has no character", false); return end
-		workspace.CurrentCamera.CameraSubject = hum
-		txt.Text = "SPECTATING @" .. target.Name
+		local res = invoke("SpecStart", { u = t.UserId })
+		if not res.ok then result(res); return end
+		target = t
+		camData = nil; table.clear(clicks); clicksL.Text = "Clicks will appear here"; winL.Text = "Windows: —"
+		cam = workspace.CurrentCamera
+		cam.CameraSubject = hum
+		txt.Text = "SPECTATING @" .. t.Name
 		barScale.Scale = fitScale.Scale
 		bar.Visible = true
+		ov.Enabled = true
 		if conn then conn:Disconnect() end
-		conn = target.CharacterAdded:Connect(function(ch)
+		conn = t.CharacterAdded:Connect(function(ch)
 			local h = ch:WaitForChild("Humanoid", 10)
-			if h and bar.Visible then workspace.CurrentCamera.CameraSubject = h end
+			if h and bar.Visible and not follow then workspace.CurrentCamera.CameraSubject = h end
+		end)
+		if rconn then rconn:Disconnect() end
+		local acc = 0
+		rconn = RunService.RenderStepped:Connect(function(dt)
+			if not target or target.Parent ~= Players then Spectate.stop(); return end
+			-- баланс наживо (атрибути гравця видно всім клієнтам)
+			acc += dt
+			if acc > 0.2 then
+				acc = 0
+				local a = function(n) return tonumber(target:GetAttribute(n)) or 0 end
+				bal.Text = "$" .. U.num(a("Money")) .. "   ·   Diamonds " .. U.num(a("Diamonds")) .. "   ·   Tickets " .. U.num(a("Tickets"))
+					.. "   ·   Rebirths " .. U.num(a("Rebirths"))
+				if os.clock() - lastFeed > 3 then cursor.Visible = false end
+			end
+			-- камера гравця
+			cam = workspace.CurrentCamera
+			if follow and camData and os.clock() - lastFeed < 3 then
+				if cam.CameraType ~= Enum.CameraType.Scriptable then cam.CameraType = Enum.CameraType.Scriptable end
+				local p = Vector3.new(camData[1], camData[2], camData[3])
+				local l = Vector3.new(camData[4], camData[5], camData[6])
+				if l.Magnitude > 0.01 then
+					cam.CFrame = cam.CFrame:Lerp(CFrame.lookAt(p, p + l.Unit), math.clamp(dt * 12, 0, 1))
+				end
+			elseif cam.CameraType == Enum.CameraType.Scriptable then
+				Spectate._free()
+			end
 		end)
 		W.close()
 	end
 	function Spectate.stop()
 		if conn then conn:Disconnect(); conn = nil end
+		if rconn then rconn:Disconnect(); rconn = nil end
+		if target then task.spawn(invoke, "SpecStop", {}) end
+		target = nil
 		bar.Visible = false
+		ov.Enabled = false
+		cursor.Visible = false
+		cam = workspace.CurrentCamera
+		cam.CameraType = Enum.CameraType.Custom
 		local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-		if hum then workspace.CurrentCamera.CameraSubject = hum end
+		if hum then cam.CameraSubject = hum end
 	end
 end
 
@@ -873,12 +969,13 @@ end
 -- ===== PLAYERS =====
 -- =====================================================================
 local openPlayer -- (userId | name)
+local openGolem -- (uid) 07.11.2026: вкладка GOLEMS + повна історія голема
 do
 	local pg = pages.players
 	local listView = frame(pg, 0, 0, PW, PH, nil, { Name = "List", BackgroundTransparency = 1, ZIndex = 4 })
 	local detail = U.scroller(pg, 0, 0, PW, PH, "Detail")
 	detail.Visible = false
-	local search = input(listView, 0, 0, 392, 52, "Name or UserId…")
+	local search = input(listView, 0, 0, 196, 52, "Name or UserId…")
 	local all = {}
 	local listScroll = U.scroller(listView, 0, 64, PW, PH - 64, "Players")
 	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, listScroll)
@@ -923,8 +1020,141 @@ do
 		if t == "" then U.deny(); return end
 		openPlayer(tonumber(t) or t)
 	end
-	button(listView, 404, 0, 112, 52, "OPEN", "blue", openTyped)
-	button(listView, 526, 0, 124, 52, "REFRESH", "green", load)
+	button(listView, 204, 0, 100, 52, "OPEN", "blue", openTyped)
+	button(listView, 312, 0, 116, 52, "REFRESH", "green", load)
+
+	-- 06.11.2026: BANS — історія банів (кого, хто, коли, на скільки, причина, чи ще діє). OPEN — профіль гравця, UNBAN — зняти бан
+	--   (модератор+; сервер не дає банити / кікати рівних і вищих за рангом). Дані — AdminService.BanList (DataStore AdminBans).
+	local bansView = frame(pg, 0, 0, PW, PH, nil, { Name = "Bans", BackgroundTransparency = 1, Visible = false, ZIndex = 4 })
+	local bansScroll = U.scroller(bansView, 0, 64, PW, PH - 64, "BanList")
+	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, bansScroll)
+	bansScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	local bansInfo = label(bansView, 260, 0, 390, 52, 16, "", MUTED, 1.8, { TextXAlignment = LEFT, ZIndex = 5 })
+	local backToBans = false
+	local backToVisits = false -- 07.11.2026: профіль відкрито з VISITS — BACK веде туди
+	local loadBans
+	local function durText(h: number): string
+		if h <= 0 then return "FOREVER" end
+		if h >= 24 and h % 24 == 0 then return (h // 24) .. (h == 24 and " day" or " days") end
+		return h .. " h"
+	end
+	local function banRow(i: number, e: any)
+		local row = frame(bansScroll, 0, 0, CW, 92, nil, { BackgroundTransparency = 1, LayoutOrder = i, ZIndex = 4 })
+		cardBg(row, 0, 0, CW, 92, 4)
+		local av = new("ImageLabel", { BackgroundColor3 = C("2a2e35"), Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(48, 48), ZIndex = 5,
+			Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(e.u) .. "&w=150&h=150" }, row)
+		stroke(av, INK, 2)
+		local st, sc
+		if e.un then st, sc = "UNBANNED" .. (e.unn and (" by @" .. tostring(e.unn)) or ""), GOOD
+		elseif e.active then st, sc = "BANNED" .. ((tonumber(e.h) or 0) > 0 and (" until " .. os.date("%d.%m %H:%M", tonumber(e.till) or 0)) or " FOREVER"), BAD
+		else st, sc = "EXPIRED", MUTED end
+		local TW = CW - 66 - 250
+		label(row, 66, 4, TW, 28, 21, "@" .. tostring(e.n or e.u), WHITE, 2.4, { TextXAlignment = LEFT, ZIndex = 5 })
+		label(row, 66, 32, TW, 20, 14, st, sc, 1.6, { TextXAlignment = LEFT, ZIndex = 5 })
+		label(row, 66, 52, CW - 80, 18, 13, durText(tonumber(e.h) or 0) .. " · by @" .. tostring(e.bn or e.by) .. " · " .. os.date("%Y-%m-%d %H:%M", tonumber(e.t) or 0)
+			.. " · ID " .. tostring(e.u), MUTED, 1.4, { TextXAlignment = LEFT, ZIndex = 5 })
+		label(row, 66, 70, CW - 80, 18, 13, (e.r and e.r ~= "") and ("Reason: " .. tostring(e.r)) or "No reason", MUTED, 1.4, { TextXAlignment = LEFT, ZIndex = 5,
+			TextTruncate = Enum.TextTruncate.AtEnd })
+		button(row, CW - 240, 10, 110, 44, "OPEN", "blue", function() backToBans = true; openPlayer(e.u) end, { z = 6 })
+		if e.active then
+			button(row, CW - 122, 10, 110, 44, "UNBAN", "green", function()
+				confirm("UNBAN @" .. tostring(e.n or e.u) .. "?", function()
+					if result(invoke("Unban", { u = e.u })) then loadBans() end
+				end, "UNBAN", "green")
+			end, { z = 6 })
+		end
+	end
+	loadBans = function()
+		U.clear(bansScroll)
+		bansInfo.Text = "Loading…"
+		local res = invoke("BanList", {})
+		if not res.ok then result(res); bansInfo.Text = ""; return end
+		local list = res.bans or {}
+		local act = 0
+		for i, e in list do
+			if e.active then act += 1 end
+			banRow(i, e)
+		end
+		bansInfo.Text = #list .. " bans · " .. act .. " active"
+		if #list == 0 then label(bansScroll, 0, 0, CW, 60, 20, "No bans yet", MUTED, 2, { ZIndex = 5 }) end
+	end
+	button(bansView, 0, 0, 110, 52, "BACK", "gray", function()
+		bansView.Visible = false
+		listView.Visible = true
+		load()
+	end)
+	button(bansView, 120, 0, 130, 52, "REFRESH", "green", function() loadBans() end)
+	button(listView, 436, 0, 96, 52, "BANS", "red", function()
+		listView.Visible = false
+		bansView.Visible = true
+		loadBans()
+	end)
+	-- 07.11.2026: VISITS — історія входів у гру (хто й коли заходив, найсвіжіші зверху) з пошуком за ніком / ID;
+	--   OPEN — профіль (і офлайн). Дані — AdminService.Visits (OrderedDataStore AdminVisits), до 300 останніх гравців.
+	local visView = frame(pg, 0, 0, PW, PH, nil, { Name = "Visits", BackgroundTransparency = 1, Visible = false, ZIndex = 4 })
+	local visScroll = U.scroller(visView, 0, 64, PW, PH - 64, "VisitList")
+	new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, visScroll)
+	visScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	local visSearch = input(visView, 112, 0, 250, 52, "Search name / ID…")
+	local visInfo = label(visView, 498, 0, 152, 52, 14, "", MUTED, 1.6, { TextXAlignment = LEFT, ZIndex = 5, TextWrapped = true })
+	local visAll = {}
+	local VIS_SHOW = 120
+	local function ago(t: any): string
+		local d = os.time() - (tonumber(t) or 0)
+		if d < 3600 then return math.max(1, d // 60) .. " min ago" end
+		if d < 86400 then return (d // 3600) .. " h ago" end
+		return (d // 86400) .. " d ago"
+	end
+	local function drawVisits()
+		U.clear(visScroll)
+		local q = string.lower((string.gsub(visSearch.Text, "%s", "")))
+		local n, shown = 0, 0
+		for i, e in visAll do
+			local nm, dn = string.lower(tostring(e.n or "")), string.lower(tostring(e.d or ""))
+			if q == "" or string.find(nm, q, 1, true) or string.find(dn, q, 1, true) or string.find(tostring(e.u), q, 1, true) then
+				n += 1
+				if shown < VIS_SHOW then
+					shown += 1
+					local row = frame(visScroll, 0, 0, CW, 62, nil, { BackgroundTransparency = 1, LayoutOrder = i, ZIndex = 4 })
+					cardBg(row, 0, 0, CW, 62, 4)
+					local av = new("ImageLabel", { BackgroundColor3 = C("2a2e35"), Position = UDim2.fromOffset(8, 7), Size = UDim2.fromOffset(48, 48), ZIndex = 5,
+						Image = "rbxthumb://type=AvatarHeadShot&id=" .. tostring(e.u) .. "&w=150&h=150" }, row)
+					stroke(av, INK, 2)
+					local nameT = "@" .. tostring(e.n or e.u)
+					if e.d and e.n and e.d ~= e.n then nameT = tostring(e.d) .. " (@" .. tostring(e.n) .. ")" end
+					label(row, 66, 6, CW - 66 - 140, 30, 21, nameT, WHITE, 2.4, { TextXAlignment = LEFT, ZIndex = 5, TextTruncate = Enum.TextTruncate.AtEnd })
+					local onT = e.here and "  ·  ONLINE (this server)" or (e.on and "  ·  ONLINE" or "")
+					label(row, 66, 34, CW - 66 - 140, 22, 14, "joined " .. os.date("%Y-%m-%d %H:%M", tonumber(e.t) or 0) .. " (" .. ago(e.t) .. ")  ·  ID " .. tostring(e.u) .. onT,
+						(e.here or e.on) and GOOD or MUTED, 1.6, { TextXAlignment = LEFT, ZIndex = 5, TextTruncate = Enum.TextTruncate.AtEnd })
+					button(row, CW - 128, 9, 116, 44, "OPEN", "blue", function() backToVisits = true; openPlayer(e.u) end, { z = 6 })
+				end
+			end
+		end
+		visInfo.Text = (q == "" and (#visAll .. " players") or (n .. " found of " .. #visAll)) .. (n > VIS_SHOW and (" · first " .. VIS_SHOW) or "")
+		if n == 0 then
+			label(visScroll, 0, 0, CW, 60, 18, #visAll == 0 and "No visits recorded yet" or "Nobody matches — type the full nick in PLAYERS and press OPEN", MUTED, 2, { ZIndex = 5 })
+		end
+	end
+	local function loadVisits()
+		U.clear(visScroll)
+		visInfo.Text = "Loading…"
+		local res = invoke("Visits", { n = 300 })
+		if not res.ok then result(res); visInfo.Text = ""; return end
+		visAll = res.visits or {}
+		drawVisits()
+	end
+	visSearch:GetPropertyChangedSignal("Text"):Connect(drawVisits)
+	button(visView, 0, 0, 104, 52, "BACK", "gray", function()
+		visView.Visible = false
+		listView.Visible = true
+		load()
+	end)
+	button(visView, 370, 0, 120, 52, "REFRESH", "green", loadVisits)
+	button(listView, 540, 0, 110, 52, "VISITS", "purple", function()
+		listView.Visible = false
+		visView.Visible = true
+		loadVisits()
+	end)
 	search.FocusLost:Connect(function(enter) if enter then openTyped() end end)
 
 	-- ===== профіль гравця =====
@@ -935,8 +1165,19 @@ do
 	end
 	local function back()
 		detail.Visible = false
-		listView.Visible = true
 		cur = nil
+		if backToBans then -- 06.11.2026: профіль відкрито з історії банів — назад до неї
+			backToBans = false
+			bansView.Visible = true
+			loadBans()
+			return
+		end
+		if backToVisits then -- 07.11.2026: назад до історії входів (без перезавантаження списку)
+			backToVisits = false
+			visView.Visible = true
+			return
+		end
+		listView.Visible = true
 		load()
 	end
 	local function draw(info: any)
@@ -987,6 +1228,7 @@ do
 			{ "KICK", "orange", online, nil },
 			{ "COPY ID", "gray", true, nil },
 			{ "BAN HISTORY", "gray", true, nil },
+			{ "INVENTORY", "green", true, nil }, -- 07.11.2026: увесь інвентар гравця (хотбар, рука, зілля, бусти, кейси, руда, де големи)
 		}
 		-- RESET ALL (29.10.2026, лише owner): стерти все збереження гравця; друга кнопка — ще й зняти всі геймпаси (не повернуться при вході)
 		if myLevel() >= 3 then
@@ -1014,6 +1256,17 @@ do
 					box:CaptureFocus(); box.SelectionStart = 1; box.CursorPosition = #box.Text + 1
 					setStatus("ID selected — press Ctrl+C", true)
 					task.delay(4, function() box:Destroy() end)
+				end
+			elseif a[1] == "INVENTORY" then
+				-- 07.11.2026 v2: відкриває справжнє вікно BACKPACK (InventoryUI) з даними цього гравця — лише перегляд, без дій
+				b.onClick = function()
+					setStatus("Loading inventory…")
+					local res = invoke("InvRaw", { u = info.u })
+					if not res.ok then result(res); return end
+					local fn = shared.MMG_ViewInventory
+					if type(fn) ~= "function" then setStatus("Backpack window is not ready", false); return end
+					setStatus(res.live and "Inventory: live" or "Inventory: last save (not on this server)", true)
+					fn(tostring(res.name or info.name), res.attrs or {})
 				end
 			elseif a[1] == "BAN HISTORY" then
 				b.onClick = function()
@@ -1079,6 +1332,26 @@ do
 			button(resF, 2 * (w3 + 8), ry, w3, 50, "SET", "orange", function() act("set") end)
 			ry += 70
 
+			-- КАРТА (05.11.2026): перевести на потрібну мапу — «скіп прогресу», ребітхи підтягуються (SetMap; гравець — на цьому сервері)
+			U.section(resF, 0, ry, "MAP · SKIP PROGRESS  (now: Map " .. tostring(info.stage or 1) .. ", Rebirths " .. tostring(info.rebirths or 0) .. ")"); ry += 30
+			local FC = require(Shared:WaitForChild("ForgeConfig"))
+			local mitems = {}
+			for m = 1, FC.MAX_STAGE do table.insert(mitems, { key = m, text = "MAP " .. m, color = "orange" }) end
+			local mw = (CW - 8 * (#mitems - 1)) / #mitems
+			local mapSel = U.choice(resF, 0, ry, mw, 46, 8, mitems, math.clamp(tonumber(info.stage) or 1, 1, FC.MAX_STAGE), nil, 17)
+			ry += 56
+			local function goMap(full: boolean)
+				local m = mapSel.value
+				local reb = full and MultiCfg.rebirthLimit(m) or (m > 1 and MultiCfg.rebirthLimit(m - 1) or 0)
+				confirm("Move @" .. tostring(info.name) .. " to MAP " .. m .. "?\nRebirths = " .. reb .. ". Money, plots, ore and inventory golems reset like a real map change.", function()
+					if result(invoke("SetMap", { u = info.u, stage = m, full = full })) then openPlayer(info.u, true) end
+				end, "MOVE", "orange")
+			end
+			local w2 = (CW - 8) / 2
+			button(resF, 0, ry, w2, 50, "GO TO MAP", "orange", function() goMap(false) end)
+			button(resF, w2 + 8, ry, w2, 50, "GO + ALL MAP REBIRTHS", "purple", function() goMap(true) end)
+			ry += 70
+
 			U.section(resF, 0, ry, "GIVE GOLEM"); ry += 30
 			U.golemField(resF, 0, ry, 300, 64, golemSel)
 			local cnt = U.stepper(resF, 310, ry + 9, 176, 46, 1, 1, 50)
@@ -1103,6 +1376,47 @@ do
 				ry += 74
 			end
 			ry += 10
+
+			-- РУДА (05.11.2026): сира (Ore_<ключ>) і оброблена (Bars_<ключ> — злитки / огранені камені) будь-якої мапи; у дужках — скільки має
+			U.section(resF, 0, ry, "GIVE ORE"); ry += 30
+			local paintOres
+			local oMap = U.choice(resF, 0, ry, mw, 46, 8, mitems, math.clamp(tonumber(info.stage) or 1, 1, FC.MAX_STAGE), function() paintOres() end, 17)
+			ry += 56
+			local oKind = U.choice(resF, 0, ry, w2, 46, 8, { { key = "Ore", text = "RAW ORE", color = "orange" }, { key = "Bars", text = "REFINED", color = "purple" } },
+				"Ore", function() paintOres() end, 17)
+			ry += 56
+			local ow = (CW - 16) / 3
+			local oSel = U.choice(resF, 0, ry, ow, 46, 8, { { key = 1, text = "", color = "green" }, { key = 2, text = "", color = "green" }, { key = 3, text = "", color = "green" } }, 1, nil, 16)
+			local function oreAt(i: number): any return (FC.STAGE_ORES[oMap.value] or {})[i] end
+			paintOres = function()
+				for i = 1, 3 do
+					local b, o = oSel.btns[i], oreAt(i)
+					local has = o and info.ores and info.ores[o.key]
+					local txt = o and string.upper(oKind.value == "Ore" and o.key or FC.productName(o.key)) or "?"
+					if has then txt ..= " (" .. U.num(oKind.value == "Ore" and has[1] or has[2]) .. ")" end
+					if b and b.label then b.label.Text = txt end
+				end
+			end
+			paintOres()
+			ry += 56
+			local oAmt = input(resF, 0, ry, 190, 46, "amount")
+			U.presets(resF, 198, ry, 82, 46, 6, { { "10", 10 }, { "100", 100 }, { "1K", 1000 }, { "10K", 10000 }, { "100K", 100000 } }, oAmt)
+			ry += 56
+			local function giveOre(sign: number)
+				local n = tonumber((string.gsub(oAmt.Text, "[,%s]", "")))
+				local o = oreAt(oSel.value)
+				if not n or n <= 0 or n ~= math.floor(n) then setStatus("Enter an amount", false); return end
+				if not o then setStatus("Pick an ore", false); return end
+				local function go()
+					if result(invoke("Give", { u = info.u, what = oKind.value, amount = sign * n, item = o.key })) then openPlayer(info.u, true) end
+				end
+				if sign > 0 then go() else
+					confirm("TAKE " .. U.num(n) .. " " .. (oKind.value == "Ore" and (o.key .. " Ore") or FC.productName(o.key)) .. " from @" .. tostring(info.name) .. "?", go, "TAKE")
+				end
+			end
+			button(resF, 0, ry, w2, 50, "GIVE", "green", function() giveOre(1) end)
+			button(resF, w2 + 8, ry, w2, 50, "TAKE", "red", function() giveOre(-1) end)
+			ry += 70
 
 			U.section(resF, 0, ry, "POTIONS"); ry += 30
 			local pitems = {}
@@ -1172,7 +1486,7 @@ do
 		local ub = button(base, (CW - 8) / 2 + 8, by, (CW - 8) / 2, 50, "UNBAN", "blue", function()
 			result(invoke("Unban", { u = info.u }))
 		end)
-		gate(ub.group, 2)
+		-- 06.11.2026: UNBAN — і модераторам (гейт прибрано)
 		by += 72
 
 		-- ГОЛЕМИ
@@ -1203,12 +1517,17 @@ do
 					rowLabel(holderF, 330, yy + 7, 160, 13, string.upper(tostring(cls)) .. " · " .. string.upper(tostring(where)) .. (locked == 1 and " · LOCK" or ""), MUTED, RIGHT)
 					local ubx = input(holderF, 70, yy + 34, 422, 28, "", { text = uid ~= "" and uid or "(no UID yet)", mono = true, readOnly = true, textSize = 15, z = 5 })
 					ubx.TextColor3 = C("cfd6de")
-					local del = button(holderF, CW - 124, yy + 12, 112, 44, "DELETE", "red", function()
+					-- 07.11.2026: HISTORY — звідки голем узявся й через кого переходив (вкладка GOLEMS)
+					button(holderF, CW - 124, yy + 36, 112, 28, "HISTORY", "purple", function()
+						if uid == "" then setStatus("Golem has no UID yet", false); return end
+						openGolem(uid)
+					end, { z = 6, textSize = 14 })
+					local del = button(holderF, CW - 124, yy + 4, 112, 28, "DELETE", "red", function()
 						if uid == "" then setStatus("Golem has no UID yet", false); return end
 						confirm("DELETE " .. nm .. " from @" .. tostring(info.name) .. " forever?\n" .. uid, function()
 							if result(invoke("Give", { u = info.u, what = "RemoveGolem", amount = 1, item = uid })) then openPlayer(info.u, true) end
 						end, "DELETE")
-					end, { z = 6, textSize = 17 })
+					end, { z = 6, textSize = 14 })
 					gate(del.group, 2)
 					yy += 76
 				end
@@ -1236,6 +1555,8 @@ do
 		if not res.ok then result(res); return end
 		if not silent then setStatus("") end
 		listView.Visible = false
+		bansView.Visible = false
+		visView.Visible = false
 		detail.Visible = true
 		local keep = (cur and cur.u == res.info.u) and detail.CanvasPosition or Vector2.zero
 		draw(res.info)
@@ -1304,10 +1625,43 @@ do
 			gate(del.group, 2)
 			y += 80
 		end
+		-- 07.11.2026: ПОВНА ІСТОРІЯ — журнал усіх серверів від дня мінту (AdminService.GolemHistory)
+		y += 8
+		label(out, 0, y, 600, 24, 18, "FULL HISTORY", GOLD, 2.4, { TextXAlignment = LEFT, ZIndex = 5 })
+		y += 32
+		out.CanvasSize = UDim2.fromOffset(0, y + 40)
+		local hres = invoke("GolemHistory", { uid = uid })
+		if not hres.ok then line(tostring(hres.error or "History failed"), BAD)
+		else
+			if hres.partial then line("Older than 21 days — only the last 21 days of the log are shown", MUTED, 13) end
+			local evs = hres.events or {}
+			if #evs == 0 then line("No log entries yet (the log is written once a minute — try again shortly)", MUTED, 14) end
+			local WHAT = { mint = "CREATED", move = "MOVED", burn = "DELETED", dupe = "DUPLICATE REMOVED", foreign = "SUSPECT: OWNER MISMATCH",
+				legacy = "GOT UID (old save)", relink = "RE-INDEXED", grant = "GRANTED" }
+			local function who(u, n) return n and ("@" .. n) or (u and ("user " .. tostring(u)) or "?") end
+			for _, e in evs do
+				local t = os.date("%Y-%m-%d %H:%M", e.t or 0)
+				local col = e.e == "burn" and BAD or (e.e == "move" and C("8fd2ff") or (e.e == "mint" and GOOD or ((e.e == "dupe" or e.e == "foreign") and BAD or WHITE)))
+				local txt
+				if e.e == "move" then
+					txt = t .. "   " .. who(e.u, e.un) .. "  →  " .. who(e.x, e.xn) .. "   (" .. tostring(e.r or "trade") .. ")"
+				else
+					txt = t .. "   " .. (WHAT[e.e] or string.upper(tostring(e.e))) .. "   " .. who(e.u, e.un) .. ((e.r and e.r ~= "") and ("   (" .. tostring(e.r) .. ")") or "")
+				end
+				cardBg(out, 0, y, CW, 34, 4)
+				label(out, 12, y + 4, CW - 24, 26, 15, txt, col, 1.6, { TextXAlignment = LEFT, ZIndex = 6, TextTruncate = Enum.TextTruncate.AtEnd })
+				y += 40
+			end
+		end
 		out.CanvasSize = UDim2.fromOffset(0, y + 10)
 	end
 	button(pg, 512, 0, 138, 52, "FIND", "blue", find)
 	uidBox.FocusLost:Connect(function(enter) if enter then find() end end)
+	openGolem = function(uid: string)
+		selectTab("golems")
+		uidBox.Text = uid
+		task.spawn(find)
+	end
 end
 
 -- =====================================================================

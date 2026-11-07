@@ -5,6 +5,8 @@
 -- Що у вікні: головний перемикач AUTO SELL: ON / OFF (Set_AutoSell) і плитки предметів (руда й злитки поточної мапи, далі —
 --   попередніх): лайм SELL — продається одразу, сіра KEEP — лишається в інвентарі (Set_AutoSellOff), помаранчева WORKSHOP —
 --   руду забирає Auto Workshop на переплавку. Клік по плитці — перемкнути (Remotes/AutoSellAction "Item").
+-- v2 (05.11.2026): кнопки SELL ALL / KEEP ALL, підказка-легенда, предмети згруповані за мапами (плашка MAP N · Назва),
+--   на плитці — ціна за штуку й перемикач з двох половин SELL | KEEP (Remotes/AutoSellAction "All", bool — усе одразу).
 -- Стиль — як вікна лавок (StallShopWindow): квадратне вікно зі studs, заголовок КАПСОМ з іконкою й переливом, червона X.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -15,6 +17,7 @@ local GuiService = game:GetService("GuiService")
 local CAS = game:GetService("ContextActionService")
 
 local Shared = RS:WaitForChild("Shared")
+local Loc = require(Shared:WaitForChild("Loc"))
 local Forge = require(Shared:WaitForChild("ForgeConfig"))
 local StyleA = require(Shared:WaitForChild("StyleA"))
 local WindowFit = require(Shared:WaitForChild("WindowFit"))
@@ -179,22 +182,41 @@ do
 end
 local closeBtn = makeButton(pop, WIN_X + WIN_W - 86, WIN_Y - 42, 103, 103, { shadowDy = 10, color = "red", icon = StyleA.ASSETS.stylea_icon_x, iconPad = -0.05, z = 5 })
 
--- верхній рядок: головний перемикач і підказка
-local master = makeButton(content, 40, 74, 330, 64, { shadowDy = 6, color = "green", text = "AUTO SELL: ON", textSize = 30, z = 4 })
-local hintBox = frame(content, 390, 74, WIN_W - 430, 64, C("14161a"), { BackgroundTransparency = 0.35, ZIndex = 4 })
+-- верхній рядок (05.11.2026, v2 — інтуїтивніше): головний перемикач ON / OFF і масові кнопки SELL ALL / KEEP ALL;
+-- під ними — підказка, що зараз відбувається
+local master = makeButton(content, 40, 70, 330, 64, { shadowDy = 6, color = "green", text = "AUTO SELL: ON", textSize = 30, z = 4 })
+local allSell = makeButton(content, 392, 70, 220, 64, { shadowDy = 6, color = "green", text = "SELL ALL", textSize = 26, z = 4 })
+local allKeep = makeButton(content, 630, 70, 220, 64, { shadowDy = 6, color = "gray", text = "KEEP ALL", textSize = 26, z = 4 })
+local hintBox = frame(content, 40, 148, WIN_W - 80, 48, C("14161a"), { BackgroundTransparency = 0.35, ZIndex = 4 })
 corner(hintBox, 12); stroke(hintBox, INK, 4)
-local hint = label(hintBox, 18, 0, WIN_W - 466, 64, 24, "", WHITE, 3, { ZIndex = 5, TextXAlignment = Enum.TextXAlignment.Left, RichText = true, FontFace = XBOLD })
-fit(hint, 24)
+local hint = label(hintBox, 18, 0, WIN_W - 116, 48, 22, "", WHITE, 3, { ZIndex = 5, TextXAlignment = Enum.TextXAlignment.Left, RichText = true, FontFace = XBOLD })
+fit(hint, 22)
 
--- сітка предметів (прокрутка): плитка = 3D-іконка, назва, ORE / BAR, плашка SELL (лайм) / KEEP (сіра); клік — перемкнути
-local LIST_X, LIST_Y, LIST_W, LIST_H = 40, 158, WIN_W - 80, WIN_H - 158 - 44
+-- список предметів (прокрутка), згрупований за мапами (поточна — першою): плашка «MAP N · Назва» і плитки.
+-- Плитка: 3D-іконка, назва, ORE / BAR / GEM, ціна за штуку, перемикач з двох половин SELL | KEEP (активна — кольорова);
+-- клік по половині — саме цей стан, клік по плитці — перемкнути. Руду забирає Auto Workshop — помаранчева плашка WORKSHOP.
+local LIST_X, LIST_Y, LIST_W, LIST_H = 40, 210, WIN_W - 80, WIN_H - 210 - 40
 local list = new("ScrollingFrame", { Position = UDim2.fromOffset(LIST_X, LIST_Y), Size = UDim2.fromOffset(LIST_W, LIST_H), BackgroundTransparency = 1, BorderSizePixel = 0,
 	ScrollBarThickness = 8, ScrollBarImageColor3 = C("2a2e35"), CanvasSize = UDim2.new(), ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 4 }, content)
-local TILE_W, TILE_H, TGAP = 170, 206, 14
+local TILE_W, TILE_H, TGAP = 170, 232, 14
+local HDR_H = 36
 local COLS = math.floor((LIST_W - 10 + TGAP) / (TILE_W + TGAP))
+local MAP_NAMES = { "Mossy Grotto", "Rusty Mine", "Crystal Depths", "Magma Caverns", "Frozen Abyss", "Void Core", "Map 7" }
+local MUTED = C("8b939c")
+local DARK = C("23272d")
 local tiles = {} -- [key] = tile
 local builtSig = ""
 
+local function money(v: number): string
+	v = math.floor(v + 0.5)
+	for _, u in { { 1e12, "T" }, { 1e9, "B" }, { 1e6, "M" }, { 1e3, "K" } } do
+		if v >= u[1] then
+			local x = v / u[1]
+			return "$" .. (x >= 100 and string.format("%d", math.floor(x)) or (string.format("%.1f", x):gsub("%.0$", ""))) .. u[2]
+		end
+	end
+	return "$" .. v
+end
 local function offSet(): { [string]: boolean }
 	local set = {}
 	local raw = player:GetAttribute("Set_AutoSellOff")
@@ -209,44 +231,78 @@ local function items(): { any }
 	local out = {}
 	for s = st, 1, -1 do -- спершу руда поточної мапи
 		for _, o in Forge.STAGE_ORES[s] do
-			table.insert(out, { key = "Ore_" .. o.key, name = o.key, kind = "ORE", ore = o, stage = s })
-			if Forge.canSmelt(o) then table.insert(out, { key = "Bars_" .. o.key, name = Forge.productName(o.key), kind = (Forge.productOf(o.key) == "Cut" and "GEM" or "BAR"), ore = o, stage = s }) end
+			table.insert(out, { key = "Ore_" .. o.key, name = o.key, kind = "ORE", ore = o, stage = s, price = o.price })
+			if Forge.canSmelt(o) then
+				table.insert(out, { key = "Bars_" .. o.key, name = Forge.productName(o.key), kind = (Forge.productOf(o.key) == "Cut" and "GEM" or "BAR"), ore = o, stage = s,
+					price = o.price * Forge.BAR_MULT })
+			end
 		end
 	end
 	return out
 end
 local ev = RS:WaitForChild("Remotes"):WaitForChild("AutoSellAction")
+local function setItem(key: string, sell: boolean)
+	if (offSet()[key] == true) == not sell then return end -- уже так
+	UISounds.play("tap", 0.08)
+	ev:FireServer("Item", key, sell)
+end
 local function build()
-	for _, t in tiles do t.root:Destroy() end
+	for _, c in list:GetChildren() do if c:IsA("GuiObject") then c:Destroy() end end
 	tiles = {}
 	local its = items()
-	for i, it in its do
-		local col, row = (i - 1) % COLS, (i - 1) // COLS
-		local x, y = 4 + col * (TILE_W + TGAP), 4 + row * (TILE_H + TGAP)
+	local st = tonumber(player:GetAttribute("Stage")) or 1
+	local y, col, curStage = 4, 0, nil
+	for _, it in its do
+		if it.stage ~= curStage then
+			if curStage ~= nil then y += TILE_H + TGAP end
+			curStage = it.stage
+			col = 0
+			local hd = frame(list, 4, y, LIST_W - 22, HDR_H, C("14161a"), { BackgroundTransparency = 0.3, ZIndex = 5 })
+			stroke(hd, INK, 3)
+			frame(hd, 0, 0, 6, HDR_H, it.stage == st and LIME or MUTED, { ZIndex = 6 })
+			label(hd, 18, 0, LIST_W - 60, HDR_H, 20, "MAP " .. it.stage .. " · " .. (MAP_NAMES[it.stage] or "") .. (it.stage == st and "  (current map)" or ""),
+				it.stage == st and LIME or SUB_TXT, 2.5, { ZIndex = 6, TextXAlignment = Enum.TextXAlignment.Left })
+			y += HDR_H + 10
+		elseif col >= COLS then
+			col = 0
+			y += TILE_H + TGAP
+		end
+		local x = 4 + col * (TILE_W + TGAP)
+		col += 1
 		local root = new("TextButton", { Text = "", AutoButtonColor = false, Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(TILE_W, TILE_H),
 			BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 5 }, list)
 		vgrad(root, { { 0, "2e333a" }, { 1, "16191d" } })
-		local st = stroke(root, INK, 4)
+		stroke(root, INK, 4)
 		local ring = frame(root, 5, 5, TILE_W - 10, TILE_H - 10, nil, { BackgroundTransparency = 1, ZIndex = 5 })
 		local rs = stroke(ring, LIME, 4)
 		local ic = new("ImageLabel", { BackgroundTransparency = 1, Image = "", ScaleType = Enum.ScaleType.Fit, AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(TILE_W / 2, 62), Size = UDim2.fromOffset(86, 86), ZIndex = 6 }, root)
+			Position = UDim2.fromOffset(TILE_W / 2, 58), Size = UDim2.fromOffset(84, 84), ZIndex = 6 }, root)
 		pcall(ItemViewport.set, ic, it.key, 1.25)
-		fit(label(root, 8, 108, TILE_W - 16, 30, 24, it.name, WHITE, 3, { ZIndex = 7 }), 24)
-		label(root, 8, 134, TILE_W - 16, 20, 16, it.kind .. (it.stage ~= (tonumber(player:GetAttribute("Stage")) or 1) and (" · MAP " .. it.stage) or ""), SUB_TXT, 2, { ZIndex = 7, FontFace = XBOLD })
-		local badge = frame(root, 14, TILE_H - 50, TILE_W - 28, 38, LIME, { ZIndex = 7 })
-		stroke(badge, INK, 3)
-		local bt = label(badge, 0, 0, TILE_W - 28, 38, 22, "SELL", WHITE, 3, { ZIndex = 8 })
-		local t = { root = root, it = it, ring = ring, rs = rs, badge = badge, bt = bt, ic = ic }
-		root.MouseButton1Click:Connect(function()
-			local sell = offSet()[it.key] == true -- зараз вимкнено → увімкнути
-			UISounds.play("tap", 0.08)
-			ev:FireServer("Item", it.key, sell)
-		end)
+		fit(label(root, 8, 102, TILE_W - 16, 28, 23, it.name, WHITE, 3, { ZIndex = 7 }), 23)
+		label(root, 8, 128, TILE_W - 16, 18, 15, it.kind, SUB_TXT, 2, { ZIndex = 7, FontFace = XBOLD })
+		label(root, 8, 148, TILE_W - 16, 22, 19, money(it.price) .. " each", C("ffd23a"), 2.5, { ZIndex = 7 })
+		-- перемикач SELL | KEEP
+		local SW_W, SW_H = TILE_W - 24, 40
+		local sw = frame(root, 12, TILE_H - SW_H - 14, SW_W, SW_H, C("101215"), { ZIndex = 7 })
+		stroke(sw, INK, 3)
+		local half = SW_W / 2
+		local sB = new("TextButton", { Text = "", AutoButtonColor = false, Position = UDim2.fromOffset(0, 0), Size = UDim2.fromOffset(half, SW_H),
+			BackgroundColor3 = LIME, BorderSizePixel = 0, ZIndex = 8 }, sw)
+		local sT = label(sB, 0, 0, half, SW_H, 18, "SELL", WHITE, 2.5, { ZIndex = 9 })
+		local kB = new("TextButton", { Text = "", AutoButtonColor = false, Position = UDim2.fromOffset(half, 0), Size = UDim2.fromOffset(half, SW_H),
+			BackgroundColor3 = DARK, BorderSizePixel = 0, ZIndex = 8 }, sw)
+		local kT = label(kB, 0, 0, half, SW_H, 18, "KEEP", MUTED, 2.5, { ZIndex = 9 })
+		frame(sw, half - 1, 0, 2, SW_H, INK, { ZIndex = 9 })
+		local ws = frame(root, 12, TILE_H - SW_H - 14, SW_W, SW_H, C("ffb15c"), { ZIndex = 10, Visible = false })
+		stroke(ws, INK, 3)
+		fit(label(ws, 4, 0, SW_W - 8, SW_H, 18, "WORKSHOP", WHITE, 2.5, { ZIndex = 11 }), 18)
+		local t = { root = root, it = it, rs = rs, ic = ic, sB = sB, sT = sT, kB = kB, kT = kT, ws = ws }
+		sB.MouseButton1Click:Connect(function() setItem(it.key, true) end)
+		kB.MouseButton1Click:Connect(function() setItem(it.key, false) end)
+		root.MouseButton1Click:Connect(function() setItem(it.key, offSet()[it.key] == true) end)
 		tiles[it.key] = t
 	end
-	local rows = math.ceil(#its / COLS)
-	list.CanvasSize = UDim2.fromOffset(0, rows * (TILE_H + TGAP) + 8)
+	list.CanvasSize = UDim2.fromOffset(0, y + TILE_H + 12)
 end
 local function refresh()
 	local st = tonumber(player:GetAttribute("Stage")) or 1
@@ -256,18 +312,31 @@ local function refresh()
 	master:setColor(on and "green" or "red")
 	if master.setText then master:setText(on and "AUTO SELL: ON" or "AUTO SELL: OFF") end
 	local ws = player:GetAttribute("AutoWorkshopOn") == true
-	hint.Text = on and ("Items you pick up sell <font color=\"#D4FF3E\">instantly</font>. Tap an item to keep it." ..
-		(ws and " Ore for Auto Workshop is kept." or "")) or "Auto Sell is off. Nothing sells by itself."
 	local off = offSet()
+	if on then
+		-- 07.11.2026: цілі рядки через Shared/Loc (автопереклад не ловить склеєний текст із тегами)
+		hint.AutoLocalize = false
+		hint.Text = Loc.t("<font color=\"#D4FF3E\">SELL</font> — sells the moment you pick it up.  <font color=\"#B9C0C8\">KEEP</font> — stays in your inventory.")
+			.. (ws and ("  " .. Loc.t("<font color=\"#FFB15C\">WORKSHOP</font> — Auto Workshop smelts it.")) or "")
+	else
+		hint.AutoLocalize = false
+		hint.Text = Loc.t("<font color=\"#FF6B5E\">Auto Sell is OFF</font> — nothing sells by itself. Turn it ON to sell items marked SELL.")
+	end
 	for key, t in tiles do
 		local held = ws and t.it.kind == "ORE" and Forge.canSmelt(t.it.ore) and t.it.stage == st
-		local sell = on and not off[key] and not held
-		t.rs.Transparency = sell and 0 or 1
-		t.badge.BackgroundColor3 = held and C("ffb15c") or (sell and LIME or C("6f7680"))
-		t.bt.Text = held and "WORKSHOP" or ((not off[key]) and "SELL" or "KEEP")
+		local sell = not off[key]
+		t.ws.Visible = held
+		t.sB.BackgroundColor3 = sell and (on and LIME or C("7d9433")) or DARK
+		t.sT.TextColor3 = sell and WHITE or MUTED
+		t.kB.BackgroundColor3 = sell and DARK or C("8a929c")
+		t.kT.TextColor3 = sell and MUTED or WHITE
+		t.rs.Color = held and C("ffb15c") or LIME
+		t.rs.Transparency = ((sell and on) or held) and 0 or 1
 		t.ic.ImageTransparency = (sell or held) and 0 or 0.35
 	end
 end
+allSell.onClick = function() UISounds.play("tap", 0.08); ev:FireServer("All", true) end
+allKeep.onClick = function() UISounds.play("tap", 0.08); ev:FireServer("All", false) end
 
 -- ===== масштаб, відкриття / закриття =====
 local function fitWin() WindowFit.place(modalRoot, fitScale, { canvasW = CANVAS_W, canvasH = CANVAS_H, winX = WIN_X, winY = WIN_Y, winW = WIN_W, winH = WIN_H }) end

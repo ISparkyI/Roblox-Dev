@@ -1,0 +1,4 @@
+Key,Context,Example,Source,ar,de,es,fr,hi,id,it,ja,ko,nl,pl,pt,ru,th,tr,vi,zh-cjv,zh-hans,zh-hant
+,,,"You can send feedback after {number1} minutes in game
+Available in {time1}",,,,,,,,,,,,,"Отзыв можно отправить через {number1} мин игры
+Доступно через {time1}",,,,,,

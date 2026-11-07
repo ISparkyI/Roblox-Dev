@@ -292,7 +292,7 @@ local function makeWindow(spec)
 	function W.open()
 		if W.isOpen then return end
 		-- 04.11.2026: на маркеті налаштувань немає (кнопку прибрано, MainHUD)
-		if spec.key == "Settings" and require(RS:WaitForChild("Shared"):WaitForChild("HubConfig")).isMarket() then return end
+		-- 06.11.2026: на маркеті й арені боса SETTINGS відкривається у спрощеному вигляді (simpleMode нижче)
 		W.isOpen = true
 		WindowManager.opened(spec.key) -- одне вікно на екрані: інші закриваються
 		animToken += 1
@@ -361,7 +361,7 @@ end
 -- =====================================================================
 local SoundService = game:GetService("SoundService")
 local Lighting = game:GetService("Lighting")
-local DEF = { Music = 100, Sfx = 100, HidePlayers = false, Auras = true, LowGfx = false, AutoEquip = true, AutoRoll = true, AutoBuy = true, FastRoll = true, AutoCollect = true, AutoWorkshop = true, RollMuts = 0, RollRars = 0, RollMinDmg = 0, Tag = "" }
+local DEF = { Music = 100, Sfx = 100, AnimDist = 50, UIDist = 50, HidePlayers = false, HideGolems = false, Auras = true, LowGfx = false, AutoEquip = true, AutoRoll = true, AutoBuy = true, FastRoll = true, AutoCollect = true, AutoWorkshop = true, RollMuts = 0, RollRars = 0, RollMinDmg = 0, Tag = "", GiftMode = "all" }
 local pending = {} -- локальні значення, ще не підтверджені сервером
 local function val(k: string): any
 	if pending[k] ~= nil then return pending[k] end
@@ -381,7 +381,7 @@ end
 local musicG, sfxG = group("MusicGroup"), group("SfxGroup")
 local function tagSound(s: Instance)
 	if not s:IsA("Sound") then return end
-	if s.Name == "BackgroundMusic" then s.SoundGroup = musicG elseif s.SoundGroup == nil then s.SoundGroup = sfxG end
+	if s.Name == "BackgroundMusic" or s:GetAttribute("Music") == true then s.SoundGroup = musicG elseif s.SoundGroup == nil then s.SoundGroup = sfxG end
 end
 for _, root in { SoundService, RS, workspace } do
 	for _, d in root:GetDescendants() do tagSound(d) end
@@ -576,6 +576,12 @@ sliderRow(2, "Sfx", "SOUND EFFECTS", "Buttons, mining, workshop and other sounds
 toggleRow(3, "Auras", "MUTATION AURAS", "Glow and particles around mutated golems")
 toggleRow(4, "HidePlayers", "HIDE OTHER PLAYERS", "Other players become invisible (only for you)")
 toggleRow(5, "LowGfx", "LOW GRAPHICS", "No shadows and post effects for better FPS")
+-- 06.11.2026: лише маркет — сховати чужих големів-лотів (MarketUI читає Set_HideGolems)
+toggleRow(7, "HideGolems", "HIDE GOLEMS", "Other players' golems disappear (only for you)")
+-- 06.11.2026: лише лоббі (у спрощених налаштуваннях схований): відстань анімацій големів (Shared/GolemAnimRunner читає Set_AnimDist)
+sliderRow(7, "AnimDist", "ANIMATION DISTANCE", "How far golems stay animated. Lower = more FPS") -- 7: як HIDE GOLEMS, але вони ніколи не видно разом
+-- 06.11.2026: лише лоббі: відстань, з якої видно табла / написи інших ніш (NicheLOD читає Set_UIDist)
+sliderRow(8, "UIDist", "UI DISTANCE", "How far boards and signs are shown. Lower = more FPS")
 -- кнопка перемикача без геймпаса (v2, 28.10.2026): зелена з ціною геймпаса (іконка Robux + число, як у SHOP);
 -- клік — одразу вікно покупки Roblox (PromptGamePassPurchase; видає MonetizationService). id = 0 (ще не створено в Creator Hub) — кнопка хитається.
 local MonCfgP = require(Shared:WaitForChild("MonetizationConfig"))
@@ -821,6 +827,21 @@ do
 	player:GetAttributeChangedSignal("Set_RollMuts"):Connect(refreshChips)
 end
 
+-- GIFTS FROM (06.11.2026): хто може дарувати мені големів — клік перемикає EVERYONE → FRIENDS → NOBODY (Set_GiftMode; GolemGiftConfig)
+do
+	local r = row(19, "GIFTS FROM", "Who can send you golem gifts")
+	local DW = 200
+	local b = makeGroupButton(r, CW - DW - 16, (ROW_H - TG_H) / 2 - 2, DW, TG_H, { name = "GiftMode", shadowDy = 5, color = "green", text = "EVERYONE", textSize = 20, z = 5 })
+	local LABEL = { all = "EVERYONE", friends = "FRIENDS", none = "NOBODY" }
+	local COL = { all = "green", friends = "blue", none = "red" }
+	local NEXT = { all = "friends", friends = "none", none = "all" }
+	local function cur(): string local v = val("GiftMode"); return LABEL[v] and v or "all" end
+	local function refresh() local k = cur(); b:setText(LABEL[k]); b:setColor(COL[k]) end
+	b.onClick = function() send("GiftMode", NEXT[cur()]); refresh() end
+	refresh()
+	refreshers.GiftMode = refresh
+end
+
 -- NAMETAG: кнопка з поточним тегом, клік — випадаючий список (NONE + теги; чужі — сірі з назвою геймпаса, клік відкриває SHOP)
 do
 	local MonCfg = require(Shared:WaitForChild("MonetizationConfig"))
@@ -882,5 +903,23 @@ do
 end
 
 local function refreshAll() for _, f in refreshers do f() end end
-win.onOpen = refreshAll
+-- 06.11.2026: маркет і арена боса — спрощені налаштування: звук, аури, гравці, графіка (+ HIDE GOLEMS лише на маркеті).
+--   Решту рядків ховаємо (атрибут SimpleHid), у лоббі вертаємо як були.
+local SIMPLE = { ["Row_MUSIC"] = true, ["Row_SOUND EFFECTS"] = true, ["Row_MUTATION AURAS"] = true, ["Row_HIDE OTHER PLAYERS"] = true, ["Row_LOW GRAPHICS"] = true }
+local function simpleMode()
+	local okH, Hub = pcall(require, Shared:WaitForChild("HubConfig"))
+	local mkt = okH and Hub.isMarket() or false
+	local simple = mkt or player:GetAttribute("InBossArena") == true
+	for _, r in list:GetChildren() do
+		if not (r:IsA("GuiObject") and string.sub(r.Name, 1, 4) == "Row_") then continue end
+		if r.Name == "Row_HIDE GOLEMS" then r.Visible = mkt; continue end
+		if simple and not SIMPLE[r.Name] then
+			if r.Visible then r:SetAttribute("SimpleHid", true); r.Visible = false end
+		elseif r:GetAttribute("SimpleHid") then
+			r:SetAttribute("SimpleHid", nil); r.Visible = true
+		end
+	end
+end
+simpleMode()
+win.onOpen = function() refreshAll(); simpleMode(); list.CanvasPosition = Vector2.zero end
 for k in DEF do player:GetAttributeChangedSignal("Set_" .. k):Connect(function() if win.isOpen then local f = refreshers[k]; if f then f() end end end) end

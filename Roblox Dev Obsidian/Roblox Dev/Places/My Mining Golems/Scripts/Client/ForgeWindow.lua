@@ -30,6 +30,8 @@ local Cfg = require(RS:WaitForChild("Shared"):WaitForChild("ForgeConfig"))
 local NF = require(RS.Shared:WaitForChild("NumberFormat"))
 local UISounds = require(RS.Shared:WaitForChild("UISounds")) -- claim — забрати злитки (Take Bars)
 local StyleA = require(RS:WaitForChild("Shared"):WaitForChild("StyleA"))
+-- 07.11.2026: динамічні написи (числа всередині) — через Shared/Loc (шаблони {1}); автопереклад таких рядків не ловить
+local Loc = require(RS:WaitForChild("Shared"):WaitForChild("Loc"))
 local ItemVP = require(RS.Shared:WaitForChild("ItemViewport")) -- 3D-моделі руди й злитків у плитках замість PNG
 local Action = RS:WaitForChild("Remotes"):WaitForChild("ForgeAction")
 local player = Players.LocalPlayer
@@ -648,8 +650,9 @@ local function setChips(list)
 		local spec = list[i]
 		chip.frame.Visible = spec ~= nil
 		if spec then
-			local w = math.floor(textWidth(spec[1], 26, HEAVY) + 44 + 0.5)
-			chip.body:setText(spec[1])
+			local txt = Loc.t(spec[1])
+			local w = math.floor(textWidth(txt, 26, HEAVY) + 44 + 0.5)
+			chip.body:setText(txt)
 			chip.body:setColor(spec[2])
 			chip.body:setSize(Vector2.new(w, ROW1_H))
 			chip.frame.Position = UDim2.fromOffset(x, ROW1_Y)
@@ -755,8 +758,12 @@ local function refresh(f: Model, instant: boolean)
 				end
 			end
 			local oph = Cfg.ophOf(num(f:GetAttribute("OphLvl"), 1)) -- Ore per Hit: скільки руди за один удар
-			right = setChips({ idle and { WAIT_TEXT, "gray" } or { "WORKING", "green" }, { oph .. " ORE EVERY " .. fmtNum(spd) .. "s", "blue" },
-				{ "BAR = ×" .. fmtNum(Cfg.BAR_MULT) .. " ORE PRICE", "orange" } })
+			right = setChips({ idle and { WAIT_TEXT, "gray" } or { "WORKING", "green" }, { Loc.f("{1} ORE EVERY {2}s", oph, fmtNum(spd)), "blue" },
+				{ (function() -- 05.11.2026: продукт мапи — злитки, огранені кристали або обидва
+					local bar, cut = false, false
+					for _, r in rows do if Cfg.canSmelt(r.ore) then if Cfg.productOf(r.ore.key) == "Cut" then cut = true else bar = true end end end
+					return Loc.f(((cut and bar) and "REFINED" or (cut and "CUT GEM" or "BAR")) .. " = ×{1} ORE PRICE", fmtNum(Cfg.BAR_MULT))
+				end)(), "orange" } })
 			setWaiting(idle)
 			setMessage(nil, 26, right)
 		else
@@ -782,11 +789,13 @@ local function refresh(f: Model, instant: boolean)
 			local smelt = Cfg.canSmelt(r.ore) -- вугілля не плавиться: рядок лише показує запас
 			local lockedOre = isLocked("Ore_" .. key)
 			if smelt and not lockedOre and have > 0 and r.ore.price <= room then canPut = true end
-			r.sub.Text = smelt and ("You have " .. NF.full(have) .. (lockedOre and have > 0 and " (locked)" or "") .. " · On pallet " .. NF.full(pal)) or ("You have " .. NF.full(have) .. " · Sell it at the shop")
+			r.sub.AutoLocalize = false
+			r.sub.Text = smelt and Loc.f((lockedOre and have > 0) and "You have {1} (locked) · On pallet {2}" or "You have {1} · On pallet {2}", NF.full(have), NF.full(pal))
+				or Loc.f("You have {1} · Sell it at the shop", NF.full(have))
 			r.bar.track.Visible = false
 			r.check.Visible = false
 			r.barsText.Visible = true
-			r.barsText.Text = smelt and ('<font weight="800" size="22" color="#e9edf1">Bars</font>  ×' .. NF.full(bars)) or "Can't smelt"
+			r.barsText.Text = smelt and ('<font weight="800" size="22" color="#e9edf1">' .. (Cfg.productOf(key) == "Cut" and "Cut" or "Bars") .. '</font>  ×' .. NF.full(bars)) or "Can't smelt"
 			r.barsText.TextColor3 = (smelt and bars > 0) and LIME_TXT or GRAY_TXT
 			r.ingot.Visible = smelt
 			local canOre = smelt and not lockedOre and st == "Working" and math.min(have, math.floor(room / r.ore.price)) > 0
@@ -797,7 +806,7 @@ local function refresh(f: Model, instant: boolean)
 		row2Label.Text = "Ore Pallet"
 		setBar(row2Bar, cap > 0 and value / cap or 0, FILL.orange, NF.money(value) .. " / " .. NF.money(cap), instant)
 		setButton(btnLeft, "Put All Ore", "Put", st == "Working" and canPut)
-		setButton(btnRight, "Take Bars (" .. NF.full(totalBars) .. ")", "Take", st == "Working" and totalBars > 0)
+		setButton(btnRight, Loc.f("Take All ({1})", NF.full(totalBars)), "Take", st == "Working" and totalBars > 0) -- 05.11.2026: злитки й кристали
 		setOverlay(st == "Dozing" and "FALLING ASLEEP" or nil, FILL.purple, f)
 	end
 end
@@ -937,9 +946,10 @@ do
 		PK.read.Text = NF.full(v) .. '<font size="30" color="#c9ced4"> / ' .. NF.full(picker.mx) .. "</font>"
 		PK.maxL.Text = NF.full(picker.mx)
 		PK.all:setText("All")
-		PK.put:setText("Put " .. NF.full(v))
+		PK.put:setText(Loc.f("Put {1}", NF.full(v)))
 		local price = rows[picker.i].ore.price
-		PK.cost.Text = "+" .. NF.money(v * price) .. " · pallet " .. NF.money(picker.value + v * price) .. " / " .. NF.money(picker.cap)
+		PK.cost.AutoLocalize = false
+		PK.cost.Text = Loc.f("+{1} · pallet {2} / {3}", NF.money(v * price), NF.money(picker.value + v * price), NF.money(picker.cap))
 	end
 	local function setFromX(x: number)
 		local abs = bar.track.AbsoluteSize.X
@@ -982,7 +992,8 @@ end
 
 local function pickerTexts(f: Model)
 	local r = rows[picker.i]
-	PK.sub.Text = "You have " .. NF.full(inv("Ore_" .. r.ore.key)) .. " · Pallet fits " .. NF.full(picker.mx)
+	PK.sub.AutoLocalize = false
+	PK.sub.Text = Loc.f("You have {1} · Pallet fits {2}", NF.full(inv("Ore_" .. r.ore.key)), NF.full(picker.mx))
 end
 
 closePicker = function()
@@ -1158,7 +1169,7 @@ local function step()
 	local dist = f and ringDistance(f) or math.huge
 	local inside = dist <= Cfg.RING_R + ((isOpen or dismissed) and EXIT_PAD or 0)
 	if not inside then dismissed = false end
-	local want = f ~= nil and inside and not dismissed
+	local want = f ~= nil and inside and not dismissed and player:GetAttribute("TutStep") == nil -- 06.11.2026: під час навчання вікно майстерні не відкривається
 	if want and f then
 		if not isOpen then
 			refresh(f, true)

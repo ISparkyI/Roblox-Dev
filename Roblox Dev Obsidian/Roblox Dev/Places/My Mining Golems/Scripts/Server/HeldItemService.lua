@@ -278,15 +278,26 @@ local function build(p: Player)
 	local visual: Instance? = nil
 	local rot = CFrame.identity
 	local info = nil
+	local subs = nil -- 05.11.2026: деталі складеного шматка (Emberite, Eclipsium): { part, rel (від головної), size }
 	if PROPS[key] then
 		local fp = RS:FindFirstChild("Prefabs")
 		fp = fp and fp:FindFirstChild("ForgeProps")
 		local tpl = fp and fp:FindFirstChild(PROPS[key])
 		if tpl and tpl:IsA("BasePart") then
 			local v = tpl:Clone()
+			-- складений шматок: деталі-діти трималися на WeldConstraint (prep їх знімає) — запам'ятовуємо їхнє місце відносно
+			-- головної деталі ДО prep (відповідність за порядком нащадків), щоб поставити поруч і приварити до руки
+			subs = {}
+			local sd, cd = tpl:GetDescendants(), v:GetDescendants()
+			for k, d in cd do
+				local s0 = sd[k]
+				if d:IsA("BasePart") and s0 and s0:IsA("BasePart") then table.insert(subs, { part = d, rel = tpl.CFrame:ToObjectSpace(s0.CFrame), size = s0.Size }) end
+			end
 			prep(v)
 			local tune = PROP_TUNE[PROPS[key]]
+			local f = tune and tune.scale or 1
 			if tune then v.Size *= tune.scale; rot = rot * tune.rot end
+			for _, e in subs do e.f = f end
 			visual = v
 		end
 	elseif g then
@@ -315,6 +326,10 @@ local function build(p: Player)
 	local palm = palmOf(hand :: BasePart)
 	if visual:IsA("BasePart") then
 		visual.CFrame = palm * rot * CFrame.new(0, visual.Size.Y / 2, 0)
+		for _, e in subs or {} do
+			e.part.Size = e.size * e.f
+			e.part.CFrame = visual.CFrame * (e.rel - e.rel.Position + e.rel.Position * e.f)
+		end
 	else
 		local m = visual :: Model
 		local cf, size = m:GetBoundingBox()

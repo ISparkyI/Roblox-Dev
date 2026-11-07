@@ -16,12 +16,21 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local NEAR_ON, NEAR_OFF = 45, 60 -- стадів від гравця до входу ніші (вхід сусіда навпроти ≈ 60 від свого)
+-- 06.11.2026: SETTINGS → UI DISTANCE (атрибут Set_UIDist 0–100, 50 = як раніше): множник відстаней 2^((v-50)/25) — від ×0,25 до ×4;
+--   100 — табла всіх ніш завжди ввімкнені. Таблички-вивіски ніш (SignGui: «Name's Mine», карта) не вимикаються ніколи.
+local function distMul(): number
+	local v = tonumber(player:GetAttribute("Set_UIDist"))
+	if not v then return 1 end
+	if v >= 100 then return math.huge end
+	return 2 ^ ((math.clamp(v, 0, 100) - 50) / 25)
+end
 local MARGIN = 6                 -- стадів навколо підлоги ніші
 local STEP = 2                   -- с між перевірками
 
 local function isFx(d: Instance): boolean
 	-- 03.11.2026: і BillboardGui (таблички плотів, вивіски) — їхній текст щокадру перемальовується в новому розмірі (телефони:
 	--   переповнення атласу шрифтів → зникають/мерехтять цифри); HPBar руди не чіпаємо (його вмикає сам PlotClient)
+	if d:IsA("SurfaceGui") and d.Name == "SignGui" then return false end -- 06.11.2026: вивіска ніші — видно завжди
 	return d:IsA("Light") or d:IsA("ParticleEmitter") or d:IsA("SurfaceGui") or (d:IsA("BillboardGui") and d.Name ~= "HPBar")
 end
 
@@ -49,7 +58,7 @@ local function setFar(n: Instance, st: St, far: boolean)
 	if far then
 		for _, d in n:GetDescendants() do if isFx(d) then off(st, d) end end
 		for _, g in playerGui:GetChildren() do
-			if (g:IsA("SurfaceGui") or g:IsA("BillboardGui")) and g.Adornee and g.Adornee:IsDescendantOf(n) then off(st, g) end
+			if isFx(g) and g.Adornee and g.Adornee:IsDescendantOf(n) then off(st, g) end
 		end
 	else
 		for d in st.off do if d.Parent then (d :: any).Enabled = true end end
@@ -71,7 +80,7 @@ end
 
 -- табло, що з'являються пізніше (скрипти табел будують SurfaceGui у PlayerGui й ставлять Adornee)
 playerGui.ChildAdded:Connect(function(g)
-	if not (g:IsA("SurfaceGui") or g:IsA("BillboardGui")) then return end
+	if not isFx(g) then return end
 	task.delay(0.2, function()
 		local n = g.Parent and nicheOf(g)
 		local st = n and states[n]
@@ -90,6 +99,8 @@ local function step()
 	local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
 	if not f or not hrp then return end
 	local pos = (hrp :: BasePart).Position
+	local k = distMul()
+	local nearOn, nearOff = NEAR_ON * k, NEAR_OFF * k
 	for _, n in f:GetChildren() do
 		local fl = n:FindFirstChild("Floor")
 		local floor = fl and fl:FindFirstChild("NicheFloor")
@@ -98,12 +109,13 @@ local function step()
 			local st = stateOf(n)
 			local inside = over(pos, floor)
 			local d = ((anchor.Position - pos) * Vector3.new(1, 0, 1)).Magnitude
-			if st.far and (inside or d < NEAR_ON) then setFar(n, st, false)
-			elseif not st.far and not inside and d > NEAR_OFF then setFar(n, st, true) end
+			if st.far and (inside or d < nearOn) then setFar(n, st, false)
+			elseif not st.far and not inside and d > nearOff then setFar(n, st, true) end
 		end
 	end
 end
 
+player:GetAttributeChangedSignal("Set_UIDist"):Connect(function() pcall(step) end) -- повзунок — одразу
 task.spawn(function()
 	while true do
 		local ok, err = pcall(step)

@@ -34,7 +34,7 @@ local ITEMS = {
 -- 03.11.2026 (рішення користувача): у печері SHOP / HOME / MARKET зверху прибрані; лишаються EXIT на арені боса і HOME на Marketplace
 local NORMAL_ITEMS = {}
 if MARKET then ITEMS = { { key = "home", text = "HOME", color = "green", s = 1.25 } } end
-local ARENA_ITEMS = { { key = "exit", text = "EXIT", color = "red", s = 1.25 } }
+local ARENA_ITEMS = { { key = "exit", text = "EXIT", color = "red", s = 1.45 } } -- 05.11.2026: на арені — внизу по центру (fit)
 local function itemsNow()
 	if MARKET then return ITEMS end
 	return player:GetAttribute("InBossArena") == true and ARENA_ITEMS or NORMAL_ITEMS
@@ -183,6 +183,13 @@ function fit()
 	if not cam then return end
 	local vw = cam.ViewportSize.X
 	local cx = vw / 2
+	-- 05.11.2026: арена боса — EXIT внизу по центру (на місці колишньої плашки YOUR WARRIORS), без стиснення
+	if not MARKET and player:GetAttribute("InBossArena") == true then
+		local k = math.clamp(math.min(cam.ViewportSize.X / 1280, cam.ViewportSize.Y / 720), 0.7, 1.3)
+		fitScale.Scale = k
+		row.Position = UDim2.new(0, cx, 0, gui.AbsoluteSize.Y - 22 - maxH * k / 2)
+		return
+	end
 	-- верхній ряд іконок інших HUD (центр іконки у верхній смузі екрана)
 	local left, right = 0, vw
 	local ok, tb = pcall(function() return GuiService.TopbarInset end)

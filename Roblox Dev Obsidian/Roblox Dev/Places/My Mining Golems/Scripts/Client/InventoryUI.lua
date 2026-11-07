@@ -50,7 +50,17 @@ local NF = require(RS.Shared:WaitForChild("NumberFormat"))
 local GolemSort = require(RS.Shared:WaitForChild("GolemSort")) -- сортування големів і кнопка зі списком SORT BY
 local StyleA = require(RS.Shared:WaitForChild("StyleA"))
 local ItemVP = require(RS.Shared:WaitForChild("ItemViewport")) -- 3D-моделі руди й злитків у слотах замість PNG
-local Action = RS:WaitForChild("Remotes"):WaitForChild("InventoryAction")
+-- 07.11.2026: Action — обгортка над Remotes/InventoryAction. Action.view ~= nil — вікно показує ЧУЖИЙ інвентар з адмінки
+--   (shared.MMG_ViewInventory ← AdminPanel → профіль → INVENTORY): дані беруться з Action.view.attrs, жодна дія на сервер не йде.
+local Action = (function()
+	local real = RS:WaitForChild("Remotes"):WaitForChild("InventoryAction")
+	local px = { view = nil }
+	function px.FireServer(_, ...)
+		if px.view then StyleA.deny(); return end
+		real:FireServer(...)
+	end
+	return px
+end)()
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -449,12 +459,12 @@ end
 -- ===== дані =====
 -- =====================================================================
 local function decodeAttr(attr: string, default: any): any
-	local v = player:GetAttribute(attr)
+	local v = if Action.view then Action.view.attrs[attr] else player:GetAttribute(attr)
 	if type(v) ~= "string" or v == "" then return default end
 	local ok, t = pcall(HttpService.JSONDecode, HttpService, v)
 	return ok and type(t) == "table" and t or default
 end
-local function num(key: string): number return math.max(0, math.floor(tonumber(player:GetAttribute(key)) or 0)) end
+local function num(key: string): number return math.max(0, math.floor(tonumber(if Action.view then Action.view.attrs[key] else player:GetAttribute(key)) or 0)) end
 
 local items, byKey = {}, {}
 local lockSet = {}
@@ -488,6 +498,11 @@ local function rebuild()
 	for _, d in Items.POTIONS do
 		add({ key = "Pot_" .. d.key, tab = "potions", name = d.name, sub = d.desc, n = num("Pot_" .. d.key), icon = d.icon, tone = d.tone })
 	end
+	-- 06.11.2026: Fossil Tooth — трофей з боса (атрибут FossilTeeth, видає BossFightService); лише показ: не в руку, не п'ється, не видаляється
+	if num("FossilTeeth") > 0 then
+		add({ key = "FossilTeeth", tab = "potions", trophy = true, name = "Fossil Tooth", sub = "Boss trophy · dropped by GOBKING", n = num("FossilTeeth"),
+			icon = require(RS.Shared:WaitForChild("BossConfig")).ICON_TOOTH, tone = Color3.fromHex("e8c98a") })
+	end
 	local RI = {}
 	for i, r in Catalog.RARITIES do RI[r] = i end
 	golemTotal = 0
@@ -503,7 +518,8 @@ local function rebuild()
 			local mut = Catalog.mut(g.mut)
 			add({ key = "Golem_" .. g.id, tab = "golems", name = def.name, n = 1, golem = true,
 				-- мутація в картці — окремою міткою з градієнтом поруч із назвою (infoMut), не в підписі
-				sub = def.rarity .. " " .. (CLASS_NAME[cls] or "Miner") .. " · " .. Catalog.statText(def.id, cls, mut),
+				-- 05.11.2026: ексклюзив — ще й «200% BEST» (як в Index), шкода лишається
+				sub = def.rarity .. " " .. (CLASS_NAME[cls] or "Miner") .. " · " .. (Catalog.bestText(def.id, cls) and ('<font color="#ffd23a">' .. Catalog.bestText(def.id, cls) .. "</font> · ") or "") .. Catalog.statText(def.id, cls, mut),
 				kind = def.id, cls = cls, mut = mut, rar = def.rarity, icon = Catalog.icon(def.id), tone = Catalog.rarityColor(def.rarity),
 				vp = ItemVP.golemKey(def.id, cls), -- 3D-модель у слоті (поки лише Stone Golem); без моделі — іконка
 				-- сортування (Shared/GolemSort) і зелений підпис сили в слоті: майнер / воїн — шкода, носій — місткість (з мутацією)
@@ -519,7 +535,7 @@ local function rebuild()
 	local h = decodeAttr("InvHotbar", {})
 	table.clear(hotbar)
 	for _, k in h do if type(k) == "string" and k ~= "" and #hotbar < Items.HOTBAR then table.insert(hotbar, k) end end
-	local hk = player:GetAttribute("InvHeld")
+	local hk = if Action.view then Action.view.attrs.InvHeld else player:GetAttribute("InvHeld")
 	heldKey = type(hk) == "string" and hk or ""
 end
 local function live(key: string): any
@@ -532,6 +548,12 @@ end
 -- =====================================================================
 local hbGui = new("ScreenGui", { Name = "Hotbar", ResetOnSpawn = false, IgnoreGuiInset = true, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 5 }, playerGui)
 local hbRoot = new("Frame", { Name = "Root", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 1), Size = UDim2.fromOffset(HB_W, HS + 64) }, hbGui)
+-- 06.11.2026: на арені боса (InBossArena) хотбар схований
+do
+	local function hbArena() hbGui.Enabled = player:GetAttribute("InBossArena") ~= true end
+	player:GetAttributeChangedSignal("InBossArena"):Connect(hbArena)
+	hbArena()
+end
 local hbScale = new("UIScale", {}, hbRoot)
 local heldPill = new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(320, 42), Position = UDim2.fromOffset(HB_W / 2 - 160, 2), ZIndex = 20 }, hbRoot)
 local heldBg = StyleA.new(heldPill, { size = Vector2.new(320, 42), position = Vector2.zero, anchor = Vector2.zero, color = "green", half = true, rows = 3, text = "", textSize = 20, zIndex = 1 })
@@ -707,7 +729,7 @@ toggleHeld = function(i: number)
 	if string.sub(key, 1, 5) == "Case_" then
 		if player:GetAttribute("CaseOpening") == true then hot[i].shake(); return end
 		local ca = RS.Remotes:FindFirstChild("CaseAction")
-		if ca then ca:FireServer("Open", key) end
+		if ca and not Action.view then ca:FireServer("Open", key) end
 		UISounds.play("tap", 0.1)
 		return
 	end
@@ -749,11 +771,11 @@ new("ImageLabel", { Name = "TitleIconShadow", BackgroundTransparency = 1, Image 
 	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(WX + 66, TITLE_ICY + 7), Size = UDim2.fromOffset(TITLE_ICO, TITLE_ICO), Rotation = -8, ZIndex = 3 }, pop)
 new("ImageLabel", { Name = "TitleIcon", BackgroundTransparency = 1, Image = TITLE_ICON, ScaleType = Enum.ScaleType.Fit,
 	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(WX + 66, TITLE_ICY), Size = UDim2.fromOffset(TITLE_ICO, TITLE_ICO), Rotation = -8, ZIndex = 4 }, pop)
-local titleSh = textAt(pop, TITLE_X, WY - 8 + 7, 640, 96, "INVENTORY", INK, 9, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
-local title = textAt(pop, TITLE_X, WY - 8, 640, 96, "INVENTORY", WHITE, 8, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
+local titleSh = textAt(pop, TITLE_X, WY - 8 + 7, 640, 96, "BACKPACK", INK, 9, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
+local title = textAt(pop, TITLE_X, WY - 8, 640, 96, "BACKPACK", WHITE, 8, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4 })
 
 local titleGrad = new("UIGradient", { Rotation = 0 }, title)
-local titleShine = textAt(pop, TITLE_X, WY - 8, 640, 96, "INVENTORY", WHITE, 0, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
+local titleShine = textAt(pop, TITLE_X, WY - 8, 640, 96, "BACKPACK", WHITE, 0, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 5 })
 local titleShineGrad = new("UIGradient", { Rotation = 25, Offset = Vector2.new(-1.3, 0),
 	Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.32, 1), NumberSequenceKeypoint.new(0.40, 0.2),
 		NumberSequenceKeypoint.new(0.48, 1), NumberSequenceKeypoint.new(0.51, 1), NumberSequenceKeypoint.new(0.55, 0.45),
@@ -837,7 +859,9 @@ end
 
 -- ===== заголовок вмісту, сітка зі смугою прокрутки =====
 local hdr = textAt(content, 290, 72, 400, 32, "", WHITE, 3.2, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
-local cap = textAt(content, 640, 72, 296, 18, "", SUB_TXT, 2, { TextXAlignment = Enum.TextXAlignment.Right, FontFace = XBOLD, ZIndex = 3 })
+-- підпис «3 kinds · 120 items» — переклад через Shared/Loc (автопереклад різав фразу на шматки)
+local Loc = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Loc"))
+local cap = textAt(content, 640, 72, 296, 18, "", SUB_TXT, 2, { TextXAlignment = Enum.TextXAlignment.Right, FontFace = XBOLD, ZIndex = 3, AutoLocalize = false })
 
 -- ===== фільтр класу (лише вкладка Golems): 4 квадратні кнопки StyleA між «Golems» і лічильником =====
 -- кнопки 48×48 на x 490 / 554 / 618 / 682, верх 46 (тінь +5 не заходить на сітку з y 106; «Golems» і лічильник — по центру кнопок, cy 72); вибрана — зелена, решта — сірі. У правому верхньому куті — кількість
@@ -1001,7 +1025,7 @@ local INFO_MUT = 20
 local infoMut = textAt(info, 112, 33, 120, INFO_MUT, "", WHITE, 2.4, { TextXAlignment = Enum.TextXAlignment.Left, FontFace = XBOLD, ZIndex = 2, Visible = false,
 	AutomaticSize = Enum.AutomaticSize.X })
 infoMut.Size = UDim2.fromOffset(0, INFO_MUT * 1.2)
-local infoSub = label(info, 112, 55, INFO_TW, 40, 16, "", SUB_TXT, 1.8, { TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
+local infoSub = label(info, 112, 55, INFO_TW, 40, 16, "", SUB_TXT, 1.8, { RichText = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
 	TextWrapped = true, LineHeight = 1.05, FontFace = XBOLD, ZIndex = 2 })
 -- зменшує шрифт мітки, поки текст не влізе по ширині (і по висоті — для перенесеного тексту)
 local function fitText(t: TextLabel, maxSize: number, minSize: number)
@@ -1232,7 +1256,7 @@ local function renderGrid()
 	local n = 0
 	for _, it in list do n += it.n end
 	-- на вкладці Golems місткість — у підписі вкладки, праворуч — кнопка сортування
-	cap.Text = tab == "golems" and "" or tab == "ores" and (#list .. " kinds · " .. NF.full(n) .. " items") or (#list .. " kinds")
+	cap.Text = tab == "golems" and "" or tab == "ores" and Loc.f("{1} kinds · {2} items", #list, NF.full(n)) or Loc.f("{1} kinds", #list)
 	for k, t in tabBtns do
 		local l = tabItems(k)
 		local c, gc = 0, 0
@@ -1301,7 +1325,8 @@ local function renderInfo()
 	local hi = tableFind(hotbar, it.key)
 	local inHand = heldKey == it.key
 	-- зілля: лише Use (п'ють одразу, кнопки Hotbar немає)
-	showBtn(bPin, it.tab ~= "potions" or it.case == true) -- кейс можна закріпити в хотбарі
+	showBtn(bPin, (it.tab ~= "potions" or it.case == true) and not it.trophy) -- кейс можна закріпити в хотбарі
+	showBtn(bHold, not it.trophy) -- трофей (Fossil Tooth) — без кнопок
 	if it.case then
 		bHold:setText("Open"); bHold:recolor("green")
 	elseif it.tab == "potions" then
@@ -1343,7 +1368,7 @@ end
 
 bHold.onClick = function()
 	local it = selKey and live(selKey)
-	if not it then return end
+	if not it or it.trophy then return end
 	if it.tab == "potions" and not it.case then -- зілля: кнопка Use — випити одне
 		Action:FireServer("Use", it.key)
 		UISounds.play("claim", 0.1)
@@ -1352,7 +1377,7 @@ bHold.onClick = function()
 	if it.case then -- кейс: Open — вікно закривається, кейс падає перед гравцем (CaseOpenClient)
 		if player:GetAttribute("CaseOpening") == true then StyleA.shake(bHold); return end
 		local ca = RS.Remotes:FindFirstChild("CaseAction")
-		if ca then ca:FireServer("Open", it.key) end
+		if ca and not Action.view then ca:FireServer("Open", it.key) end
 		require(RS.Shared:WaitForChild("WindowManager")).opened("CaseOpen") -- вікно інвентаря закривається (одне вікно на екрані)
 		return
 	end
@@ -1439,6 +1464,7 @@ end
 toolLock.onClick = function()
 	local it = selKey and live(selKey)
 	if not it then setMode("lock"); return end
+	if it.trophy then StyleA.shake(toolLock); return end
 	local on = not lockSet[it.key]
 	lockSet[it.key] = on or nil
 	Action:FireServer("Lock", { keys = { it.key }, on = on })
@@ -1517,6 +1543,7 @@ end
 toolTrash.onClick = function()
 	local it = selKey and live(selKey)
 	if not it then setMode("delete"); return end
+	if it.trophy then StyleA.shake(toolTrash); return end
 	if lockSet[it.key] then
 		StyleA.shake(toolTrash)
 		local t = textAt(content, 290, 360, 646, 26, it.name .. " is locked", C("ffd23a"), 3, { ZIndex = 50 })
@@ -1615,6 +1642,11 @@ end
 close = function()
 	if not isOpen then return end
 	isOpen = false
+	if Action.view then -- 07.11.2026: кінець перегляду чужого інвентаря — свої дані й заголовок назад
+		Action.view = nil
+		for _, t in { title, titleSh, titleShine } do t.Text = "BACKPACK"; t.TextScaled = false end
+		task.defer(refreshAll)
+	end
 	closeConfirm()
 	sortMenu.close()
 	if mode then setMode(nil) end
@@ -1663,6 +1695,19 @@ task.spawn(function()
 	ev = ev and ev:WaitForChild("HUDButton", 30)
 	if ev then ev.Event:Connect(function(key) if key == "Inventory" then if isOpen then close() else open() end end end) end
 end)
+-- 07.11.2026: перегляд чужого інвентаря з адмінки (AdminPanel → профіль → INVENTORY): це саме вікно BACKPACK, лише показ
+--   (Action.view: усі дії вимкнені, кейси не відкриваються); закриття вікна повертає свій інвентар
+shared.MMG_ViewInventory = function(name: string, attrs: { [string]: any })
+	if isOpen then close() end
+	Action.view = { name = name, attrs = attrs }
+	for _, t in { title, titleSh, titleShine } do t.Text = "BACKPACK of @" .. name; t.TextScaled = true; t.TextWrapped = false end
+	open()
+	if not isOpen then -- не відкрилось (маркет)
+		Action.view = nil
+		for _, t in { title, titleSh, titleShine } do t.Text = "BACKPACK"; t.TextScaled = false end
+		refreshAll()
+	end
+end
 local KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three, Enum.KeyCode.Four, Enum.KeyCode.Five, Enum.KeyCode.Six, Enum.KeyCode.Seven,
 	Enum.KeyCode.Eight, Enum.KeyCode.Nine }
 UIS.InputBegan:Connect(function(inp, gp)
@@ -1670,13 +1715,15 @@ UIS.InputBegan:Connect(function(inp, gp)
 	if require(RS:WaitForChild("Shared"):WaitForChild("HubConfig")).isMarket() then return end -- маркет: без хотбара (1–9) і B
 	local i = tableFind(KEYS, inp.KeyCode)
 	if i then toggleHeld(i) return end
-	if inp.KeyCode == Enum.KeyCode.B then if isOpen then close() else open() end end
+	-- 06.11.2026: на арені боса інвентар не відкривається (B / «~»)
+	if inp.KeyCode == Enum.KeyCode.B and player:GetAttribute("InBossArena") ~= true then if isOpen then close() else open() end end
 end)
 -- «~» (Backquote) — так само, як B: відкрити / закрити НАШ інвентар (v25). CAS з високим пріоритетом і Sink — Roblox не отримує
 -- клавішу (його рюкзак на «~» не відкривається); у полі вводу тексту — пропускаємо далі
 CAS:BindActionAtPriority("InventoryBackquote", function(_, state)
 	if state ~= Enum.UserInputState.Begin then return Enum.ContextActionResult.Sink end
 	if UIS:GetFocusedTextBox() then return Enum.ContextActionResult.Pass end
+	if player:GetAttribute("InBossArena") == true and not isOpen then return Enum.ContextActionResult.Sink end
 	if isOpen then close() else open() end
 	return Enum.ContextActionResult.Sink
 end, false, Enum.ContextActionPriority.High.Value + 100, Enum.KeyCode.Backquote)
@@ -1824,7 +1871,7 @@ local function schedule()
 	task.defer(function() pending = false; refreshAll() end)
 end
 player.AttributeChanged:Connect(function(name)
-	if string.sub(name, 1, 4) == "Ore_" or string.sub(name, 1, 5) == "Bars_" or string.sub(name, 1, 4) == "Pot_" or string.sub(name, 1, 5) == "Case_" or string.sub(name, 1, 3) == "Inv" or name == "PlotPlaced" or name == "MktLots" then schedule() end
+	if string.sub(name, 1, 4) == "Ore_" or string.sub(name, 1, 5) == "Bars_" or string.sub(name, 1, 4) == "Pot_" or string.sub(name, 1, 5) == "Case_" or string.sub(name, 1, 3) == "Inv" or name == "PlotPlaced" or name == "MktLots" or name == "FossilTeeth" then schedule() end
 end)
 refreshAll()
 fit()

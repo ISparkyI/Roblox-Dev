@@ -22,7 +22,7 @@ local NicheService = require(script.Parent:WaitForChild("NicheService"))
 local InventoryService = require(script.Parent:WaitForChild("InventoryService"))
 
 local MapService = {}
-local BOARD_REACH = 70 -- стадів від екрана табла
+local BOARD_REACH = 140 -- стадів від екрана табла (05.11.2026: ×2, як зона кнопки в MapBoard)
 local busy: { [Player]: boolean } = {}
 local ev: RemoteEvent
 
@@ -67,6 +67,9 @@ function MapService.Advance(p: Player, force: boolean?): (boolean, string?)
 		-- 03.11.2026: ще й усі ребітхи, доступні на цій мапі (MultiConfig.rebirthLimit)
 		if (tonumber(p:GetAttribute("Rebirths")) or 0) < MultiCfg.rebirthLimit(stage) then return false, "rebirths" end
 		if not nearBoard(p, niche) then return false, "far" end
+		-- 05.11.2026: големи в Mutation Machines не переносяться на нову мапу «в обхід» скидання — спершу їх треба забрати
+		local okM, MS = pcall(require, script.Parent:FindFirstChild("MutationService"))
+		if okM and MS and MS.Records and #MS.Records(p) > 0 then return false, "mutation" end
 	end
 	busy[p] = true
 	local ok, err = pcall(function()

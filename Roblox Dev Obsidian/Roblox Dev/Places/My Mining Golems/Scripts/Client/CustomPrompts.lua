@@ -3,6 +3,8 @@
 -- Налаштування — атрибути самого ProximityPrompt:
 --   UIText (напис, за замовчуванням ActionText капсом), UIColor (колір StyleA: blue / orange / green ...),
 --   UIIcon (rbxassetid іконки ліворуч від напису), UIOffsetY (висота над деталлю-батьком, стади), UIWidth (ширина, стади).
+--   UIWorld = true (06.11.2026) — кнопка «у світі»: розмір у стадах (UIWidth), як предмет — віддаляєш камеру, вона меншає разом
+--   з гравцем / об'єктом (кнопка GIFT над гравцями); без атрибута — як раніше, статичний розмір на екрані.
 -- Показ / сховування робить сам рушій (PromptShown / PromptHidden): відстань MaxActivationDistance, RequiresLineOfSight —
 --   не просвічує крізь стіни, Enabled = false — ховається. Клавіша E працює рушієм; клік мишкою / дотик —
 --   InputHoldBegin / InputHoldEnd. Поява — пружне збільшення з центру (Back, 0,22 с), зникнення — 0,14 с.
@@ -21,6 +23,7 @@ local RS = game:GetService("ReplicatedStorage")
 local StyleA = require(RS:WaitForChild("Shared"):WaitForChild("StyleA"))
 local UISounds = require(RS:WaitForChild("Shared"):WaitForChild("UISounds"))
 local KeyHint = require(RS:WaitForChild("Shared"):WaitForChild("KeyHint"))
+local Loc = require(RS:WaitForChild("Shared"):WaitForChild("Loc"))
 -- Звуки: tap — натискання (E, мишка, дотик; у підказок з утриманням — на початку утримання), lever — важіль ролу
 --   (RollPrompt, лише в того, хто тягне). StyleA.bind кнопки підказки — tap = false, щоб не було подвійного звуку.
 local player = Players.LocalPlayer
@@ -86,6 +89,7 @@ end
 -- кнопка могла намалюватись зі старим величезним масштабом на весь екран (поява, різкий рух камери).
 -- Камера майже всередині кнопки або позаду — уміст ховаємо.
 local fits: { [BillboardGui]: { holder: Frame, fit: UIScale, w: number } } = {}
+local PX_SCALE = 0.85 -- розмір кнопки на екрані: W × H × PX_SCALE пікселів (на екрані висотою 900 px)
 local function adorneePos(a: Instance?): Vector3?
 	if not a then return nil end
 	if a:IsA("BasePart") then return a.Position end
@@ -104,7 +108,19 @@ game:GetService("RunService"):BindToRenderStep("CustomPromptFit", Enum.RenderPri
 		if not p then continue end
 		local depth = (p + bb.StudsOffsetWorldSpace - cam.CFrame.Position):Dot(cam.CFrame.LookVector)
 		if depth < 2 then f.holder.Visible = false continue end
-		f.fit.Scale = math.min(f.w * k / depth / W, 6)
+		if f.world then -- UIWorld: BillboardGui у стадах, уміст масштабуємо під його фактичну ширину
+			local s = bb.AbsoluteSize.X / W
+			if s > 0 and math.abs(f.fit.Scale - s) > 1e-3 then f.fit.Scale = s end
+			f.holder.Visible = s > 0
+			continue
+		end
+		-- 05.11.2026: кнопка СТАТИЧНА на екрані — розмір у пікселях не залежить від відстані камери (раніше підлаштовувалась
+		--   щокадру під дальність і «дьоргалась» при віддаленні); лише під висоту екрана (телефон / ПК)
+		local s = PX_SCALE * math.clamp(cam.ViewportSize.Y / 900, 0.6, 1.3)
+		if f.fit.Scale ~= s then
+			f.fit.Scale = s
+			bb.Size = UDim2.fromOffset(W * s, H * s)
+		end
 		f.holder.Visible = true
 	end
 end)
@@ -123,12 +139,17 @@ local function build(prompt: ProximityPrompt, conns: { any })
 	local holder = Instance.new("Frame")
 	holder.BackgroundTransparency = 1; holder.Size = UDim2.fromOffset(W, H); holder.Parent = bb
 	local fit = Instance.new("UIScale"); fit.Parent = holder
-	fits[bb] = { holder = holder, fit = fit, w = widthStuds }
+	fits[bb] = { holder = holder, fit = fit, w = widthStuds, world = prompt:GetAttribute("UIWorld") == true }
 	local anim = Instance.new("Frame")
 	anim.BackgroundTransparency = 1; anim.AnchorPoint = Vector2.new(0.5, 0.5)
 	anim.Position = UDim2.fromOffset(W / 2, H / 2); anim.Size = UDim2.fromOffset(W, H); anim.Parent = holder
 	local pop = Instance.new("UIScale"); pop.Scale = 0; pop.Parent = anim
 	local text = (prompt:GetAttribute("UIText") :: string?) or string.upper(prompt.ActionText)
+	-- 06.11.2026: напис із сумою («BUY $763») автопереклад не ловить — шаблон «BUY {1}» через Shared/Loc
+	do
+		local w, amt = string.match(text, "^(%u[%u ]-) (%$?%d[%d%.,]*%a*)$")
+		if w then text = Loc.f(w .. " {1}", amt) end
+	end
 	local icon = prompt:GetAttribute("UIIcon") :: string?
 	local btn = StyleA.new(anim, { size = Vector2.new(BW, BH), position = Vector2.new(8, 4), color = if prompt:GetAttribute("UIDisabled") then "gray" else (prompt:GetAttribute("UIColor") :: string?) or "green",
 		text = text, textSize = #text > 9 and 24 or 28, clickable = true, name = "PromptButton" })
