@@ -3,7 +3,7 @@
 -- Кам'яна арка (Arch: стовпи з каменів, дуга, замковий камінь) з порталом усередині (Core: Plane + PlaneTop, Spiral).
 -- Без анімацій відкриття/закриття (рішення користувача): спіраль крутиться, світло «дихає», промені з порталу
 -- центр — червоно-біле світіння; коли бос з'явився (Workspace.BossAt … BossOpenUntil,
--- BossPortalService) — усе яскравіше й швидше. Табличка BOSS FIGHT: таймер до боса / BOSS IS HERE!, COMING SOON.
+-- BossPortalService) — усе яскравіше й швидше. Табличка BOSS FIGHT: таймер до боса; під час реєстрації й бою — червоний відлік до кінця фази (BossPhaseEnd). COMING SOON прибрано 08.11.2026.
 -- Коло перед аркою (03.11.2026) — відлік «TELEPORTING TO BOSS ARENA IN» 3 → 1 (UIEvents/Countdown, як Marketplace), потім
 --   Remotes/BossPortalAction "Arena" — арена Workspace/«Boss Map» на цьому ж сервері. Вийшов з кола — відлік скасовується. Кнопка Boss у HUD (UIEvents/HUDButton "Boss") —
 -- телепорт до входу (Remotes/BossPortalAction "TP").
@@ -170,7 +170,9 @@ RunService.RenderStepped:Connect(function()
 	centerStep(t, power)
 
 	if isOpen then
-		timerLbl.Text = "BOSS IS HERE!"
+		-- 08.11.2026: замість «BOSS IS HERE!» — відлік до кінця фази (реєстрація → бос; бій → кінець бою)
+		local pe = workspace:GetAttribute("BossPhaseEnd")
+		timerLbl.Text = type(pe) == "number" and pe > 0 and fmt(pe - now) or "--:--"
 		timerLbl.TextColor3 = Color3.fromHex("ff6a5a")
 	else
 		timerLbl.Text = type(at) == "number" and fmt(at - now) or "--:--"

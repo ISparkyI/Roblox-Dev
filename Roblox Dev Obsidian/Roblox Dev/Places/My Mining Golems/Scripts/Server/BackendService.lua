@@ -230,6 +230,12 @@ local function refreshCodes()
 			if type(c) == "table" and normCode(c.code) ~= "" then
 				t[normCode(c.code)] = { code = normCode(c.code), reward = str(c.reward), amount = num(c.amount), item = str(c.item),
 					expires = normDate(c.expires), maxUses = num(c.maxUses), uses = num(c.uses), active = c.active == nil or bool(c.active) }
+				-- 08.11.2026: Apps Script віддає Item лише для Potion / Golem, тому склад набору пишемо в Reward:
+				--   "Bundle: Potion:Money:2, Tickets:2" → reward = "Bundle", item = "Potion:Money:2, Tickets:2"
+				local rec = t[normCode(c.code)]
+				local rest = string.match(rec.reward, "^%s*[Bb][Uu][Nn][Dd][Ll][Ee]%s*[:=|]%s*(.-)%s*$")
+				if rest and rest ~= "" then rec.reward = "Bundle"; rec.item = rest
+				elseif string.match(rec.reward, "^%s*[Bb][Uu][Nn][Dd][Ll][Ee]%s*$") then rec.reward = "Bundle" end
 			end
 		end
 		codesCache = t
