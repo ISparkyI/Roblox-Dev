@@ -8,7 +8,9 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local PITCH = math.rad(20) -- камера трохи згори, як стандартна
+local PITCH = math.rad(48) -- 08.11.2026: камера згори під кутом (видно нішу й важіль), було 20°
+local SPAWN_DIST = 26 -- 08.11.2026: відстань камери при появі (далі гравець змінює колесом як завжди)
+local pinnedZoom = false
 local WATCH = 15 -- скільки секунд після появи стежити за телепортом
 local JUMP = 4 -- переміщення за 1 кадр більше за це = телепорт (ходьба — < 1 стада за кадр)
 
@@ -19,7 +21,14 @@ local function behind(hrp: BasePart)
 	if look.Magnitude < 1e-3 then return end
 	look = look.Unit
 	local focus = hrp.Position + Vector3.new(0, 1.5, 0)
-	local dist = math.clamp((cam.CFrame.Position - cam.Focus.Position).Magnitude, 8, 30)
+	local dist = SPAWN_DIST
+	-- зум камери Roblox тримає сам: на мить фіксуємо Min = Max = SPAWN_DIST, потім повертаємо як було
+	if not pinnedZoom then
+		pinnedZoom = true
+		local mn, mx = player.CameraMinZoomDistance, player.CameraMaxZoomDistance
+		player.CameraMaxZoomDistance = math.max(mx, dist); player.CameraMinZoomDistance = dist; player.CameraMaxZoomDistance = dist
+		task.delay(0.15, function() player.CameraMinZoomDistance = mn; player.CameraMaxZoomDistance = mx; pinnedZoom = false end)
+	end
 	cam.CFrame = CFrame.lookAt(focus - look * dist * math.cos(PITCH) + Vector3.new(0, dist * math.sin(PITCH), 0), focus)
 end
 

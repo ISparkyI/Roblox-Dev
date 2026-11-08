@@ -63,7 +63,7 @@ local FEEDBACK_MIN_ACCOUNT_DAYS = 3   -- мінімальний вік акау�
 local FB_MIN, FB_MAX = 10, 500
 local CATEGORIES = { Bug = true, Idea = true, Other = true }
 local DEVICES = { Touch = true, Gamepad = true, Keyboard = true }
-local REWARDS = { Diamonds = true, Tickets = true, Money = true, Potion = true, Golem = true }
+local REWARDS = { Diamonds = true, Tickets = true, Money = true, Potion = true, Golem = true, Bundle = true } -- 08.11.2026: + Bundle (кілька нагород)
 
 -- запасний список новин (коли таблиця недоступна): коротко про останні оновлення гри
 local FALLBACK_UPDATES = {
@@ -307,7 +307,29 @@ local function invCount(p: Player): number
 	return #gl
 end
 
+-- 08.11.2026: Reward = "Bundle" — кілька нагород одним кодом. Item: "Potion:Money:2, Tickets:2"
+--   (Тип:Предмет:Кількість для Potion / Golem, Тип:Кількість для Diamonds / Tickets / Money; частини через кому або ;).
+local function bundleParts(c: any): { any }
+	local out = {}
+	for part in string.gmatch(tostring(c.item or ""), "[^,;]+") do
+		local bits = {}
+		for b in string.gmatch(part, "[^:]+") do table.insert(bits, (string.gsub(b, "^%s*(.-)%s*$", "%1"))) end
+		local r = bits[1]
+		if r and REWARDS[r] and r ~= "Bundle" then
+			local item, amount = "", tonumber(bits[2]) or 1
+			if r == "Potion" or r == "Golem" then item = bits[2] or ""; amount = tonumber(bits[3]) or 1 end
+			table.insert(out, { code = c.code, reward = r, item = item, amount = amount })
+		end
+	end
+	return out
+end
+
 local function rewardText(c: any): string
+	if c.reward == "Bundle" then
+		local t = {}
+		for _, sub in bundleParts(c) do table.insert(t, (string.gsub(rewardText(sub), "!$", ""))) end
+		return table.concat(t, ", ") .. "!"
+	end
 	if c.reward == "Potion" then
 		for _, d in Items.POTIONS do if d.key == c.item then return "+" .. c.amount .. " " .. d.name .. (c.amount > 1 and "s" or "") .. "!" end end
 		return "+" .. c.amount .. " " .. c.item .. " Potion!"
@@ -320,6 +342,11 @@ local function rewardText(c: any): string
 end
 
 local function grant(p: Player, c: any): boolean
+	if c.reward == "Bundle" then
+		local okAll = true
+		for _, sub in bundleParts(c) do if not grant(p, sub) then okAll = false end end
+		return okAll
+	end
 	local n = math.max(1, math.floor(c.amount))
 	if c.reward == "Diamonds" or c.reward == "Tickets" or c.reward == "Money" then
 		p:SetAttribute(c.reward, ((p:GetAttribute(c.reward) :: number?) or 0) + n)
@@ -380,6 +407,7 @@ local function redeem(p: Player, raw: any): any
 			if p:GetAttribute("InvReady") ~= true then return { ok = false, error = "busy" } end
 			if invCount(p) + math.max(1, math.floor(c.amount)) > Items.maxGolems(p) then return { ok = false, error = "full" } end
 		end
+		if c.reward == "Bundle" and #bundleParts(c) == 0 then return fail(p, "invalid") end
 		local data = request("POST", nil, { action = "redeem", code = code, userId = p.UserId, name = p.Name })
 		if not data then return { ok = false, error = "error" } end
 		if data.ok ~= true then

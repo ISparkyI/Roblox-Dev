@@ -11,6 +11,7 @@ local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 
 local StyleA = require(RS:WaitForChild("Shared"):WaitForChild("StyleA"))
+local CardHover = require(RS.Shared:WaitForChild("CardHover")) -- 07.11.2026: наведення (збільшення) як на старому екрані
 local Remote = RS:WaitForChild("Remotes"):WaitForChild("RollRole")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -22,6 +23,9 @@ local INK = C("14161a")
 local WHITE = Color3.new(1, 1, 1)
 local LIME = C("c9ff3a")
 local CW, CH = 500, 790
+-- 07.11.2026: запас полотна навколо картки — щоб влазили збільшення при наведенні й лаймова рамка вибору
+--   (деталі CardN 6,6 × 4,41 стада: сама картка 6 × 3,8, решта — запас)
+local PAD = 40
 local LOCK_ICON = "rbxassetid://122986621331664"
 
 local ROLES = {
@@ -29,7 +33,7 @@ local ROLES = {
 		th = { grad = { { 0, "6fc6ff" }, { 0.55, "2f8ee6" }, { 1, "1a5cb0" } }, rim = "bfe6ff", stud = "8fd2ff", studShade = "1b62b8" } },
 	{ key = "Carrier", title = "Carrier", line = "Carries ore", icon = "rbxassetid://138033481006266",
 		th = { grad = { { 0, "d59bff" }, { 0.55, "9a4cf0" }, { 1, "5f22b4" } }, rim = "ecd4ff", stud = "dcb4ff", studShade = "5c1fa8" } },
-	{ key = "Warrior", title = "Warrior", line = "Fights bosses", icon = "rbxassetid://83348632276419", lockText = "MAP 2", minStage = 2,
+	{ key = "Warrior", title = "Warrior", line = "Fights bosses", icon = "rbxassetid://83348632276419", lockText = "LOCKED", tutLock = true, -- 08.11.2026: з мапи 1 (було MAP 2), закрита лише під час навчання
 		th = { grad = { { 0, "ff8a96" }, { 0.55, "ef3d55" }, { 1, "a8182f" } }, rim = "ffd0d6", stud = "ffaab4", studShade = "b01d36" } },
 }
 local BY_KEY = {}
@@ -103,10 +107,15 @@ end
 --   на грані Top ширина GUI іде вздовж −Z, висота — вздовж +X, тож картка читається гравцем, що стоїть перед важелем)
 local function buildCard(part: BasePart, r, niche: Instance)
 	local g = new("SurfaceGui", { Name = "RollCard_" .. niche.Name .. "_" .. r.key, Adornee = part, Face = Enum.NormalId.Top,
-		SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud, PixelsPerStud = CW / part.Size.Z, LightInfluence = 0, Brightness = 1.1,
+		SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud, PixelsPerStud = (CW + 2 * PAD) / part.Size.Z, LightInfluence = 0, Brightness = 1.1,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ResetOnSpawn = false, ClipsDescendants = true, MaxDistance = 300, AlwaysOnTop = false }, playerGui)
 	local cd = { r = r, gui = g, part = part }
-	local c = frame(g, 0, 0, CW, CH, WHITE, { Active = true }); cd.card = c
+	local canvasH = part.Size.X * (CW + 2 * PAD) / part.Size.Z
+	local pad0 = CardHover.PAD; CardHover.PAD = PAD
+	local holder, o = CardHover.holder(g, PAD, math.floor((canvasH - CH) / 2), CW, CH)
+	CardHover.PAD = pad0
+	cd.holder = holder; cd.o = o
+	local c = frame(holder, o.X, o.Y, CW, CH, WHITE, { Active = true }); cd.card = c
 	cd.grad = vgrad(c, r.th.grad); stroke(c, INK, 10)
 	cd.studs = StyleA.studTile(c, 10, 10, CW - 20, CH - 20, 46, C(r.th.stud), { ImageTransparency = 0.68 }, true)
 	bands(c, CW, CH)
@@ -126,8 +135,10 @@ local function buildCard(part: BasePart, r, niche: Instance)
 	cd.bar = bar
 	cd.status = label(bar, 0, 0, CW - 48, 120, 76, "SELECT", WHITE, 8, { ZIndex = 4 })
 	-- рамка вибору (лайм, усередині картки) і галочка в правому верхньому куті
-	cd.ring = frame(c, 0, 0, CW, CH, nil, { BackgroundTransparency = 1, ZIndex = 5, Visible = false })
-	stroke(cd.ring, LIME, 16)
+	-- лаймова рамка вибору ЗОВНІ картки (як було на екрані): лайм 10 + темний контур 6
+	cd.ring = frame(holder, o.X - 4, o.Y - 4, CW + 8, CH + 8, nil, { BackgroundTransparency = 1, ZIndex = 5, Visible = false })
+	stroke(cd.ring, LIME, 10)
+	local ringOut = frame(cd.ring, -10, -10, CW + 28, CH + 28, nil, { BackgroundTransparency = 1, ZIndex = 5 }); stroke(ringOut, INK, 6)
 	cd.check = checkBadge(c, CW - 72, 72); cd.check.Visible = false
 	cd.hit = new("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 9, AutoButtonColor = false }, c)
 	cd.state = nil
@@ -150,10 +161,10 @@ local function shake(cd)
 	local c = cd.card
 	task.spawn(function()
 		for _, dx in { -16, 13, -9, 6, -3, 0 } do
-			c.Position = UDim2.fromOffset(dx, 0)
+			c.Position = UDim2.fromOffset(cd.o.X + dx, cd.o.Y)
 			task.wait(0.04)
 		end
-		c.Position = UDim2.fromOffset(0, 0)
+		c.Position = UDim2.fromOffset(cd.o.X, cd.o.Y)
 	end)
 end
 
@@ -178,6 +189,8 @@ local function buildPanel(niche: Instance, parts: { [number]: BasePart }, ownerI
 		if part then
 			local cd = buildCard(part, r, niche)
 			pn.cards[i] = cd
+			-- наведення: картка плавно збільшується (CardHover, без нахилу в SurfaceGui) — лише своя ніша
+			if mine then CardHover.attach(cd.holder, cd.card, function() return true end, 1) end
 			if mine then
 				cd.hit.MouseButton1Click:Connect(function()
 					if cd.locked then shake(cd); return end
@@ -220,7 +233,7 @@ local function refresh()
 		if pn then
 			for i, cd in pn.cards do
 				local r = cd.r
-				local locked = r.minStage ~= nil and stage < r.minStage
+				local locked = (r.minStage ~= nil and stage < r.minStage) or (r.tutLock == true and owner ~= nil and owner:GetAttribute("TutStep") ~= nil)
 				local st = locked and "lock" or (i == selIdx and "sel" or "free")
 				if cd.state ~= st then
 					cd.state = st; cd.locked = locked

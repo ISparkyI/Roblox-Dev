@@ -307,6 +307,7 @@ local function inRing(p: Player, f: Model): boolean
 end
 
 local function onAction(p: Player, action: any, arg: any)
+	if action == "HintDone" then p:SetAttribute("WsHintDone", true); return end -- 08.11.2026: проміжна підказка «Workshop» показана (WorkshopHintClient)
 	if p:GetAttribute("TutStep") ~= nil then return end -- 06.11.2026: під час навчання (TutorialService) майстерня заблокована
 	if action == "Upgrade" then -- клік по екрану табла (табло стоїть окремо від кола, тому без перевірки кола)
 		local f = forgeOf(p)

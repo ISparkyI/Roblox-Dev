@@ -154,3 +154,31 @@ if MARKET then
 	end
 	Players.PlayerRemoving:Connect(function(p) lastAsk[p] = nil end)
 end
+
+-- ===== 08.11.2026: скільки гравців зараз на всіх серверах маркету — для напису під табличкою MARKETPLACE (MarketplaceClient) =====
+-- Головний плейс: раз на 30 с сума n з MemoryStore MARKET_MAP → атрибут Workspace.MarketPlayers. У Studio MemoryStore не читаємо — 0.
+if not MARKET then
+	task.spawn(function()
+		local RunService = game:GetService("RunService")
+		while true do
+			local total = nil
+			if RunService:IsStudio() then
+				total = 0
+			else
+				local okM, map = pcall(MemoryStoreService.GetSortedMap, MemoryStoreService, Cfg.MARKET_MAP)
+				if okM then
+					local okR, items = pcall(function() return map:GetRangeAsync(Enum.SortDirection.Ascending, 100) end)
+					if okR and type(items) == "table" then
+						total = 0
+						for _, it in items do
+							local v = it.value
+							if type(v) == "table" then total += math.max(0, math.floor(tonumber(v.n) or 0)) end
+						end
+					end
+				end
+			end
+			if total then workspace:SetAttribute("MarketPlayers", total) end -- не вдалося прочитати — лишається попереднє число
+			task.wait(30)
+		end
+	end)
+end

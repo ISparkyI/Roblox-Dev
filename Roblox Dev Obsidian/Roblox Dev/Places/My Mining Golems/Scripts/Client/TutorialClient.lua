@@ -412,7 +412,7 @@ local function target(step: number): any
 		if card and card:IsA("BasePart") then
 			local g = playerGui:FindFirstChild("RollCard_" .. niche.Name .. "_Carrier")
 			local b = g and g:FindFirstChildWhichIsA("TextButton", true)
-			return { world = card.Position + Vector3.new(0, 0.15, 0), normal = Vector3.yAxis, tag = "Carrier", mode = "tap", area = card.Position, obj = card, btn = b }
+			return { world = card.Position + card.CFrame.UpVector * 0.15, normal = card.CFrame.UpVector, tag = "Carrier", mode = "tap", area = card.Position, obj = card, btn = b } -- 08.11.2026: картка на рампі (нахилена)
 		end
 		return nil
 	elseif step == 6 then
@@ -669,14 +669,21 @@ RunService.RenderStepped:Connect(function(dt)
 	if flatD.Magnitude > FAR then
 		-- провідник: рука перед гравцем, палець — у бік цілі; стрілки на підлозі
 		local dir = flatD.Unit
-		local pos = hrp.Position + dir * 5 + Vector3.new(0, 2.2 + math.sin(t * 2.2) * 0.2, 0)
+		local pos = hrp.Position + dir * 8.5 + Vector3.new(0, 2.2 + math.sin(t * 2.2) * 0.2, 0) -- 08.11.2026: рука далі перед гравцем (було 5)
 		goal = CFrame.lookAt(pos, pos + dir + Vector3.new(0, -0.15, 0))
 		local y = floorY()
 		local shift = (t * 5) % 3.5
+		-- 08.11.2026: стрілки лягають на верх того, що під ними (сходинки, плити) — не ховаються в текстурі
+		local rp = RaycastParams.new()
+		rp.FilterType = Enum.RaycastFilterType.Exclude
+		rp.FilterDescendantsInstances = { player.Character, fxFolder }
+		rp.RespectCanCollide = true
 		for i, c in chev do
 			local d = 3 + (i - 1) * 3.5 + shift
 			local a = math.clamp(1 - math.abs(d - 12) / 12, 0, 1)
 			local base = Vector3.new(hrp.Position.X, y, hrp.Position.Z) + dir * d
+			local hit = workspace:Raycast(base + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), rp)
+			if hit then base = Vector3.new(base.X, hit.Position.Y + 0.06, base.Z) end
 			local cf = CFrame.lookAt(base, base + dir)
 			c.L.CFrame = cf * CFrame.Angles(0, math.rad(40), 0) * CFrame.new(0, 0, 0.55)
 			c.R.CFrame = cf * CFrame.Angles(0, math.rad(-40), 0) * CFrame.new(0, 0, 0.55)

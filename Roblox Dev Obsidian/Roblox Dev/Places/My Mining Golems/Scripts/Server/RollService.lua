@@ -100,7 +100,7 @@ for i, mu in Catalog.MUTATIONS do table.insert(MUTS, { odds = mu.odds or 1, mut 
 
 local function roleCls(p: Player, role: any): string
 	local c = Catalog.cls(type(role) == "string" and string.lower(role) or nil)
-	if c == "warrior" and ((tonumber(p:GetAttribute("Stage")) or 1) < 2) then c = "miner" end
+	if c == "warrior" and p:GetAttribute("TutStep") ~= nil then c = "miner" end -- 08.11.2026: воїни з мапи 1 (було Stage >= 2); не під час навчання
 	return c
 end
 
@@ -263,6 +263,7 @@ local function onPull(p: Player, role: any, niche: Model)
 	if #pool == 0 then return end
 	local cls = roleCls(p, role)
 	local luck = tonumber(p:GetAttribute("RollLuck")) or 0
+	local luckG = luck * (RollConfig.GOLEM_LUCK_MULT or 1) -- 08.11.2026: Roll Luck для рідкості голема — ×5 під капотом (мутації — звичайний luck)
 	-- глобальні події удачі з адмін-панелі (AdminService, атрибути workspace = множник, …Until = os.time кінця):
 	--   EventLuck — Roll Luck: шанс рідкісних ГОЛЕМІВ × множник; EventMutLuck — Mutation Luck: шанс МУТАЦІЙ × множник.
 	--   Обидві — поверх власного Roll Luck гравця (він діє і на голема, і на мутацію).
@@ -286,8 +287,8 @@ local function onPull(p: Player, role: any, niche: Model)
 	local function boosted(attr: string, passMul: number): number
 		local ev = tonumber(workspace:GetAttribute(attr)) or 1
 		if not (ev > 1 and os.time() < (tonumber(workspace:GetAttribute(attr .. "Until")) or 0)) then ev = 1 end
-		if ev == 1 and passMul == 1 then return luck end
-		return ((1 + luck / 100) * ev * passMul - 1) * 100
+		if ev == 1 and passMul == 1 then return luckG end
+		return ((1 + luckG / 100) * ev * passMul - 1) * 100
 	end
 	local luckGolem = boosted("EventLuck", passGolem)
 	-- Mutation Luck (03.11.2026, рішення користувача): загальна удача (Roll Luck гравця, зілля, бонус лідербордів, Lucky Roll)
@@ -530,7 +531,7 @@ function RollService.Start()
 				local niche0 = (p:GetAttribute("RollReady") == true and t >= (busyUntil[p] or 0)) and NicheService.GetNiche(p) or nil
 				-- Auto Buy працює і на ручних ролах; Auto Roll стоїть, поки під фільтр є некуплений результат
 				local hold = niche0 ~= nil and filterHold(p, niche0)
-				if not hold and p:GetAttribute("Pass_AutoRoll") == true and p:GetAttribute("Set_AutoRoll") ~= false and p:GetAttribute("RollReady") == true then
+				if not hold and p:GetAttribute("Pass_AutoRoll") == true and p:GetAttribute("Set_AutoRoll") ~= false and p:GetAttribute("RollReady") == true and p:GetAttribute("TutorialDone") == true then -- 08.11.2026: до кінця навчання Auto Roll не крутить сам
 					local gap = (p:GetAttribute("Pass_FastRoll") == true and p:GetAttribute("Set_FastRoll") ~= false) and AUTO_GAP_FAST or AUTO_GAP
 					if t >= (busyUntil[p] or 0) + gap and t >= (nextAuto[p] or 0) then
 						local niche = NicheService.GetNiche(p)

@@ -957,6 +957,19 @@ key.BorderSizePixel = 0; key.FontFace = HEAVY; key.TextScaled = true; key.Text =
 local ks = Instance.new("UIStroke"); ks.Color = Color3.fromHex("14161a"); ks.Thickness = 2.5; ks.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; ks.Parent = key
 key.Parent = cbtn.root
 require(RS:WaitForChild("Shared"):WaitForChild("KeyHint")).bind(key) -- 04.11.2026: E лише з клавіатурою й мишкою
+-- 08.11.2026: проміжна підказка «Collect» (CrateHintClient ставить атрибут гравця CrateHintOn, лише на клієнті) — рамка кнопки блимає
+do
+	local g = Instance.new("Frame")
+	g.Name = "HintGlow"; g.BackgroundTransparency = 1; g.Position = UDim2.fromOffset(8 - 7, 4 - 7); g.Size = UDim2.fromOffset(214 + 14, 66 + 14)
+	g.Visible = false; g.ZIndex = 9
+	local gs = Instance.new("UIStroke"); gs.Color = Color3.fromHex("ffd23a"); gs.Thickness = 6; gs.ApplyStrokeMode = Enum.ApplyStrokeMode.Border; gs.Parent = g
+	g.Parent = canim
+	RunService.Heartbeat:Connect(function()
+		local on = player:GetAttribute("CrateHintOn") == true and cbb.Enabled
+		g.Visible = on
+		if on then gs.Transparency = 0.1 + 0.7 * (0.5 + 0.5 * math.sin(os.clock() * 5)) end
+	end)
+end
 local near: CR? = nil
 local function doCollect()
 	if not near then return end

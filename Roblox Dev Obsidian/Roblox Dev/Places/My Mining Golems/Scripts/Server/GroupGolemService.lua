@@ -102,7 +102,7 @@ local function tryClaim(p: Player)
 	if not (p:GetAttribute("InGroup") == true or inGroupFresh(p)) then remote:FireClient(p, "Join"); return end
 	p:SetAttribute("InGroup", true)
 	if p:GetAttribute("GroupLiked") ~= true and p:GetAttribute("GroupGolem") ~= true then
-		toast(p, "Like the game, then rejoin - step 2 counts after 10 seconds in the game", "blue"); return
+		return -- 06.11.2026: без підказки (крок 2 ще не зарахований)
 	end
 	if ownsMushroom(p) then toast(p, "You already have the Mushroom Golem!", "gray"); return end
 	if Items.invGolemCount(decode(p, "InvGolems", {}), decode(p, "PlotPlaced", {})) >= Items.maxGolems(p) then
@@ -182,6 +182,10 @@ function GroupGolemService.Start()
 			p:SetAttribute("InGroup", g)
 			-- крок 2: зайшов у гру вже учасником групи → таймер лайку стартує, коли відкриє вікно стенда ("Opened")
 			startMember[p] = g
+			-- 08.11.2026: зайшов у гру вже учасником групи → крок 2 (лайк) зараховано одразу, без таймера: CLAIM світиться відразу
+			if g and DataService.WaitLoaded(p) and p.Parent == Players and p:GetAttribute("GroupGolem") ~= true then
+				p:SetAttribute("GroupLiked", true)
+			end
 		end)
 		for _, a in { "InvGolems", "CaveStandGolems", "MutMachines" } do
 			p:GetAttributeChangedSignal(a):Connect(function() updateBest(p) end)

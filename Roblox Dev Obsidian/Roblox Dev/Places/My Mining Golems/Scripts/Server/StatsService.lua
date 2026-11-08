@@ -129,6 +129,10 @@ local function write(b)
 			if num(p, "Stat_Playtime") < LB_MIN_PLAYTIME then v = 0 end
 			if v > 0 and written[b.key][p.UserId] ~= v then
 				if not useMemory then
+					-- 08.11.2026: бюджет запитів сервера вичерпано — пропускаємо (допишемо наступного разу), а не ставимо в чергу
+					--   (попередження «DataStore request was added to queue» на LB_Bosses — останнє табло в циклі)
+					local okB, budget = pcall(function() return DataStoreService:GetRequestBudgetForRequestType(Enum.DataStoreRequestType.SetIncrementSortedAsync) end)
+					if okB and budget < 3 then continue end
 					local ok, err = pcall(function() store(b.key):SetAsync(tostring(p.UserId), v) end)
 					if not ok then fallback(err) end
 				end

@@ -217,3 +217,73 @@ do
 		if tw and os.clock() >= nextAt then nextAt = os.clock() + 4 + math.random() * 3; tw:Play() end
 	end)
 end
+
+-- ===== 08.11.2026: під табличкою «MARKETPLACE» — скільки гравців зараз на всіх серверах маркету (той самий стиль, зелений) =====
+-- Число — атрибут Workspace.MarketPlayers (MarketplaceTeleport на головному сервері раз на 30 с сумує n з MemoryStore MARKET_MAP).
+-- Окремий BillboardGui MarketCount (у PlayerGui, Adornee — той самий SignAnchor) трохи нижче таблички.
+if not MARKET then
+	local Loc = require(RS.Shared:WaitForChild("Loc"))
+	local GPAL = { Color3.fromHex("eaffb0"), Color3.fromHex("8dff3a"), Color3.fromHex("2fd14a"), Color3.fromHex("8dff3a") }
+	local function gsample(u)
+		local x = (u % 1) * #GPAL
+		local k = math.floor(x)
+		local t = x - k
+		t = t * t * (3 - 2 * t)
+		return GPAL[k + 1]:Lerp(GPAL[(k + 1) % #GPAL + 1], t)
+	end
+	local GSHINE = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.32, 1), NumberSequenceKeypoint.new(0.40, 0.2),
+		NumberSequenceKeypoint.new(0.48, 1), NumberSequenceKeypoint.new(0.51, 1), NumberSequenceKeypoint.new(0.55, 0.45),
+		NumberSequenceKeypoint.new(0.59, 1), NumberSequenceKeypoint.new(1, 1) })
+	local H_ = 2.6 -- висота напису, стадів
+	local bb, lbl, sh, grad, tw, nextAt = nil, nil, nil, nil, nil, 0
+	local function build()
+		local c = center()
+		local sign = c and c.Parent and c.Parent:FindFirstChild("MarketSign", true)
+		local title = sign and sign:FindFirstChild("Title")
+		if not (sign and sign:IsA("BillboardGui") and title and title:IsA("TextLabel")) then return end
+		local ad = sign.Adornee or sign.Parent
+		if bb and bb.Parent and bb.Adornee == ad then return end
+		if bb then bb:Destroy() end
+		bb = Instance.new("BillboardGui")
+		bb.Name = "MarketCount"; bb.Adornee = ad; bb.ResetOnSpawn = false
+		bb.Size = UDim2.new(sign.Size.X.Scale * 0.7, 0, H_, 0)
+		bb.StudsOffset = sign.StudsOffset + Vector3.new(0, -(sign.Size.Y.Scale / 2 + H_ / 2 + 0.15), 0)
+		bb.MaxDistance = sign.MaxDistance; bb.LightInfluence = sign.LightInfluence; bb.AlwaysOnTop = sign.AlwaysOnTop
+		bb.Enabled = false
+		lbl = Instance.new("TextLabel")
+		lbl.Name = "Count"; lbl.BackgroundTransparency = 1; lbl.Size = UDim2.fromScale(1, 1); lbl.TextScaled = true
+		lbl.FontFace = title.FontFace; lbl.TextColor3 = Color3.new(1, 1, 1); lbl.AutoLocalize = false; lbl.Text = ""
+		local st = Instance.new("UIStroke"); st.Thickness = 4; st.Color = Color3.fromHex("0d3a12"); st.Parent = lbl
+		grad = Instance.new("UIGradient"); grad.Rotation = 0; grad.Parent = lbl
+		lbl.Parent = bb
+		sh = lbl:Clone()
+		sh.Name = "CountShine"; sh.ZIndex = lbl.ZIndex + 1
+		for _, ch in sh:GetChildren() do ch:Destroy() end
+		local sg = Instance.new("UIGradient"); sg.Rotation = 25; sg.Transparency = GSHINE; sg.Offset = Vector2.new(-1.3, 0); sg.Parent = sh
+		sh.Parent = bb
+		tw = TweenService:Create(sg, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Offset = Vector2.new(1.3, 0) })
+		tw.Completed:Connect(function() sg.Offset = Vector2.new(-1.3, 0) end)
+		nextAt = os.clock() + 2.5
+		bb.Parent = player:WaitForChild("PlayerGui")
+	end
+	local function refresh()
+		if not (bb and lbl and sh) then return end
+		local n = tonumber(workspace:GetAttribute("MarketPlayers"))
+		bb.Enabled = n ~= nil
+		if n then
+			local txt = Loc.f(n == 1 and "{1} PLAYER" or "{1} PLAYERS", math.floor(n))
+			lbl.Text = txt; sh.Text = txt
+		end
+	end
+	task.spawn(function() while true do pcall(build); pcall(refresh); task.wait(2) end end)
+	workspace:GetAttributeChangedSignal("MarketPlayers"):Connect(function() pcall(refresh) end)
+	Loc.Ready:Connect(function() pcall(refresh) end)
+	RunService.Heartbeat:Connect(function()
+		if not (lbl and lbl.Parent and grad and bb and bb.Enabled) then return end
+		local phase = -(os.clock() / 4)
+		local ks = {}
+		for k = 0, 18 do ks[#ks + 1] = ColorSequenceKeypoint.new(k / 18, gsample(k / 18 * 2 + phase)) end
+		grad.Color = ColorSequence.new(ks)
+		if tw and os.clock() >= nextAt then nextAt = os.clock() + 4 + math.random() * 3; tw:Play() end
+	end)
+end

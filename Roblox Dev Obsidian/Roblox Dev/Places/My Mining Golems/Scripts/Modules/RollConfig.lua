@@ -14,8 +14,11 @@
 local RollConfig = {}
 
 RollConfig.LUCK_PER_LEVEL = 5
-RollConfig.STANDS_BASE = 5 -- за Money (табло Roll Upgrades)
-RollConfig.STANDS_MAX = 7 -- + геймпаси Pass_RollStand1 / Pass_RollStand2 (+1 кожен; точки Point6 / Point7)
+-- 08.11.2026 (рішення користувача): «під капотом» Roll Luck діє на РІДКІСТЬ ГОЛЕМА у 5 разів сильніше, ніж показано
+--   (табло, ціни й відсотки ті самі): множник голема = 1 + 5 × удача / 100 (185 % → ×10,25 замість ×2,85). На мутації — як і було.
+RollConfig.GOLEM_LUCK_MULT = 5
+RollConfig.STANDS_BASE = 7 -- за Money (табло Roll Upgrades); 08.11.2026: було 5 (+2: точки Point6 / Point7 — кути верхнього ряду)
+RollConfig.STANDS_MAX = 9 -- + геймпаси Pass_RollStand1 / Pass_RollStand2 (+1 кожен; наступні точки за номером, до Point9)
 RollConfig.STAND_BASE_PRICE = 500
 RollConfig.STAND_PRICE_STEP = 3
 
@@ -63,7 +66,7 @@ end
 -- ціна переходу з count місць на count + 1 (nil, якщо вже максимум).
 -- економіка v2 (29.10.2026): мапа 1 — 50 / 250 / 1,000 / 4,000; на інших мапах × той самий множник, що й картки плоту
 -- (PlotConfig.priceMult: 1 + 2 × (множник мапи − 1) → ×1, ×2, ×3 …). Раніше — 500 × 3^k і власний множник ×5 / ×40.
-RollConfig.STAND_PRICES = { 50, 250, 1000, 4000 }
+RollConfig.STAND_PRICES = { 50, 250, 1000, 4000, 16000, 64000 } -- 08.11.2026: + 6-та й 7-ма підставки (×4, як і раніше)
 function RollConfig.standPrice(count: number, stage: number): number?
 	if count >= RollConfig.STANDS_BASE then return nil end
 	local base = RollConfig.STAND_PRICES[math.clamp(math.floor(count), 1, #RollConfig.STAND_PRICES)]

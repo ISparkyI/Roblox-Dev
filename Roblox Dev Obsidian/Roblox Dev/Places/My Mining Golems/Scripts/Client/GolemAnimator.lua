@@ -21,7 +21,7 @@
 --             (p — фаза 0..2π; Mine: удар лишається в MINE_HIT, бо його чекає сервер).
 local RunService = game:GetService("RunService")
 local model = script.Parent :: Model
-local root = model:WaitForChild("Root") :: BasePart
+local root = model:WaitForChild("Root", math.huge) :: BasePart -- 08.11.2026: з тайм-аутом — без попередження Infinite yield (StreamingEnabled)
 local D = require(model:WaitForChild("GolemData")) :: any
 -- [Plot] Carry: ящичок (локальна копія CarryBox, кладе PlotClient) тримається між кулаками
 local BOX_DROP = 0.75 -- стадів: центр ящичка трохи нижче центру кулаків (кулаки тримають верхню половину)

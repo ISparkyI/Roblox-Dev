@@ -595,7 +595,7 @@ local function clearAll()
 	table.clear(zones)
 end
 
-remotes:WaitForChild("BossTick").OnClientEvent:Connect(function(pk)
+remotes:WaitForChild("BossTick", math.huge).OnClientEvent:Connect(function(pk)
 	for _, e in pk do
 		local g = golems[e[1]]
 		if g then

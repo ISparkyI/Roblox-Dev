@@ -478,7 +478,11 @@ for i = 1, math.min(3, #ORE) do
 	-- «Працює»: кількість злитків + плитка злитка
 	local barsText = textAt(row, RW - 104 - 420, 48, 420, 44, "", LIME_TXT, 4, { TextXAlignment = Enum.TextXAlignment.Right, RichText = true, ZIndex = 3 })
 	local ingot = makeTile(row, RW - 8 - 80, 8, o.key, ICONS["bar_" .. o.key], nil, "Bars_" .. o.key).root
-	rows[i] = { dim = rowDim, ore = o, row = row, tile = tile, badge = badge, toast = toast, toastTok = 0, sub = sub, bar = bar, check = check, barsText = barsText, ingot = ingot, prog = prog }
+	-- 08.11.2026: руди в інвентарі вистачає, щоб закрити цей рядок пробудження — золота рамка навколо рядка блимає (ReadyGlow)
+	local glow = frame(row, 2, 2, RW - 4, ROW_H - 4, nil, { Name = "ReadyGlow", BackgroundTransparency = 1, Visible = false, ZIndex = 8 })
+	local glowS = new("UIStroke", { Color = C("ffd23a"), Thickness = 6, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, glow)
+	rows[i] = { dim = rowDim, ore = o, row = row, tile = tile, badge = badge, toast = toast, toastTok = 0, sub = sub, bar = bar, check = check, barsText = barsText, ingot = ingot, prog = prog,
+		glow = glow, glowS = glowS, ready = false }
 end
 end
 buildRows()
@@ -498,9 +502,28 @@ local function fireAction(b)
 	if not b.action then return end
 	if b.action == "Take" then UISounds.play("claim") end -- злитки в інвентар = нагорода
 	Action:FireServer(b.action)
+	-- 08.11.2026: проміжна підказка Workshop — натиснув Give Ore → підказку пройдено (AnalyticsFunnels, Funnels Hint_Workshop)
+	if b.action == "Give" and player:GetAttribute("WsHintGive") == true then
+		player:SetAttribute("WsHintGive", nil)
+		local h = RS:FindFirstChild("Remotes") and RS.Remotes:FindFirstChild("HintAction")
+		if h then h:FireServer("Done", "Workshop") end
+	end
 end
 btnLeft.onClick = fireAction
 btnRight.onClick = fireAction
+-- 08.11.2026: підсвітка, що блимає: рядки руди, яких уже вистачає (ReadyGlow). Кнопка Give Ore не блимає (прибрано на прохання).
+do
+	RunService.Heartbeat:Connect(function()
+		local t = os.clock()
+		local pulse = 0.5 + 0.5 * math.sin(t * 5)
+		for _, r in rows do
+			if r.glow then
+				r.glow.Visible = r.ready == true
+				if r.ready then r.glowS.Transparency = 0.1 + 0.75 * pulse end
+			end
+		end
+	end)
+end
 
 -- рядок «Money» (лише поки голем спить / прокидається): скільки грошей треба за пробудження (Cfg.WAKE_MONEY).
 -- Гроші не віддаються частинами, як руда: сервер знімає їх кнопкою Wake Up. Шкала — баланс гравця до потрібної суми.
@@ -702,6 +725,7 @@ end
 -- оновити все вікно за станом кузні f; instant — без анімації шкал (одразу після відкриття)
 local function refresh(f: Model, instant: boolean)
 	local st = f:GetAttribute("State")
+	for _, r in rows do r.ready = false end -- 08.11.2026: ReadyGlow — нижче, лише поки голем спить
 	if st ~= "Waking" and st ~= "Working" and st ~= "Dozing" then st = "Asleep" end
 
 	if st == "Asleep" or st == "Waking" then
@@ -724,6 +748,7 @@ local function refresh(f: Model, instant: boolean)
 			r.bar.track.Visible = true
 			setBar(r.bar, req > 0 and g / req or 1, full and FILL.lime or FILL.cyan, NF.full(g) .. " / " .. NF.full(req), instant)
 			r.check.Visible = full
+			r.ready = st == "Asleep" and not full and not lockedOre and have >= req - g
 			r.barsText.Visible = false
 			r.ingot.Visible = false
 			r.badge.ring.Visible = false

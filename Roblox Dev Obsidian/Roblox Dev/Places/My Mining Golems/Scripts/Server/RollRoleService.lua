@@ -9,7 +9,7 @@ local remote = RS:WaitForChild("Remotes"):WaitForChild("RollRole")
 local ROLES = {
 	Miner = function() return true end,
 	Carrier = function() return true end,
-	Warrior = function(p) return (tonumber(p:GetAttribute("Stage")) or 1) >= 2 end, -- MAP 2
+	Warrior = function(p) return p:GetAttribute("TutStep") == nil end, -- 08.11.2026: з мапи 1 (було MAP 2); не під час навчання
 }
 local last = {}
 
@@ -31,6 +31,9 @@ local ROLL_HOLD = 0.25
 local function holdRoll(d: Instance)
 	if d:IsA("ProximityPrompt") and d.Name == "RollPrompt" then
 		d.HoldDuration = ROLL_HOLD
+		-- 08.11.2026: кнопка ROLL «у світі» (CustomPrompts UIWorld): сталий розмір у стадах, а не на екрані — не роздувається, коли камера далеко
+		d:SetAttribute("UIWorld", true)
+		if d:GetAttribute("UIWidth") == nil then d:SetAttribute("UIWidth", 6.5) end
 		d.Exclusivity = Enum.ProximityPromptExclusivity.OneGlobally -- разом із BUY на підставках на E видно лише одну (27.10.2026)
 	end
 end

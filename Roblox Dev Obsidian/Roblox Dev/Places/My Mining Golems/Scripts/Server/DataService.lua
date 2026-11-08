@@ -72,6 +72,8 @@ local ATTRS = {
 	{ name = "OfflineSec", default = nil, scope = "global" },
 	-- навчання (05.11.2026, TutorialService): пройшов / пропустив і поточний крок
 	{ name = "TutorialDone", default = nil, scope = "global" },
+	{ name = "WsHintDone", default = nil, scope = "global" }, -- 08.11.2026: проміжна підказка «Workshop» вже була (WorkshopHintClient, один раз)
+	{ name = "CrateHintDone", default = nil, scope = "global" }, -- 08.11.2026: проміжна підказка «Collect» вже була (CrateHintClient, один раз)
 	{ name = "TutStep", default = nil, scope = "global" },
 	-- щоденні нагороди (DailyService, 29.10.2026)
 	{ name = "DailySeed", default = nil, scope = "global" },

@@ -1048,7 +1048,7 @@ do
 				Size = UDim2.fromOffset(140, 140), ImageColor3 = BLACK, ImageTransparency = 0.5, ZIndex = 3 }, r)
 		end
 		local name = textAt(r, 12, 22, CW - 24, 24, "???", UNKNOWN, 2.6, { TextXAlignment = LEFT, ZIndex = 4 })
-		local info = textAt(r, 0, 232, CW, 17, def and "Unlocks on Map 2" or "Coming soon", SUB_TXT, 1.9, { FontFace = XBOLD, ZIndex = 4 })
+		local info = textAt(r, 0, 232, CW, 17, def and "Not defeated yet" or "Coming soon", SUB_TXT, 1.9, { FontFace = XBOLD, ZIndex = 4 })
 		if def then -- що падає
 			local row = frame(r, 0, 248, CW, 26, nil, { BackgroundTransparency = 1, ZIndex = 4 })
 			new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center,
@@ -1069,7 +1069,7 @@ do
 				c.name.Text = open and c.def.name or "???"
 				c.name.TextColor3 = open and C("b8ff8a") or UNKNOWN
 				c.info.AutoLocalize = not open
-				c.info.Text = open and Loc.f("Defeated: {1}", kills) or "Unlocks on Map 2"
+				c.info.Text = open and Loc.f("Defeated: {1}", kills) or "Not defeated yet" -- 08.11.2026: бос з мапи 1
 			end
 		end
 	end
