@@ -1,7 +1,7 @@
 -- Obsidian Golem: палітра, кістки й блоки (координати моделі в стані спокою, 1 од. = 0,5 стада). Згенеровано obsidian_golem_generator.py.
 -- Скелет = Clay … Sapphire (21 кістка). neon — світні тріщини (Neon). fx / poses — унікальні анімації (GolemAnimator v3). Box — власний ящик у стадах.
 return {
- colors={obs="#17141f",sheen="#3d3b56",glow="#1fe04a",light="#f1f5f8",dark="#1c2836",pink="#f2a0b4"},
+ colors={obs="#17141f",sheen="#3d3b56",glow="#a855f7",light="#f1f5f8",dark="#1c2836",pink="#f2a0b4"},
  neon={glow=true},
  poses={
   -- важка хода: на кожному кроці таз присідає, корпус розгойдується з боку в бік, голова врівноважує

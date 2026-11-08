@@ -39,12 +39,16 @@ updated: 2026-10-25
 | lantern     | Lantern Golem     | Uncommon  | 1    | 500                | 35000        | 18    | 180    | 1.2       | 1.05   | ні                 |                          |
 | ironclad    | Ironclad Golem    | Rare      | 1    | 900                | 58000        | 21    | 290    | 1         | 1.15   | ні                 | танк                     |
 | quartzling  | Quartzling Golem  | Rare      | 1    | 1500               | 85000        | 48    | 480    | 1.4       | 0.9    | ні                 |                          |
+| lodestone   | Lodestone Golem   | Rare      | 1    | 2000               | 125000       | 67    | 670    | 1.3       | 1.1    | є (меч з полюсами) | 08.11.2026               |
 | tinker      | Tinker Golem      | Rare      | 1    | 2500               | 170000       | 86    | 860    | 1.25      | 1      | ні                 |                          |
 | silverjaw   | Silverjaw Golem   | Rare      | 1    | 4000               | 320000       | 190   | 1900   | 1.2       | 1.15   | ні                 |                          |
+| topaz       | Topaz Golem       | Epic      | 1    | 6000               | 750000       | 245   | 2450   | 1.25      | 1.15   | є (топазовий меч)  | 08.11.2026               |
 | geode       | Geode Golem       | Epic      | 1    | 8000               | 1600000      | 260   | 3600   | 1.1       | 1.2    | ні                 | танк                     |
 | amethyst    | Amethyst Golem    | Epic      | 1    | 15000              | 3600000      | 530   | 5300   | 1.45      | 1.15   | ні                 |                          |
 | sapphire    | Sapphire Golem    | Epic      | 1    | 25000              | 10000000     | 880   | 8800   | 1.3       | 1.2    | ні                 |                          |
+| emerald     | Emerald Golem     | Epic      | 1    | 35000              | 22000000     | 940   | 11000  | 1.2       | 1.2    | є (срібний меч)   | 08.11.2026               |
 | obsidian    | Obsidian Golem    | Legendary | 1    | 50000              | 50000000     | 1000  | 14000  | 1.1       | 1.35   | ні                 | танк                     |
+| moonstone   | Moonstone Golem   | Legendary | 1    | 75000              | 70000000     | 1600  | 18000  | 1.3       | 1.35   | є (місячна шабля) | 08.11.2026               |
 | magmaheart  | Magmaheart Golem  | Legendary | 3    | 100000             | 96000000     | 2300  | 23000  | 1.55      | 1.25   | ні                 |                          |
 | ruby        | Ruby Golem        | Legendary | 3    | 175000             | 400000000    | 2900  | 41000  | 1.3       | 1.4    | ні                 | танк                     |
 | frostforged | Frostforged Golem | Mythic    | 4    | 400000             | 1900000000   | 5000  | 50000  | 1.5       | 1.35   | ні                 |                          |

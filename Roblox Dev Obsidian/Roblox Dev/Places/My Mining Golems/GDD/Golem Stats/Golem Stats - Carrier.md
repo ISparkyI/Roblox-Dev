@@ -38,12 +38,16 @@ updated: 2026-10-25
 | lantern     | Lantern Golem     | Uncommon  | 1    | 500                | 22000        | 7         | 1.2       | 1.05   | ні                            |                    |
 | ironclad    | Ironclad Golem    | Rare      | 1    | 900                | 20000        | 9         | 1.05      | 1.15   | ні                            |                    |
 | quartzling  | Quartzling Golem  | Rare      | 1    | 1500               | 60000        | 11        | 1.4       | 0.9    | ні                            |                    |
+| lodestone   | Lodestone Golem   | Rare      | 1    | 2000               | 70000        | 14        | 1.3       | 1.1    | є (залізна скринька з магнітом) | 08.11.2026         |
 | tinker      | Tinker Golem      | Rare      | 1    | 2500               | 80000        | 17        | 1.25      | 1      | ні                            |                    |
 | silverjaw   | Silverjaw Golem   | Rare      | 1    | 4000               | 150000       | 25        | 1.2       | 1.15   | ні                            |                    |
+| topaz       | Topaz Golem       | Epic      | 1    | 6000               | 330000       | 32        | 1.25      | 1.15   | є (сланцева скриня з топазом) | 08.11.2026         |
 | geode       | Geode Golem       | Epic      | 1    | 8000               | 570000       | 40        | 1.15      | 1.2    | ні                            |                    |
 | amethyst    | Amethyst Golem    | Epic      | 1    | 15000              | 2300000      | 40        | 1.45      | 1.15   | ні                            |                    |
 | sapphire    | Sapphire Golem    | Epic      | 1    | 25000              | 5200000      | 60        | 1.3       | 1.2    | ні                            |                    |
+| emerald     | Emerald Golem     | Epic      | 1    | 35000              | 9000000      | 70        | 1.25      | 1.2    | є (скриня раджі)             | 08.11.2026         |
 | obsidian    | Obsidian Golem    | Legendary | 1    | 50000              | 16000000     | 80        | 1.15      | 1.35   | ні                            |                    |
+| moonstone   | Moonstone Golem   | Legendary | 1    | 75000              | 35000000     | 85        | 1.3       | 1.35   | є (нічна скриня)            | 08.11.2026         |
 | magmaheart  | Magmaheart Golem  | Legendary | 3    | 100000             | 64000000     | 90        | 1.55      | 1.25   | ні                            |                    |
 | ruby        | Ruby Golem        | Legendary | 3    | 175000             | 150000000    | 140       | 1.35      | 1.4    | ні                            |                    |
 | frostforged | Frostforged Golem | Mythic    | 4    | 400000             | 1100000000   | 140       | 1.5       | 1.35   | ні                            |                    |

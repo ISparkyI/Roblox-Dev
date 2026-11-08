@@ -9,7 +9,7 @@
 import sys; sys.path.insert(0, "/home/claude/tools")
 from golemgen import *
 
-g = Golem(dict(obs="#17141f", sheen="#3d3b56", glow="#1fe04a", light="#f1f5f8", dark="#1c2836", pink="#f2a0b4"))
+g = Golem(dict(obs="#17141f", sheen="#3d3b56", glow="#a855f7", light="#f1f5f8", dark="#1c2836", pink="#f2a0b4"))
 a, sub = g.add, g.sub
 def mir(n):
     for b in list(g.blocks[-n:]):

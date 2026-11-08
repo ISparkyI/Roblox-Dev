@@ -48,12 +48,16 @@ updated: 2026-10-25
 | lantern     | Lantern Golem     | Uncommon  | 1    | 500                | 29500        | 19    | 1.15      | 1.05   | є (Lantern Golem v1) | світиться (Neon)                                |
 | ironclad    | Ironclad Golem    | Rare      | 1    | 900                | 36000        | 25    | 1         | 1.15   | є (Ironclad Golem v1) | власний ящик-фортеця                         |
 | quartzling  | Quartzling Golem  | Rare      | 1    | 1500               | 75000        | 50    | 1.35      | 0.9    | є (Quartzling Golem v1) | ящик-жеода                               |
+| lodestone   | Lodestone Golem   | Rare      | 1    | 2000               | 95000        | 70    | 1.25      | 1.1    | є (Lodestone Golem v1) | голем-магніт, скринька з магнітом        |
 | tinker      | Tinker Golem      | Rare      | 1    | 2500               | 120000       | 90    | 1.2       | 1      | є (Tinker Golem v2) | скринька механіка                           |
 | silverjaw   | Silverjaw Golem   | Rare      | 1    | 4000               | 250000       | 200   | 1.15      | 1.15   | є (Silverjaw Golem v2) | ящик-паща                              |
+| topaz       | Topaz Golem       | Epic      | 1    | 6000               | 550000       | 255   | 1.2       | 1.15   | є (Topaz Golem v1) | огранений топаз, 2 деталі Neon            |
 | geode       | Geode Golem       | Epic      | 1    | 8000               | 1000000      | 310   | 1.1       | 1.2    | є (Geode Golem v1) | світні кристали (Neon)                       |
 | amethyst    | Amethyst Golem    | Epic      | 1    | 15000              | 3000000      | 550   | 1.4       | 1.15   | є (Amethyst Golem v1) | кристалічні крила (Neon)                  |
 | sapphire    | Sapphire Golem    | Epic      | 1    | 25000              | 7500000      | 920   | 1.25      | 1.2    | є (Sapphire Golem v2) | німб крутиться, самоцвіти (Neon)            |
+| emerald     | Emerald Golem     | Epic      | 1    | 35000              | 15000000     | 1050  | 1.2       | 1.2    | є (Emerald Golem v1) | смарагдовий раджа, світні кристали (Neon), меч-талвар |
 | obsidian    | Obsidian Golem    | Legendary | 1    | 50000              | 30000000     | 1200  | 1.1       | 1.35   | є (Obsidian Golem v1) | орбіта уламків, власні анімації (Neon)    |
+| moonstone   | Moonstone Golem   | Legendary | 1    | 75000              | 50000000     | 1800  | 1.25      | 1.35   | є (Moonstone Golem v1) | місячний вартовий, стандартні анімації, без обмеження мапи (Neon) |
 | magmaheart  | Magmaheart Golem  | Legendary | 3    | 100000             | 80000000     | 2400  | 1.5       | 1.25   | є (Magmaheart Golem v1) | серце пульсує, кратер, лава (Neon)       |
 | ruby        | Ruby Golem        | Legendary | 3    | 175000             | 250000000    | 3400  | 1.3       | 1.4    | є (Ruby Golem v1) | рапіра й мотика, шпилі «резонують» (Neon)    |
 | frostforged | Frostforged Golem | Mythic    | 4    | 400000             | 1500000000   | 5200  | 1.45      | 1.35   | є (Frostforged Golem v1) | шабля й льодоруб, сніг падає, горн пульсує (Neon) |
