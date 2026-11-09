@@ -52,6 +52,7 @@ updated: 2026-10-25
 | magmaheart  | Magmaheart Golem  | Legendary | 3    | 100000             | 96000000     | 2300  | 23000  | 1.55      | 1.25   | ні                 |                          |
 | ruby        | Ruby Golem        | Legendary | 3    | 175000             | 400000000    | 2900  | 41000  | 1.3       | 1.4    | ні                 | танк                     |
 | frostforged | Frostforged Golem | Mythic    | 4    | 400000             | 1900000000   | 5000  | 50000  | 1.5       | 1.35   | ні                 |                          |
+| prismatic   | Prismatic Golem   | Mythic    | 4    | 650000             | 4500000000   | 5700  | 68000  | 1.4       | 1.4    | є (діамантовий меч) | 08.11.2026              |
 | platinum    | Platinum Golem    | Mythic    | 4    | 1000000            | 9200000000   | 6400  | 90000  | 1.3       | 1.5    | ні                 | танк                     |
 | aurelian    | Aurelian Golem    | Divine    | 5    | 2500000            | 45000000000  | 8700  | 87000  | 1.75      | 1.45   | ні                 |                          |
 | astral      | Astral Golem      | Celestial | 6    | 10000000           | 270000000000 | 12000 | 120000 | 2.05      | 1.5    | ні                 |                          |

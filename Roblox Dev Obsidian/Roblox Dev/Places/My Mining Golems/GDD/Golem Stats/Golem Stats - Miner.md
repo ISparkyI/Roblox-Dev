@@ -61,6 +61,7 @@ updated: 2026-10-25
 | magmaheart  | Magmaheart Golem  | Legendary | 3    | 100000             | 80000000     | 2400  | 1.5       | 1.25   | є (Magmaheart Golem v1) | серце пульсує, кратер, лава (Neon)       |
 | ruby        | Ruby Golem        | Legendary | 3    | 175000             | 250000000    | 3400  | 1.3       | 1.4    | є (Ruby Golem v1) | рапіра й мотика, шпилі «резонують» (Neon)    |
 | frostforged | Frostforged Golem | Mythic    | 4    | 400000             | 1500000000   | 5200  | 1.45      | 1.35   | є (Frostforged Golem v1) | шабля й льодоруб, сніг падає, горн пульсує (Neon) |
+| prismatic   | Prismatic Golem   | Mythic    | 4    | 650000             | 3000000000   | 6300  | 1.4       | 1.4    | є (Prismatic Golem v1) | діамантова призма над головою крутиться, веселкові промені пульсують (Neon) |
 | platinum    | Platinum Golem    | Mythic    | 4    | 1000000            | 6000000000   | 7500  | 1.3       | 1.5    | є (Platinum Golem v1) | фламберг і бур, гіроскоп навхрест (Neon) |
 | aurelian    | Aurelian Golem    | Divine    | 5    | 2500000            | 40000000000  | 9000  | 1.7       | 1.45   | є (Aurelian Golem v1) | хопеш і сонцекайло, справжнє світло й іскри, сонячний диск (Neon) |
 | astral      | Astral Golem      | Celestial | 6    | 10000000           | 200000000000 | 12000 | 2         | 1.5    | є (Astral Golem v1) | кінцівки на магічних суглобах, кільце Сатурна, осколковий клинок (Neon) |

@@ -51,6 +51,7 @@ updated: 2026-10-25
 | magmaheart  | Magmaheart Golem  | Legendary | 3    | 100000             | 64000000     | 90        | 1.55      | 1.25   | ні                            |                    |
 | ruby        | Ruby Golem        | Legendary | 3    | 175000             | 150000000    | 140       | 1.35      | 1.4    | ні                            |                    |
 | frostforged | Frostforged Golem | Mythic    | 4    | 400000             | 1100000000   | 140       | 1.5       | 1.35   | ні                            |                    |
+| prismatic   | Prismatic Golem   | Mythic    | 4    | 650000             | 2000000000   | 175       | 1.45      | 1.4    | є (кімберлітова скриня з діамантами) | 08.11.2026  |
 | platinum    | Platinum Golem    | Mythic    | 4    | 1000000            | 3400000000   | 220       | 1.35      | 1.5    | ні                            |                    |
 | aurelian    | Aurelian Golem    | Divine    | 5    | 2500000            | 31000000000  | 190       | 1.75      | 1.45   | ні                            |                    |
 | astral      | Astral Golem      | Celestial | 6    | 10000000           | 130000000000 | 245       | 2.05      | 1.5    | ні                            |                    |

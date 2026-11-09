@@ -15,13 +15,13 @@ M.ATLAS = {
 	"rbxassetid://105676145455305", -- 1 (atlas_01.png)
 	"rbxassetid://99790006250613", -- 2 (atlas_02.png)
 	"rbxassetid://103283360724240", -- 3 (atlas_03.png)
-	"rbxassetid://71126654861771", -- 4 (atlas_04.png)
+	"rbxassetid://89735249722006", -- 4 (atlas_04.png; 09.11.2026: Obsidian перезапечено — фіолетове світло)
 	"rbxassetid://121204203624439", -- 5 (atlas_05.png)
 	"rbxassetid://125675470634856", -- 6 (atlas_06.png)
 	"rbxassetid://117426306132632", -- 7 (atlas_07.png)
 	"rbxassetid://105973206517541", -- 8 (atlas_08.png)
 	"rbxassetid://104790308612950", -- 9 (atlas_09.png)
-	"rbxassetid://113423155194117", -- 10 (atlas_10.png)
+	"rbxassetid://120750816851008", -- 10 (atlas_10.png; 09.11.2026: + Lodestone, Topaz, Emerald, Moonstone, Prismatic)
 	"rbxassetid://114480732424976", -- 11 (atlas_11.png, 05.11.2026: ексклюзиви Marketplace + бос GOBKING 760 × 580 з (0, 256))
 }
 
@@ -174,6 +174,22 @@ M.MAP = {
 	["Pot_Speed"] = { 9, 512, 768 },
 	["Pot_Money"] = { 9, 768, 768 },
 	["Pot_Strength"] = { 10, 0, 0 },
+	-- 09.11.2026: нові големи (запечено ItemViewport, як решту)
+	["GolemVP:lodestone:miner"] = { 10, 256, 0 },
+	["GolemVP:lodestone:carrier"] = { 10, 512, 0 },
+	["GolemVP:lodestone:warrior"] = { 10, 768, 0 },
+	["GolemVP:topaz:miner"] = { 10, 0, 256 },
+	["GolemVP:topaz:carrier"] = { 10, 256, 256 },
+	["GolemVP:topaz:warrior"] = { 10, 512, 256 },
+	["GolemVP:emerald:miner"] = { 10, 768, 256 },
+	["GolemVP:emerald:carrier"] = { 10, 0, 512 },
+	["GolemVP:emerald:warrior"] = { 10, 256, 512 },
+	["GolemVP:moonstone:miner"] = { 10, 512, 512 },
+	["GolemVP:moonstone:carrier"] = { 10, 768, 512 },
+	["GolemVP:moonstone:warrior"] = { 10, 0, 768 },
+	["GolemVP:prismatic:miner"] = { 10, 256, 768 },
+	["GolemVP:prismatic:carrier"] = { 10, 512, 768 },
+	["GolemVP:prismatic:warrior"] = { 10, 768, 768 },
 	-- 05.11.2026: ексклюзиви Marketplace (кожен — лише свій клас)
 	["GolemVP:cyborg:miner"] = { 11, 0, 0 },
 	["GolemVP:lampminer:carrier"] = { 11, 256, 0 },
