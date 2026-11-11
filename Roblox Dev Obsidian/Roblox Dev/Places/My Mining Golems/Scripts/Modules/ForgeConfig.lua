@@ -134,6 +134,9 @@ local nice = MultiCfg.round2 -- 2 значущі цифри (590M, 8.2T)
 Config.WAKE_FIXED = { [1] = 1000, [2] = 15e6, [3] = 5e9, [4] = 2.5e12, [5] = 5e14, [6] = 1e17 }
 Config.WAKE_MONEY_BASE = 5e9 / MultiCfg.priceMult(3)
 for s = 1, #Config.WAKE do Config.WAKE[s].money = Config.WAKE_FIXED[s] or nice(Config.WAKE_MONEY_BASE * MultiCfg.priceMult(s)) end
+-- 10.11.2026: гроші за пробудження Workshop прибрано на всіх мапах (лише руда) — гравці витрачають гроші на апгрейди
+for s = 1, #Config.WAKE do Config.WAKE[s].money = 0 end
+Config.WAKE_MONEY = 0
 if Config.curStage and Config.curStage > 1 then Config.WAKE_MONEY = Config.wakeFor(Config.curStage).money end
 -- економіка v2 (29.10.2026): місткість піддону — 10 рівнів ($300 → $20,000 на мапі 1, ×20 за мапу); було +$300 без межі
 Config.CAP_LEVELS = { 300, 500, 800, 1300, 2000, 3200, 5000, 8000, 12500, 20000 }
@@ -160,7 +163,7 @@ function Config.ophPrice(l: number, stage: number?): number return math.floor(at
 --   з мапи AUTO_MIN_STAGE і скидається на наступній мапі (секція Forge); геймпас — з мапи 1 і назавжди.
 --   Ціна (03.11.2026) = AUTO_PRICE_BASE × множник цін мапи (autoPrice; мапа 3 ≈ $6.8T). Було фіксовані $5M.
 --   Перемикач ON / OFF — цією ж карткою (Set_AutoWorkshop).
-Config.AUTO_MIN_STAGE = 3
+Config.AUTO_MIN_STAGE = 2 -- 09.11.2026: було 3 (картка Auto Workshop тепер з мапи 2)
 Config.AUTO_PRICE_BASE = 1666667 -- $5M / (старий множник мапи 3 = 3): те саме співвідношення до цін карток
 function Config.autoPrice(stage: number?): number return nice(Config.AUTO_PRICE_BASE * Config.priceMult(stage)) end
 Config.AUTO_PRICE = Config.autoPrice(Config.AUTO_MIN_STAGE) -- запасне (старий код)

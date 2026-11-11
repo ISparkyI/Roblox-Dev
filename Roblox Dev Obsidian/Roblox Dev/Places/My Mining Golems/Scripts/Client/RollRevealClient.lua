@@ -193,10 +193,41 @@ type Golem = { m: Model, base: number, foot: number }
 type Vis = { token: number, final: Golem?, live: { Golem }, seq: string? }
 local vis: { [Model]: Vis } = {}
 
+-- 10.11.2026: «глибоке обличчя» лише для міні-големів на підставці. На мінімальній графіці телефона Roblox відкидає
+-- надто дрібні/тонкі деталі, тож очі зникали. Деталі обличчя робимо товщими ВГЛИБ голови: передня грань на тому ж місці
+-- (нічого не виступає), а більший об'єм не дає їх відкинути. Кількість деталей та сама → FPS без змін.
+-- Правимо і саму деталь, і копію GolemData цієї моделі (аніматор бере з неї офсети/розміри).
+local FACE_DEEP = 1.2 -- од. моделі (0,6 стада при масштабі 1) — голова завглибшки ~4 од., обличчя на +Z≈2
+local FACE_PREFIX = { "EyeWhite", "Pupil", "EyeShine", "Brow", "Cheek", "Mouth", "Eye_" }
+local function isFacePart(n: string): boolean
+	for _, p in FACE_PREFIX do if n:sub(1, #p) == p then return true end end
+	return false
+end
+local function deepenFace(m: Model)
+	local gd = m:FindFirstChild("GolemData")
+	local ok, D = pcall(function() return gd and require(gd :: ModuleScript) end)
+	if not (ok and type(D) == "table" and type(D.blocks) == "table") then return end
+	for _, b in D.blocks do
+		if b.group or type(b.name) ~= "string" or not isFacePart(b.name) or not b.s then continue end
+		local part = m:FindFirstChild(b.name)
+		if not (part and part:IsA("BasePart")) then continue end
+		local rot = if b.cf then b.cf.Rotation else CFrame.Angles(0, 0, b.rz or 0)
+		local dir = rot.ZVector; if dir.Z < 0 then dir = -dir end -- «вперед» обличчя в моделі = +Z
+		local shift = -dir * (FACE_DEEP / 2)
+		b.s = b.s + Vector3.new(0, 0, FACE_DEEP)
+		if b.cf then b.cf = b.cf + shift elseif b.c then b.c = b.c + shift end
+		-- сама деталь (1 од. = 0,5 стада × масштаб моделі — build уже застосував Catalog.size); передня грань = локальна +Z
+		local st = FACE_DEEP * 0.5 * m:GetScale()
+		part.Size = part.Size + Vector3.new(0, 0, st)
+		part.CFrame = part.CFrame * CFrame.new(0, 0, -st / 2)
+	end
+end
+
 local function spawnGolem(kind: string, cls: string): Golem?
 	local m = GolemModel.build(kind, cls)
 	if not m then return nil end
 	m.Name = "RollGolem"
+	deepenFace(m)
 	for _, d in m:GetDescendants() do if d:IsA("BasePart") then d.CanQuery = false; d.CastShadow = true end end
 	m:ScaleTo(m:GetScale() * STAND_SCALE)
 	local g = { m = m, base = m:GetScale(), foot = GolemModel.footOffset(m) }

@@ -20,7 +20,7 @@ local sfxChunk = c:sub(iSfx, iSfxEnd + 4)
 local chunkA = c:sub(iA, iStep - 1):gsub("\"BossCamShake\"", "\"TrailerBossShake\"")
 local stepChunk = c:sub(iStep, iVfx - 1)
 local n1
-stepChunk, n1 = stepChunk:gsub("local bm = workspace:FindFirstChild%(\"Boss Map\"%)\n%s*local m = bm and bm:FindFirstChild%(\"Boss\"%)", "local m = A.target")
+stepChunk, n1 = stepChunk:gsub("local bm = bossMap%(%)\n%s*local m = bm and bm:FindFirstChild%(\"Boss\"%)", "local m = A.target") -- 11.11.2026: BossArenaClient тепер бере арену через bossMap()
 assert(n1 == 1, "animStep patch failed")
 local chunkB, n2 = c:sub(iVfx, iCrys - 1):gsub("local function nearBoss%(r: number%): boolean", "local function nearBoss(r: number): boolean\n\tdo return A.target ~= nil end")
 assert(n2 == 1, "nearBoss patch failed")

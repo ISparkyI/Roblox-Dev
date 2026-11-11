@@ -4,8 +4,8 @@
 -- ProductId ступеня — в ReplicatedStorage/Shared/MonetizationConfig.MoneyTierProducts; якщо ще немає (0) — лише підказка в Output.
 -- Саме нарахування робить сервер (MonetizationService.ProcessReceipt).
 -- Звук успішної покупки (UISounds "purchase" = SoundService/PurchaseSuccess) — лише коли покупку справді видано:
---   x2 / x4 Money — атрибут DonateTier зрос (сервер обробив чек) після вікна покупки (завантаження даних
---   при вході не звучить); геймпаси — PromptGamePassPurchaseFinished з purchased = true.
+--   10.11.2026: усі Developer Products (x2 Money, паки, тікети, скіпи, стенд Robux…) — RemoteEvent Remotes/PurchaseDone,
+--   який сервер шле після видачі чека (MonetizationService.ProcessReceipt); геймпаси — PromptGamePassPurchaseFinished з purchased = true.
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -17,19 +17,11 @@ local UISounds = require(RS:WaitForChild("Shared"):WaitForChild("UISounds"))
 local player = Players.LocalPlayer
 
 -- ===== звук успішної покупки =====
-local PENDING_FOR = 600 -- с: скільки чекаємо видачі після вікна покупки
-local pendingUntil = 0
-local lastTier = (player:GetAttribute("DonateTier") :: number?) or 0
-player:GetAttributeChangedSignal("DonateTier"):Connect(function()
-	local t = (player:GetAttribute("DonateTier") :: number?) or 0
-	if t > lastTier and os.clock() < pendingUntil then
-		pendingUntil = 0
-		UISounds.play("purchase")
+task.spawn(function()
+	local ev = RS:WaitForChild("Remotes"):WaitForChild("PurchaseDone", 60)
+	if ev and ev:IsA("RemoteEvent") then
+		ev.OnClientEvent:Connect(function() UISounds.play("purchase", 0.3) end)
 	end
-	lastTier = t
-end)
-MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, _productId, isPurchased)
-	if userId == player.UserId and not isPurchased then pendingUntil = 0 end -- скасував — звуку не буде
 end)
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(p, _passId, purchased)
 	if p == player and purchased then UISounds.play("purchase") end
@@ -48,6 +40,5 @@ hudEvent.Event:Connect(function(key)
 			tier, MultiCfg.donateMult(tier), MultiCfg.nextDonatePrice(tier - 1), tier))
 		return
 	end
-	pendingUntil = os.clock() + PENDING_FOR
 	MarketplaceService:PromptProductPurchase(player, id)
 end)

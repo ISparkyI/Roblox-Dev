@@ -1,800 +1,827 @@
 {
   "nodePositions": [
     {
-      "id": "Claude - правила безпеки.md",
-      "x": -794.2999877929688,
-      "y": -734.4000244140625
-    },
-    {
-      "id": "Roblox.md",
-      "x": -722.2999877929688,
-      "y": -740.2000122070312
-    },
-    {
-      "id": "Claude - як працювати з базою.md",
-      "x": -672.7999877929688,
-      "y": -932.4000244140625
-    },
-    {
-      "id": "Style/GDD - Будівництво карт.md",
-      "x": -829.0999755859375,
-      "y": -1116
-    },
-    {
-      "id": "Style/GDD - Блики іконок.md",
-      "x": -1022.61962890625,
-      "y": -1111.1319580078125
-    },
-    {
-      "id": "Style/Style.md",
-      "x": -830,
-      "y": -990
-    },
-    {
-      "id": "Style/GDD - Блоковий стиль моделей.md",
-      "x": -907,
-      "y": -1103.5999755859375
-    },
-    {
-      "id": "Style/GDD - 2D іконки.md",
-      "x": -929.2000122070312,
-      "y": -1069
-    },
-    {
-      "id": "Places/Places.md",
-      "x": -487.79998779296875,
-      "y": -369
-    },
-    {
-      "id": "Places/_Place Template/_Place Template.md",
-      "x": -795.4000244140625,
-      "y": -374
-    },
-    {
-      "id": "Places/_Place Template/3D Models/_Place Template - 3D Models.md",
-      "x": -875.4000244140625,
-      "y": -375.3999938964844
-    },
-    {
-      "id": "Places/_Place Template/Scripts/_Place Template - Scripts.md",
-      "x": -1022,
-      "y": -353.70001220703125
-    },
-    {
-      "id": "Places/_Place Template/Scripts/Server/_Place Template - Server.md",
-      "x": -1127.699951171875,
-      "y": -301.70001220703125
-    },
-    {
-      "id": "Places/_Place Template/Scripts/Modules/_Place Template - Modules.md",
-      "x": -1141.699951171875,
-      "y": -343.1000061035156
-    },
-    {
-      "id": "Places/_Place Template/Scripts/Client/_Place Template - Client.md",
-      "x": -1135.800048828125,
-      "y": -386.79998779296875
-    },
-    {
-      "id": "Places/_Place Template/2D/_Place Template - 2D.md",
-      "x": -841.4000244140625,
-      "y": -439.5
-    },
-    {
-      "id": "Places/_Place Template/GDD/_Place Template - GDD.md",
-      "x": -769.5,
-      "y": -449.70001220703125
-    },
-    {
       "id": "Places/My Mining Golems/My Mining Golems.md",
-      "x": -92.69999694824219,
-      "y": -40.29999923706055
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/My Mining Golems - 3D Models.md",
-      "x": 215.5,
-      "y": 396.70001220703125
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Bars/Bars.md",
-      "x": 80.5999984741211,
-      "y": 505.3999938964844
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Bars/Iron Bar/Iron Bar.md",
-      "x": -18,
-      "y": 554.4000244140625
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Bars/Copper Bar/Copper Bar.md",
-      "x": 7,
-      "y": 591.2999877929688
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Golems.md",
-      "x": 657.9000244140625,
-      "y": 609.5
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Golem Reference GDD.md",
-      "x": 734.2000122070312,
-      "y": 812
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Stone Golem/Stone Golem.md",
-      "x": 476.3999938964844,
-      "y": 727.4000244140625
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Amethyst Golem/Amethyst Golem.md",
-      "x": 872.0999755859375,
-      "y": 578.2999877929688
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Snow Golem/Snow Golem.md",
-      "x": 744.0999755859375,
-      "y": 410.8999938964844
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Coral Golem/Coral Golem.md",
-      "x": 442.6000061035156,
-      "y": 587.5
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Wooden Golem/Wooden Golem.md",
-      "x": 860.2000122070312,
-      "y": 686.4000244140625
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Phantom Golem/Phantom Golem.md",
-      "x": 534.5,
-      "y": 431.70001220703125
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Magmaheart Golem/Magmaheart Golem.md",
-      "x": 874.2999877929688,
-      "y": 614.7999877929688
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Flint Golem/Flint Golem.md",
-      "x": 556.7000122070312,
-      "y": 800.7999877929688
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Chrono Golem/Chrono Golem.md",
-      "x": 600.5999755859375,
-      "y": 400.70001220703125
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Geode Golem/Geode Golem.md",
-      "x": 525.9000244140625,
-      "y": 781
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Frostforged Golem/Frostforged Golem.md",
-      "x": 590.4000244140625,
-      "y": 815.0999755859375
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Aurelian Golem/Aurelian Golem.md",
-      "x": 767.2999877929688,
-      "y": 796.2999877929688
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Platinum Golem/Platinum Golem.md",
-      "x": 699,
-      "y": 822
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Tinker Golem/Tinker Golem.md",
-      "x": 797.2000122070312,
-      "y": 775.2000122070312
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Cloud Golem/Cloud Golem.md",
-      "x": 673.2000122070312,
-      "y": 393.6000061035156
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Silverjaw Golem/Silverjaw Golem.md",
-      "x": 776.4000244140625,
-      "y": 428.29998779296875
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Mossback Golem/Mossback Golem.md",
-      "x": 498.79998779296875,
-      "y": 756.2999877929688
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Storm Golem/Storm Golem.md",
-      "x": 566.2000122070312,
-      "y": 413.3999938964844
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Clay Golem/Clay Golem.md",
-      "x": 844.2999877929688,
-      "y": 719.5
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Quartzling Golem/Quartzling Golem.md",
-      "x": 870.2999877929688,
-      "y": 651.2000122070312
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Lantern Golem/Lantern Golem.md",
-      "x": 459.1000061035156,
-      "y": 695.0999755859375
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Astral Golem/Astral Golem.md",
-      "x": 805.2000122070312,
-      "y": 450.8999938964844
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Gravel Golem/Gravel Golem.md",
-      "x": 849.5,
-      "y": 508.8999938964844
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Sapphire Golem/Sapphire Golem.md",
-      "x": 829.7999877929688,
-      "y": 478
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Honey Golem/Honey Golem.md",
-      "x": 709.4000244140625,
-      "y": 399.29998779296875
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Rustbolt Golem/Rustbolt Golem.md",
-      "x": 662.5,
-      "y": 825.9000244140625
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Granite Golem/Granite Golem.md",
-      "x": 863.7999877929688,
-      "y": 542.5999755859375
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Ruby Golem/Ruby Golem.md",
-      "x": 441.8999938964844,
-      "y": 624.0999755859375
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Ironclad Golem/Ironclad Golem.md",
-      "x": 447.5,
-      "y": 660.2999877929688
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Obsidian Golem/Obsidian Golem.md",
-      "x": 823.0999755859375,
-      "y": 749.2999877929688
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Copperhead Golem/Copperhead Golem.md",
-      "x": 626,
-      "y": 823.5999755859375
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Golems/Jade Golem/Jade Golem.md",
-      "x": 506.29998779296875,
-      "y": 455
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Ores/Ores.md",
-      "x": 85.69999694824219,
-      "y": 605.5
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Ores/Coal Ore/Coal Ore.md",
-      "x": -10.800000190734863,
-      "y": 689.7999877929688
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Ores/Copper Ore/Copper Ore.md",
-      "x": 50.20000076293945,
-      "y": 727.4000244140625
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Ores/Iron Ore/Iron Ore.md",
-      "x": 10.800000190734863,
-      "y": 725
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Exclusive Case/Exclusive Case.md",
-      "x": 324.5,
-      "y": 455.6000061035156
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Instruments/Instruments.md",
-      "x": 183.60000610351562,
-      "y": 618.7000122070312
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Instruments/Item Prefabs/Item Prefabs.md",
-      "x": 202,
-      "y": 731.2000122070312
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Instruments/Carrier Crate/Carrier Crate.md",
-      "x": 136.10000610351562,
-      "y": 722.2999877929688
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Instruments/Pickaxe/Pickaxe.md",
-      "x": 164.3000030517578,
-      "y": 752.5999755859375
-    },
-    {
-      "id": "Places/My Mining Golems/Scripts/My Mining Golems - Scripts.md",
-      "x": -79.5999984741211,
-      "y": -239
-    },
-    {
-      "id": "Places/My Mining Golems/Scripts/Server/My Mining Golems - Server.md",
-      "x": -5,
-      "y": -300.79998779296875
-    },
-    {
-      "id": "Places/My Mining Golems/Scripts/Modules/MutationAura.md",
-      "x": -62.599998474121094,
-      "y": -526.0999755859375
-    },
-    {
-      "id": "Places/My Mining Golems/Scripts/Modules/My Mining Golems - Modules.md",
-      "x": -69.5,
-      "y": -409.1000061035156
-    },
-    {
-      "id": "Places/My Mining Golems/Scripts/Modules/GolemCatalog.md",
-      "x": -111.80000305175781,
-      "y": -513.7000122070312
-    },
-    {
-      "id": "Places/My Mining Golems/Scripts/Client/My Mining Golems - Client.md",
-      "x": -17.42867660522461,
-      "y": -199.5237579345703
-    },
-    {
-      "id": "Places/My Mining Golems/Locations/Locations.md",
-      "x": -252.1999969482422,
-      "y": -131.60000610351562
-    },
-    {
-      "id": "Places/My Mining Golems/Locations/Main Cave/Main Cave.md",
-      "x": -304.8999938964844,
-      "y": -213.6999969482422
-    },
-    {
-      "id": "Places/My Mining Golems/Locations/Golem Cave/Golem Cave.md",
-      "x": -347,
-      "y": -185.1999969482422
-    },
-    {
-      "id": "Places/My Mining Golems/Locations/Niche Stage 1/Niche Stage 1.md",
-      "x": -350.29998779296875,
-      "y": -138.10000610351562
-    },
-    {
-      "id": "Places/My Mining Golems/Interactive Objects/Interactive Objects.md",
-      "x": -159.8000030517578,
-      "y": 113.80000305175781
-    },
-    {
-      "id": "Places/My Mining Golems/Interactive Objects/Roll Upgrades Screen/Roll Upgrades Screen.md",
-      "x": -79.9000015258789,
-      "y": 115.19999694824219
-    },
-    {
-      "id": "Places/My Mining Golems/Interactive Objects/Plots/Plots.md",
-      "x": -239.8000030517578,
-      "y": 112.30000305175781
-    },
-    {
-      "id": "Places/My Mining Golems/Interactive Objects/Sell Shop/Sell Shop.md",
-      "x": -161.3000030517578,
-      "y": 193.6999969482422
-    },
-    {
-      "id": "Places/My Mining Golems/Interactive Objects/Roll Lever/Roll Lever.md",
-      "x": -215.39999389648438,
-      "y": 56.20000076293945
-    },
-    {
-      "id": "Places/My Mining Golems/Interactive Objects/Forge/Forge.md",
-      "x": -170.8000030517578,
-      "y": 250.39999389648438
-    },
-    {
-      "id": "Places/My Mining Golems/Interactive Objects/Forge/Source/forge_window_SPEC.md",
-      "x": -169.89999389648438,
-      "y": 340.6000061035156
-    },
-    {
-      "id": "Places/My Mining Golems/Interactive Objects/Cave Entrance/Cave Entrance.md",
-      "x": -104.30000305175781,
-      "y": 171.39999389648438
-    },
-    {
-      "id": "Places/My Mining Golems/Interactive Objects/Roll Station/Roll Station.md",
-      "x": -217.39999389648438,
-      "y": 169.3000030517578
-    },
-    {
-      "id": "Places/My Mining Golems/2D/My Mining Golems - 2D.md",
-      "x": -363.20001220703125,
-      "y": 52.400001525878906
-    },
-    {
-      "id": "Places/My Mining Golems/2D/Main HUD/Main HUD.md",
-      "x": -310.29998779296875,
-      "y": 112.4000015258789
-    },
-    {
-      "id": "Places/My Mining Golems/2D/Feedback Codes Updates/Feedback Codes Updates.md",
-      "x": -368.20001220703125,
-      "y": 132.1999969482422
-    },
-    {
-      "id": "Places/My Mining Golems/2D/Loading Screen/Loading Screen.md",
-      "x": -416.20001220703125,
-      "y": -7.599999904632568
-    },
-    {
-      "id": "Places/My Mining Golems/2D/Index/Index.md",
-      "x": -443.1000061035156,
-      "y": 47.400001525878906
-    },
-    {
-      "id": "Places/My Mining Golems/2D/Money HUD/Money HUD.md",
-      "x": -423.20001220703125,
-      "y": 105.30000305175781
-    },
-    {
-      "id": "Places/My Mining Golems/2D/Inventory/Inventory.md",
-      "x": -358.20001220703125,
-      "y": -27.5
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Currencies and Rebirths.md",
-      "x": 368.1000061035156,
-      "y": -45.70000076293945
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Admin Panel.md",
-      "x": 182.6999969482422,
-      "y": -318.29998779296875
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Daily Rewards.md",
-      "x": 334.3999938964844,
-      "y": -31.600000381469727
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Mutation Machine.md",
-      "x": 157.1999969482422,
-      "y": -292.1000061035156
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Plots.md",
-      "x": 413.6000061035156,
-      "y": -298.1000061035156
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/Plan - Weekly Reward Golems.md",
-      "x": 473.5722961425781,
-      "y": 179.00611877441406
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Quests and Index.md",
-      "x": 422.3999938964844,
-      "y": -94.0999984741211
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Ores and Bars.md",
-      "x": 453.20001220703125,
-      "y": -197.60000610351562
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Interface.md",
-      "x": 386.79998779296875,
-      "y": -323.1000061035156
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Data Saving.md",
-      "x": 320.3999938964844,
-      "y": -352.70001220703125
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Leaderboards.md",
-      "x": 122.30000305175781,
-      "y": -189.89999389648438
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Monetization.md",
-      "x": 138.10000610351562,
-      "y": -260.8999938964844
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Map Prefabs.md",
-      "x": 434.1000061035156,
-      "y": -267.79998779296875
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Golems.md",
-      "x": 194.1999969482422,
-      "y": -53.900001525878906
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Maps.md",
-      "x": 450.70001220703125,
-      "y": -161.10000610351562
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Marketplace.md",
-      "x": 398,
-      "y": -66.9000015258789
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Boss Events.md",
-      "x": 166.5,
-      "y": -77.80000305175781
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Diamonds Shop.md",
-      "x": 126.19999694824219,
-      "y": -226.3000030517578
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/GDD - Roll.md",
-      "x": 213.39999389648438,
-      "y": -338.29998779296875
+      "x": 0,
+      "y": 0
     },
     {
       "id": "Places/My Mining Golems/GDD/My Mining Golems - GDD.md",
-      "x": 287.79998779296875,
-      "y": -190.39999389648438
+      "x": 88.5,
+      "y": -502.1
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Admin Panel.md",
+      "x": 39.9,
+      "y": -381.7
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Boss Events.md",
+      "x": 10.4,
+      "y": -398.4
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Currencies and Rebirths.md",
+      "x": -13.8,
+      "y": -422.2
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Daily Rewards.md",
+      "x": -31,
+      "y": -451.4
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Data Saving.md",
+      "x": -40.1,
+      "y": -484
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Diamonds Shop.md",
+      "x": -40.4,
+      "y": -518
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Economy.md",
-      "x": 447.6000061035156,
-      "y": -233.8000030517578
+      "x": -31.9,
+      "y": -550.8
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Golem UID.md",
-      "x": 247.6999969482422,
-      "y": -351
+      "x": -15.2,
+      "y": -580.3
     },
     {
-      "id": "Places/My Mining Golems/GDD/Plan - Exclusive Case Golems.md",
-      "x": 346.01971435546875,
-      "y": 256.110107421875
+      "id": "Places/My Mining Golems/GDD/GDD - Golems.md",
+      "x": 8.6,
+      "y": -604.5
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Interface.md",
+      "x": 37.8,
+      "y": -621.7
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Leaderboards.md",
+      "x": 70.5,
+      "y": -630.7
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Map Prefabs.md",
+      "x": 104.4,
+      "y": -631
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Maps.md",
+      "x": 137.2,
+      "y": -622.5
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Marketplace.md",
+      "x": 166.7,
+      "y": -605.8
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Monetization.md",
+      "x": 190.9,
+      "y": -582.1
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Mutation Machine.md",
+      "x": 208.1,
+      "y": -552.9
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Ores and Bars.md",
+      "x": 217.1,
+      "y": -520.2
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Plots.md",
+      "x": 217.4,
+      "y": -486.3
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Quests and Index.md",
+      "x": 209,
+      "y": -453.5
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/GDD - Roll.md",
+      "x": 192.3,
+      "y": -424
     },
     {
       "id": "Places/My Mining Golems/GDD/GDD - Studio Scene.md",
-      "x": 284,
-      "y": -355.8999938964844
+      "x": 168.5,
+      "y": -399.8
     },
     {
       "id": "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Carrier.md",
-      "x": 355.29998779296875,
-      "y": -341.6000061035156
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Warrior.md",
-      "x": 440.29998779296875,
-      "y": -126
+      "x": 139.3,
+      "y": -382.6
     },
     {
       "id": "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Miner.md",
-      "x": 298.29998779296875,
-      "y": -25.299999237060547
+      "x": 106.6,
+      "y": -373.5
     },
     {
-      "id": "Golems/Кам'яний голем/Claude outputs/INSTRUCTIONS.md",
-      "x": -666.4000244140625,
-      "y": -800.0999755859375
-    },
-    {
-      "id": "Scripts/Scripts.md",
-      "x": -920.9000244140625,
-      "y": -779.4000244140625
-    },
-    {
-      "id": "Scripts/Number Format/Number Format.md",
-      "x": -1042.9000244140625,
-      "y": -786.5999755859375
-    },
-    {
-      "id": "Scripts/UI Hover/UI Hover.md",
-      "x": -1038.199951171875,
-      "y": -835
-    },
-    {
-      "id": "OREKO/OSIRIUS.md",
-      "x": -782.7999877929688,
-      "y": -862.4000244140625
-    },
-    {
-      "id": "OREKO/Loading Screen/OSIRIUS Loading Screen.md",
-      "x": -838.8729248046875,
-      "y": -925.8021240234375
-    },
-    {
-      "id": "Effects/Effects.md",
-      "x": -858.2000122070312,
-      "y": -792.2000122070312
-    },
-    {
-      "id": "Effects/Hit Chips/Hit Chips.md",
-      "x": -962.5,
-      "y": -845.0999755859375
-    },
-    {
-      "id": "Plugins/Resurface.md",
-      "x": -929.9000244140625,
-      "y": -920.2999877929688
-    },
-    {
-      "id": "Plugins/Plugins.md",
-      "x": -837,
-      "y": -842.7999877929688
-    },
-    {
-      "id": "<Class>",
-      "x": -843.5,
-      "y": -310.1
-    },
-    {
-      "id": "<Place> - 3D Models",
-      "x": -771.9,
-      "y": -297.6
-    },
-    {
-      "id": "<Place> - GDD",
-      "x": -707.9,
-      "y": -989.8
-    },
-    {
-      "id": "Mushroom Golem",
-      "x": 636.6,
-      "y": 394.1
-    },
-    {
-      "id": "OREKO Loading Screen",
-      "x": -846.4,
-      "y": -946.1
-    },
-    {
-      "id": "Батько",
-      "x": -666.4,
-      "y": -1055.9
-    },
-    {
-      "id": "вікі-посилання",
-      "x": -620.5,
-      "y": -1036.3
-    },
-    {
-      "id": "показати картку голема",
-      "x": 304.7,
-      "y": 534.1
-    },
-    {
-      "id": "Mushroom Golem.md",
-      "x": 632.85791015625,
-      "y": 394.7328796386719
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/Plan - Maps 3-7 and Next Update.md",
-      "x": 288.210693359375,
-      "y": 153.1883087158203
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/Plan - Map 3 Crystal Depths Prefab.md",
-      "x": 333.7756042480469,
-      "y": 132.68603515625
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/Map Style Guide.md",
-      "x": 375.92315673828125,
-      "y": 109.90575408935547
+      "id": "Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Warrior.md",
+      "x": 72.7,
+      "y": -373.2
     },
     {
       "id": "Places/My Mining Golems/GDD/Plans.md",
-      "x": 665.48095703125,
-      "y": 15.522466659545898
+      "x": 408.2,
+      "y": -190.3
     },
     {
-      "id": "Places/My Mining Golems/Locations/Niche Stage 2/Niche Stage 2.md",
-      "x": -594.2598876953125,
-      "y": 209.51084899902344
-    },
-    {
-      "id": "Places/My Mining Golems/Locations/Niche Stage 3/Niche Stage 3.md",
-      "x": -292.1651611328125,
-      "y": 336.04095458984375
+      "id": "Places/My Mining Golems/GDD/Map Style Guide.md",
+      "x": 339.6,
+      "y": -174.5
     },
     {
       "id": "Places/My Mining Golems/GDD/Plan - Boss Fight System.md",
-      "x": 733.5789091594752,
-      "y": -87.08473643016873
+      "x": 340.1,
+      "y": -208.2
     },
     {
-      "id": "Places/My Mining Golems/GDD/Plan - Map 4 Magma Caverns Prefab.md",
-      "x": 2295.8955078125,
-      "y": -1053.3463134765625
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/Plan - Map 6 Void Core Prefab.md",
-      "x": 2268.968017578125,
-      "y": -1994.8482666015625
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/Plan - Map 5 Frozen Abyss Prefab.md",
-      "x": 2247.794189453125,
-      "y": -1510.0133056640625
-    },
-    {
-      "id": "Places/My Mining Golems/Locations/Niche Stage 5/Niche Stage 5.md",
-      "x": 1797.641357421875,
-      "y": -2332.117431640625
-    },
-    {
-      "id": "Places/My Mining Golems/Locations/Niche Stage 6/Niche Stage 6.md",
-      "x": 1326.2965087890625,
-      "y": -2181.791015625
-    },
-    {
-      "id": "Places/My Mining Golems/Locations/Niche Stage 4/Niche Stage 4.md",
-      "x": 1957.7762451171875,
-      "y": -1890.191162109375
-    },
-    {
-      "id": "Style/GDD - Промпт для генерації іконок.md",
-      "x": -1983.5321044921875,
-      "y": -2190.80615234375
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/Plan - Localization.md",
-      "x": 2192.660400390625,
-      "y": 229.60336303710938
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/Plan - Tutorial.md",
-      "x": 2195.203857421875,
-      "y": -86.63580322265625
-    },
-    {
-      "id": "Places/My Mining Golems/GDD/Plan - Market Exclusive Golems.md",
-      "x": 2049.2421875,
-      "y": -308.7977600097656
+      "id": "Places/My Mining Golems/GDD/Plan - Exclusive Case Golems.md",
+      "x": 356.2,
+      "y": -237.7
     },
     {
       "id": "Places/My Mining Golems/GDD/Plan - Golem Gifting.md",
-      "x": 2031.4560546875,
-      "y": -526.9031372070312
+      "x": 384.2,
+      "y": -256.5
     },
     {
-      "id": "Places/My Mining Golems/Scripts/Trailer/README.md",
-      "x": -124.12358093261719,
-      "y": -1278.8717041015625
+      "id": "Places/My Mining Golems/GDD/Plan - Localization.md",
+      "x": 417.7,
+      "y": -260
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Map 3 Crystal Depths Prefab.md",
+      "x": 449,
+      "y": -247.6
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Map 4 Magma Caverns Prefab.md",
+      "x": 470.9,
+      "y": -222.1
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Map 5 Frozen Abyss Prefab.md",
+      "x": 478.5,
+      "y": -189.3
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Map 6 Void Core Prefab.md",
+      "x": 470,
+      "y": -156.7
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Maps 3-7 and Next Update.md",
+      "x": 447.3,
+      "y": -131.8
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Market Exclusive Golems.md",
+      "x": 415.6,
+      "y": -120.4
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Tutorial.md",
+      "x": 382.2,
+      "y": -124.9
+    },
+    {
+      "id": "Places/My Mining Golems/GDD/Plan - Weekly Reward Golems.md",
+      "x": 354.8,
+      "y": -144.5
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Locations.md",
+      "x": 422.9,
+      "y": 153.9
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Golem Cave/Golem Cave.md",
+      "x": 363.5,
+      "y": 116.8
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Main Cave/Main Cave.md",
+      "x": 407.1,
+      "y": 85.7
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 1/Niche Stage 1.md",
+      "x": 460,
+      "y": 94.5
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 2/Niche Stage 2.md",
+      "x": 491.1,
+      "y": 138.2
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 3/Niche Stage 3.md",
+      "x": 482.2,
+      "y": 191
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 4/Niche Stage 4.md",
+      "x": 438.6,
+      "y": 222.1
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 5/Niche Stage 5.md",
+      "x": 385.8,
+      "y": 213.3
+    },
+    {
+      "id": "Places/My Mining Golems/Locations/Niche Stage 6/Niche Stage 6.md",
+      "x": 354.7,
+      "y": 169.7
+    },
+    {
+      "id": "Places/My Mining Golems/Interactive Objects/Interactive Objects.md",
+      "x": 225,
+      "y": 389.7
+    },
+    {
+      "id": "Places/My Mining Golems/Interactive Objects/Cave Entrance/Cave Entrance.md",
+      "x": 203.4,
+      "y": 323.1
+    },
+    {
+      "id": "Places/My Mining Golems/Interactive Objects/Forge/Forge.md",
+      "x": 263.6,
+      "y": 331.3
+    },
+    {
+      "id": "Places/My Mining Golems/Interactive Objects/Plots/Plots.md",
+      "x": 294.7,
+      "y": 383.4
+    },
+    {
+      "id": "Places/My Mining Golems/Interactive Objects/Roll Lever/Roll Lever.md",
+      "x": 273.4,
+      "y": 440.3
+    },
+    {
+      "id": "Places/My Mining Golems/Interactive Objects/Roll Station/Roll Station.md",
+      "x": 215.6,
+      "y": 459.1
+    },
+    {
+      "id": "Places/My Mining Golems/Interactive Objects/Roll Upgrades Screen/Roll Upgrades Screen.md",
+      "x": 164.9,
+      "y": 425.6
+    },
+    {
+      "id": "Places/My Mining Golems/Interactive Objects/Sell Shop/Sell Shop.md",
+      "x": 159.5,
+      "y": 365.1
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Golems.md",
+      "x": -182.6,
+      "y": 562.1
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Amethyst Golem/Amethyst Golem.md",
+      "x": -77.1,
+      "y": 379.3
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Astral Golem/Astral Golem.md",
+      "x": -49.2,
+      "y": 398.6
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Aurelian Golem/Aurelian Golem.md",
+      "x": -24.7,
+      "y": 422.2
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Chrono Golem/Chrono Golem.md",
+      "x": -4.3,
+      "y": 449.3
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Clay Golem/Clay Golem.md",
+      "x": 11.5,
+      "y": 479.4
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Cloud Golem/Cloud Golem.md",
+      "x": 22.3,
+      "y": 511.6
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Copperhead Golem/Copperhead Golem.md",
+      "x": 27.7,
+      "y": 545.1
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Coral Golem/Coral Golem.md",
+      "x": 27.7,
+      "y": 579.1
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Emerald Golem/Emerald Golem.md",
+      "x": 22.3,
+      "y": 612.6
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Flint Golem/Flint Golem.md",
+      "x": 11.5,
+      "y": 644.8
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Frostforged Golem/Frostforged Golem.md",
+      "x": -4.3,
+      "y": 674.9
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Geode Golem/Geode Golem.md",
+      "x": -24.7,
+      "y": 702.1
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Granite Golem/Granite Golem.md",
+      "x": -49.2,
+      "y": 725.6
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Gravel Golem/Gravel Golem.md",
+      "x": -77.1,
+      "y": 744.9
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Honey Golem/Honey Golem.md",
+      "x": -107.8,
+      "y": 759.4
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Ironclad Golem/Ironclad Golem.md",
+      "x": -140.4,
+      "y": 768.9
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Jade Golem/Jade Golem.md",
+      "x": -174.1,
+      "y": 773
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Lantern Golem/Lantern Golem.md",
+      "x": -208.1,
+      "y": 771.6
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Lodestone Golem/Lodestone Golem.md",
+      "x": -241.4,
+      "y": 764.8
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Magmaheart Golem/Magmaheart Golem.md",
+      "x": -273.1,
+      "y": 752.8
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Moonstone Golem/Moonstone Golem.md",
+      "x": -302.5,
+      "y": 735.8
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Mossback Golem/Mossback Golem.md",
+      "x": -328.8,
+      "y": 714.3
+    },
+    {
+      "id": "Mushroom Golem.md",
+      "x": -351.4,
+      "y": 688.9
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Obsidian Golem/Obsidian Golem.md",
+      "x": -369.5,
+      "y": 660.2
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Phantom Golem/Phantom Golem.md",
+      "x": -382.8,
+      "y": 628.9
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Platinum Golem/Platinum Golem.md",
+      "x": -390.9,
+      "y": 596
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Prismatic Golem/Prismatic Golem.md",
+      "x": -393.7,
+      "y": 562.1
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Quartzling Golem/Quartzling Golem.md",
+      "x": -390.9,
+      "y": 528.3
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Ruby Golem/Ruby Golem.md",
+      "x": -382.8,
+      "y": 495.3
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Rustbolt Golem/Rustbolt Golem.md",
+      "x": -369.5,
+      "y": 464
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Sapphire Golem/Sapphire Golem.md",
+      "x": -351.4,
+      "y": 435.3
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Silverjaw Golem/Silverjaw Golem.md",
+      "x": -328.8,
+      "y": 409.9
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Snow Golem/Snow Golem.md",
+      "x": -302.5,
+      "y": 388.4
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Stone Golem/Stone Golem.md",
+      "x": -273.1,
+      "y": 371.4
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Storm Golem/Storm Golem.md",
+      "x": -241.4,
+      "y": 359.4
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Tinker Golem/Tinker Golem.md",
+      "x": -208.1,
+      "y": 352.6
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Topaz Golem/Topaz Golem.md",
+      "x": -174.1,
+      "y": 351.2
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Wooden Golem/Wooden Golem.md",
+      "x": -140.4,
+      "y": 355.3
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Golems/Golem Reference GDD.md",
+      "x": -107.8,
+      "y": 364.8
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/My Mining Golems - 3D Models.md",
+      "x": -447,
+      "y": 145.2
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Bars/Bars.md",
+      "x": -478.2,
+      "y": 292
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Bars/Copper Bar/Copper Bar.md",
+      "x": -437.5,
+      "y": 317.4
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Bars/Iron Bar/Iron Bar.md",
+      "x": -525.7,
+      "y": 298.6
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Ores/Ores.md",
+      "x": -565.2,
+      "y": 237.6
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Ores/Coal Ore/Coal Ore.md",
+      "x": -550.4,
+      "y": 283.2
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Ores/Copper Ore/Copper Ore.md",
+      "x": -603,
+      "y": 267.1
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Ores/Iron Ore/Iron Ore.md",
+      "x": -605.9,
+      "y": 212.2
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Instruments/Instruments.md",
+      "x": -596.9,
+      "y": 140
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Instruments/Carrier Crate/Carrier Crate.md",
+      "x": -614.9,
+      "y": 184.5
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Instruments/Item Prefabs/Item Prefabs.md",
+      "x": -644.9,
+      "y": 138.3
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Instruments/Pickaxe/Pickaxe.md",
+      "x": -611.7,
+      "y": 94.4
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Exclusive Case/Exclusive Case.md",
+      "x": -558.5,
+      "y": 44.9
+    },
+    {
+      "id": "Places/My Mining Golems/2D/My Mining Golems - 2D.md",
+      "x": -422.9,
+      "y": -153.9
+    },
+    {
+      "id": "Places/My Mining Golems/2D/Feedback Codes Updates/Feedback Codes Updates.md",
+      "x": -363.5,
+      "y": -116.8
+    },
+    {
+      "id": "Places/My Mining Golems/2D/Index/Index.md",
+      "x": -425.3,
+      "y": -84
+    },
+    {
+      "id": "Places/My Mining Golems/2D/Inventory/Inventory.md",
+      "x": -484.7,
+      "y": -121
+    },
+    {
+      "id": "Places/My Mining Golems/2D/Loading Screen/Loading Screen.md",
+      "x": -482.2,
+      "y": -191
+    },
+    {
+      "id": "Places/My Mining Golems/2D/Main HUD/Main HUD.md",
+      "x": -420.4,
+      "y": -223.9
+    },
+    {
+      "id": "Places/My Mining Golems/2D/Money HUD/Money HUD.md",
+      "x": -361.1,
+      "y": -186.8
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/My Mining Golems - Scripts.md",
+      "x": -277,
+      "y": -354.6
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Modules/GolemCatalog.md",
+      "x": -246.4,
+      "y": -291.7
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Modules/MutationAura.md",
+      "x": -299.8,
+      "y": -288.4
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Client/My Mining Golems - Client.md",
+      "x": -340,
+      "y": -323.9
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Modules/My Mining Golems - Modules.md",
+      "x": -343.2,
+      "y": -377.4
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Server/My Mining Golems - Server.md",
+      "x": -307.7,
+      "y": -417.5
     },
     {
       "id": "Places/My Mining Golems/Scripts/Trailer/My Mining Golems - Trailer.md",
-      "x": -249.3345489501953,
-      "y": -2302.96728515625
+      "x": -254.3,
+      "y": -420.8
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Trailer/Trailer v3 - зміни 11.11.2026.md",
+      "x": -214.1,
+      "y": -385.3
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Trailer/Trailer v3 - як відновити.md",
+      "x": -210.9,
+      "y": -331.8
+    },
+    {
+      "id": "Places/My Mining Golems/Interactive Objects/Forge/Source/forge_window_SPEC.md",
+      "x": 288.4,
+      "y": 293.7
+    },
+    {
+      "id": "Places/Places.md",
+      "x": -620,
+      "y": -560
+    },
+    {
+      "id": "Roblox.md",
+      "x": -1150,
+      "y": -1000
+    },
+    {
+      "id": "Places/_Place Template/_Place Template.md",
+      "x": -1000,
+      "y": -430
+    },
+    {
+      "id": "Places/_Place Template/2D/_Place Template - 2D.md",
+      "x": -1000,
+      "y": -350
+    },
+    {
+      "id": "Places/_Place Template/3D Models/_Place Template - 3D Models.md",
+      "x": -1051.4,
+      "y": -368.7
+    },
+    {
+      "id": "Places/_Place Template/Scripts/Client/_Place Template - Client.md",
+      "x": -1078.8,
+      "y": -416.1
+    },
+    {
+      "id": "Places/_Place Template/GDD/_Place Template - GDD.md",
+      "x": -1069.3,
+      "y": -470
+    },
+    {
+      "id": "Places/_Place Template/Scripts/Modules/_Place Template - Modules.md",
+      "x": -1027.4,
+      "y": -505.2
+    },
+    {
+      "id": "Places/_Place Template/Scripts/_Place Template - Scripts.md",
+      "x": -972.6,
+      "y": -505.2
+    },
+    {
+      "id": "Places/_Place Template/Scripts/Server/_Place Template - Server.md",
+      "x": -930.7,
+      "y": -470
+    },
+    {
+      "id": "<Class>",
+      "x": -921.2,
+      "y": -416.1
+    },
+    {
+      "id": "<Place> - 3D Models",
+      "x": -948.6,
+      "y": -368.7
+    },
+    {
+      "id": "Style/Style.md",
+      "x": -920.2,
+      "y": -1192.8
+    },
+    {
+      "id": "Style/GDD - 2D іконки.md",
+      "x": -989.1,
+      "y": -1180.7
+    },
+    {
+      "id": "Style/GDD - Блики іконок.md",
+      "x": -953,
+      "y": -1254.6
+    },
+    {
+      "id": "Style/GDD - Блоковий стиль моделей.md",
+      "x": -871.6,
+      "y": -1243.2
+    },
+    {
+      "id": "Style/GDD - Будівництво карт.md",
+      "x": -857.3,
+      "y": -1162.2
+    },
+    {
+      "id": "Style/GDD - Промпт для генерації іконок.md",
+      "x": -929.9,
+      "y": -1123.5
+    },
+    {
+      "id": "Scripts/Scripts.md",
+      "x": -1085.1,
+      "y": -1292.9
+    },
+    {
+      "id": "Scripts/Number Format/Number Format.md",
+      "x": -1118.5,
+      "y": -1336.5
+    },
+    {
+      "id": "Scripts/UI Hover/UI Hover.md",
+      "x": -1036.3,
+      "y": -1318.3
+    },
+    {
+      "id": "Effects/Effects.md",
+      "x": -1276.8,
+      "y": -1271.9
+    },
+    {
+      "id": "Effects/Hit Chips/Hit Chips.md",
+      "x": -1329.9,
+      "y": -1286.1
+    },
+    {
+      "id": "Plugins/Plugins.md",
+      "x": -1416.1,
+      "y": -1138.5
+    },
+    {
+      "id": "Plugins/Resurface.md",
+      "x": -1466.9,
+      "y": -1117.5
+    },
+    {
+      "id": "OREKO/OSIRIUS.md",
+      "x": -1445.4,
+      "y": -947.9
+    },
+    {
+      "id": "OREKO Loading Screen",
+      "x": -1472.9,
+      "y": -900.3
+    },
+    {
+      "id": "OREKO/Loading Screen/OSIRIUS Loading Screen.md",
+      "x": -1487.6,
+      "y": -983.3
+    },
+    {
+      "id": "Claude - як працювати з базою.md",
+      "x": -1352.7,
+      "y": -778.8
+    },
+    {
+      "id": "<Place> - GDD",
+      "x": -1345.5,
+      "y": -724.3
+    },
+    {
+      "id": "Батько",
+      "x": -1389.8,
+      "y": -738.3
+    },
+    {
+      "id": "вікі-посилання",
+      "x": -1407.6,
+      "y": -781.2
+    },
+    {
+      "id": "Claude - правила безпеки.md",
+      "x": -1176.1,
+      "y": -701.1
+    },
+    {
+      "id": "Golems/Кам'яний голем/Claude outputs/INSTRUCTIONS.md",
+      "x": -988.8,
+      "y": -747
+    },
+    {
+      "id": "Mushroom Golem",
+      "x": -442.9,
+      "y": 617.4
+    },
+    {
+      "id": "показати картку голема",
+      "x": -447.2,
+      "y": 534.3
+    },
+    {
+      "id": "Places/My Mining Golems/Scripts/Trailer/README.md",
+      "x": -425.7,
+      "y": 453.9
     }
   ],
-  "pinnedNodes": [
-    "Places/My Mining Golems/2D/Loading Screen/Loading Screen.md",
-    "Places/My Mining Golems/GDD/GDD - Data Saving.md",
-    "Places/My Mining Golems/GDD/GDD - Roll.md",
-    "Places/My Mining Golems/GDD/GDD - Golem UID.md",
-    "Places/My Mining Golems/GDD/GDD - Admin Panel.md",
-    "Places/My Mining Golems/3D Models/Golems/Clay Golem/Clay Golem.md",
-    "Mushroom Golem.md"
-  ],
+  "pinnedNodes": [],
   "snapshots": [],
   "globalOptions": {},
   "workspacesGraphData": {},

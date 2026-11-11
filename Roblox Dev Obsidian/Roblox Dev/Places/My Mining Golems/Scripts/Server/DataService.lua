@@ -74,6 +74,9 @@ local ATTRS = {
 	{ name = "TutorialDone", default = nil, scope = "global" },
 	{ name = "WsHintDone", default = nil, scope = "global" }, -- 08.11.2026: проміжна підказка «Workshop» вже була (WorkshopHintClient, один раз)
 	{ name = "CrateHintDone", default = nil, scope = "global" }, -- 08.11.2026: проміжна підказка «Collect» вже була (CrateHintClient, один раз)
+	{ name = "BossTutDone", default = nil, scope = "global" }, -- 10.11.2026: навчання «бос» вже було (BossTutorialService, один раз)
+	{ name = "BossTutWant", default = nil, scope = "global" },
+	{ name = "CaveTutDone", default = nil, scope = "global" }, -- 10.11.2026: навчання Cave (MAP 2 без голема в печері) вже було (CaveStandService) -- 10.11.2026: основне навчання пройдено до кінця (не SKIP) — буде навчання «бос»
 	{ name = "TutStep", default = nil, scope = "global" },
 	-- щоденні нагороди (DailyService, 29.10.2026)
 	{ name = "DailySeed", default = nil, scope = "global" },
@@ -109,7 +112,10 @@ end
 
 -- ===== сховище (DataStore або пам'ять у Studio) =====
 local store = nil
-local useMemory = false
+-- 09.11.2026: атрибут StudioFresh = true на цьому скрипті — у Studio кожен Play як новий гравець: дані лише в пам'яті,
+--   DataStore PlayerData_Studio не читається й не перезаписується. false / немає — як раніше (збереження між тестами).
+local useMemory = RunService:IsStudio() and script:GetAttribute("StudioFresh") == true
+if useMemory then warn("DataService: StudioFresh — тест як новий гравець (дані не зберігаються)") end
 local memory: { [string]: string } = {}
 
 local function update(key: string, fn)

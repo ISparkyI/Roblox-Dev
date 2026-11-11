@@ -67,6 +67,7 @@ local function finish(p: Player, skipped: boolean)
 	if not skipped then
 		p:SetAttribute("Diamonds", (tonumber(p:GetAttribute("Diamonds")) or 0) + TutorialService.REWARD)
 		p:SetAttribute("TutReward", os.clock()) -- клієнт: фінальна анімація (ставимо ДО TutorialDone)
+		p:SetAttribute("BossTutWant", true) -- 10.11.2026: пройшов до кінця — через 2 хв навчання «бос» (BossTutorialService); SKIP — без нього
 	end
 	p:SetAttribute("TutStep", nil)
 	p:SetAttribute("TutorialDone", true)

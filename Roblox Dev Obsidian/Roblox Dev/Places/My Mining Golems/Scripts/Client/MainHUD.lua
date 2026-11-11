@@ -430,10 +430,11 @@ do
 	if player:GetAttribute("DonateTier") ~= nil then onTier() else setX2(0) end
 
 	-- Rebirth: іконка 112, підпис 25
-	button(root, { x = 105, y = 272, w = 98, h = 98 + math.round(22 * 0.2), ih = 98, icon = "rebirth", label = "Rebirth", fs = 22, key = "Rebirth", right = true, tile = "pink" })
+	-- 10.11.2026: правий ряд дзеркально до лівого (Shop / Index / Quests): іконка 90, відступ 11 від краю, y 242 / 350 / 458
+	button(root, { x = 101, y = 242, w = 90, h = 90 + math.round(23 * 0.2), ih = 90, icon = "rebirth", label = "Rebirth", fs = 23, key = "Rebirth", right = true, tile = "pink" })
 	-- 07.11.2026: Backpack (рюкзак, HUDButton "Inventory") — такого ж розміру, як Rebirth, одразу під ним; на маркеті схований.
 	--   Ім'я Btn_Inventory (BossArenaClient ховає його на арені й «кидає» в нього нагороди).
-	local bagHolder = button(root, { x = 105, y = 388, w = 98, h = 98 + math.round(22 * 0.2), ih = 98, icon = "inventory", label = "Backpack", fs = 22, key = "Inventory", right = true, tile = "yellow" })
+	local bagHolder = button(root, { x = 101, y = 350, w = 90, h = 90 + math.round(23 * 0.2), ih = 90, icon = "inventory", label = "Backpack", fs = 23, key = "Inventory", right = true, tile = "yellow" })
 	local function bagVis()
 		local okH, Hub = pcall(function() return require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("HubConfig")) end)
 		bagHolder.Visible = not (okH and Hub.isMarket())
@@ -443,7 +444,8 @@ do
 	task.delay(3, bagVis)
 	-- Daily (29.10.2026): 3/5 розміру Rebirth (59), по центру; 07.11.2026 — під Backpack; вікно — StarterPlayerScripts/DailyWindow (HUDButton "Daily").
 	-- Червона крапка «!» — сьогоднішню нагороду ще не забрано (DailyLast < ReplicatedStorage.DailyDay).
-	local dailyHolder = button(root, { x = 86, y = 504, w = 59, h = 59 + math.round(13 * 0.2), ih = 59, icon = "daily", label = "Daily", fs = 13, key = "Daily", right = true, tile = "orange" })
+	-- 10.11.2026: Daily лишається маленькою (59), по центру колонки; верх — з тим самим відступом під Backpack, що й між Rebirth і Backpack (y 458)
+	local dailyHolder = button(root, { x = 86, y = 458, w = 59, h = 59 + math.round(13 * 0.2), ih = 59, icon = "daily", label = "Daily", fs = 13, key = "Daily", right = true, tile = "orange" })
 	do
 		local dot = frame(dailyHolder, { Name = "Ready", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.fromOffset(20, 20),
 			BackgroundTransparency = 0, BackgroundColor3 = C("ff3b4e"), ZIndex = 8, Visible = false })
@@ -481,6 +483,36 @@ do
 	bossVis()
 	game:GetService("ReplicatedStorage"):GetAttributeChangedSignal("MarketMode"):Connect(bossVis)
 	task.delay(3, bossVis)
+	-- 10.11.2026: JOIN біля NEXT BOSS — лише під час реєстрації (Workspace.BossPhase "reg"): відкриває вікно реєстрації
+	--   (BossLobbyWindow) будь-де, без телепорту (UIEvents/BossLobbyOpen). Ім'я Btn_BossJoin — для навчання «бос» (TutorialClient).
+	do
+		local JW, JH = 88, 42
+		local joinHold = frame(timer, { Name = "Btn_BossJoin", Position = UDim2.fromOffset(4, 27 - JH / 2), Size = UDim2.fromOffset(JW, JH),
+			BackgroundTransparency = 1, Visible = false, ZIndex = 3 })
+		local jsa = StyleA.new(joinHold, { size = Vector2.new(JW, JH), position = Vector2.zero, anchor = Vector2.zero, color = "green",
+			text = "JOIN", textSize = 24, clickable = true, zIndex = 3 })
+		StyleA.bind(jsa, { debounce = 0.3, onClick = function()
+			-- 10.11.2026: навчання «бос» (крок "join") — одразу на навчальну арену (BossTutorialService), без вікна реєстрації
+			if player:GetAttribute("BossTut") == "join" then
+				local ba = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+				ba = ba and ba:FindFirstChild("BossAction")
+				if ba then ba:FireServer("TutJoin") end
+				return
+			end
+			local ev = uiEvents:FindFirstChild("BossLobbyOpen")
+			if ev then ev:Fire() end
+		end })
+		local function joinVis()
+			-- 10.11.2026: у навчанні «бос» (BossTut "join") JOIN видно завжди, незалежно від таймера боса
+			joinHold.Visible = timer.Visible and (workspace:GetAttribute("BossPhase") == "reg" or player:GetAttribute("BossTut") == "join")
+				and player:GetAttribute("InBossArena") ~= true
+		end
+		workspace:GetAttributeChangedSignal("BossPhase"):Connect(joinVis)
+		player:GetAttributeChangedSignal("BossTut"):Connect(joinVis)
+		player:GetAttributeChangedSignal("InBossArena"):Connect(joinVis)
+		timer:GetPropertyChangedSignal("Visible"):Connect(joinVis)
+		joinVis()
+	end
 
 	task.spawn(function()
 		while gui.Parent do

@@ -36,8 +36,8 @@ Config.Passes = {
 		desc = "Mined ore and bars sell by themselves. Pick what to sell on the Auto Sell card. Works on every map!" },
 	AutoWorkshop = { id = 2062258340, robux = 149, order = 4.7, name = "Auto Workshop", icon = "rbxassetid://102635405420682", tone = "ffb15c",
 		desc = "The Workshop takes ore from your inventory, smelts it and puts the bars back. Works on every map!" },
-	AutoCollect = { id = 2058077602, robux = 249, order = 5, name = "Auto Collect", icon = "rbxassetid://91341404610533", tone = "c08cff",
-		desc = "Ore from plot crates goes straight to your inventory. No more COLLECT!" },
+	AutoCollect = { id = 2058077602, robux = 79, order = 5, name = "Auto Collect", icon = "rbxassetid://81190850894357", tone = "c08cff", -- 09.11.2026: 249 → 79 (як у Creator Hub)
+		desc = "Ore goes straight to your inventory, instantly. Works on every map!" },
 	-- +1 підставка ролу у 2 етапи (Point6, Point7): спершу RollStand1, потім RollStand2 (requires); у магазині — одна картка «1/2 → 2/2»
 	RollStand1 = { id = 2059511549, robux = 49, order = 6, name = "+1 Roll Stand", icon = "rbxassetid://106904376756862", tone = "c9ced5",
 		desc = "One more golem every roll. Two stages!", stages = { "RollStand1", "RollStand2" } },
@@ -84,6 +84,8 @@ Config.Products = {
 	MegaPack = { id = 3728676846, robux = 399, once = true, tickets = 500, potions = 10, golem = "obsidian", cls = "miner", mut = 4, noTickets = true },
 	-- Extra Storage: +50 слотів големів (атрибут ExtraSlots), багаторазовий
 	ExtraStorage = { id = 3723334088, robux = 49, slots = 50, noTickets = true },
+	-- 10.11.2026: x2 CLAIM у вікні WELCOME BACK (OfflineWindow) — офлайн-дохід удвічі, за кожен раз (Developer Product, лише Robux)
+	OfflineX2 = { id = 3730201606, robux = 19, offlineX2 = true, noTickets = true },
 	-- Time Skips (SHOP → TIME SKIPS, багаторазові): одразу Money = дохід за хвилину (IncomeService.Rate) × skipMin.
 	--   Чим довший скіп, тим дешевша хвилина (бонус — skipBonus). Ціни — пропозиція.
 	TS5 = { id = 3723334727, robux = 15, skipMin = 5 },
@@ -223,6 +225,8 @@ Config.GiftDevProducts = {
 	[3721929046] = 3723411227, [3721929008] = 3723411234, [3721928868] = 3723411245, [3721928838] = 3723411256, [3721928802] = 3723411266,
 	[3721928644] = 3723411274, [3721928373] = 3723411283, [3721928351] = 3723411294, [3721928105] = 3723411300, [3721927921] = 3723411314,
 	[3721927655] = 3723411322,
+	-- 10.11.2026: Mega Pack, +3 Market Slots, Exclusive Case x1 / x5 («Gift: …», та сама ціна, іконка з подарунком, Managed pricing вимкнено)
+	[3728676846] = 3730263233, [3727988663] = 3730263293, [3727960215] = 3730263440, [3727960291] = 3730263531,
 }
 -- gift-продукт → productId товару (nil — не подарунок)
 local giftReal = nil

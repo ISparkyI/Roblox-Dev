@@ -2,7 +2,9 @@
 -- CaveStandsClient — кнопки стендів у печері-сховищі (клієнт): напис, колір і сірий стан кнопки StandPrompt.
 -- Де: StarterPlayer/StarterPlayerScripts/CaveStandsClient (LocalScript). Сервер — ServerScriptService/CaveStandService.
 -- Кнопку малює CustomPrompts (вигляд COLLECT, клавіша E, затиск 0,5 с з тінню-заповненням); тут лише атрибути:
---   UIText («BUY $1,000», «LOCKED», «PLACE», «TAKE», «INVENTORY FULL», «NO MODEL YET», «ON PLOT», «HOLD A GOLEM»), UIColor,
+--   UIText («BUY $1,000», «LOCKED», «PLACE», «OPEN»), UIColor,
+--   10.11.2026 v2: на стенді 3 големи (майнер, воїн, носій). Куплений стенд: у руці голем, чий клас вільний, — «PLACE» (E ставить),
+--   інакше — «OPEN» (E відкриває вікно стенда — StarterPlayerScripts/CaveStandUI). Атрибути стенда G_miner / G_warrior / G_carrier.
 --   UIDisabled (сіра: затиск не працює — HoldDuration дуже великий, кнопка хитається з глухим звуком).
 -- Кнопки бачить лише власник печери, поки він у ній (атрибут InCave); гість — нічого (лише дивиться на стенди й големів).
 -- Стан стенда — атрибути моделі стенда (Bought, GolemId, SlotIndex, Price) і печери (StandsBought, OwnerUserId);
@@ -50,23 +52,18 @@ local function stateOf(prompt: ProximityPrompt): (boolean, string, string, boole
 		local ok = ((player:GetAttribute("Money") :: number?) or 0) >= price
 		return true, "BUY " .. NF.money(price), ok and "green" or "gray", not ok
 	end
-	if stand:GetAttribute("GolemId") ~= nil then
-		if Items.invGolemCount(decode("InvGolems", {}), decode("PlotPlaced", {})) >= Items.maxGolems(player) then return true, "INVENTORY FULL", "gray", true end
-		return true, "TAKE", "blue", false
-	end
 	local held = player:GetAttribute("InvHeld")
 	if type(held) == "string" and string.sub(held, 1, 6) == "Golem_" then
 		local id = tonumber(string.sub(held, 7))
 		local g = nil
 		for _, e in decode("InvGolems", {}) do if type(e) == "table" and e.id == id then g = e end end
 		local def = g and Catalog.get(g.kind)
-		if not def then return true, "HOLD A GOLEM", "gray", true end
-		if table.find(decode("PlotPlaced", {}), id) then return true, "ON PLOT", "gray", true end
-		if not def.model then return true, "NO MODEL YET", "gray", true end
-		if def.exclusive then return true, "EXCLUSIVE", "gray", true end -- ексклюзиви в печеру не ставляться (їх і так не втратити)
-		return true, "PLACE", "green", false
+		-- голем з моделлю, не ексклюзив, і його клас на стенді вільний — E ставить одразу
+		if def and def.model and not def.exclusive and stand:GetAttribute("G_" .. Catalog.cls(g.cls)) == nil then
+			return true, "PLACE", "green", false
+		end
 	end
-	return true, "HOLD A GOLEM", "gray", true
+	return true, "OPEN", "blue", false
 end
 
 local function apply(prompt: ProximityPrompt)

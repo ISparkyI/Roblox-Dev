@@ -637,19 +637,23 @@ local function passToggle(order: number, key: string, title: string, sub: string
 	local r = row(order, title, sub)
 	local b = makeGroupButton(r, CW - TG_W - 16, (ROW_H - TG_H) / 2 - 2, TG_W, TG_H, { name = "Toggle", shadowDy = 5, color = "green", text = "", textSize = 24, z = 5 })
 	local pp = passPrice(b, key)
+	-- 09.11.2026: Auto Collect також купується карткою на табло плоту (PlotConfig.autoCollectOwned)
+	local PlotCfgT = key == "AutoCollect" and require(Shared:WaitForChild("PlotConfig")) or nil
+	local function owned() return player:GetAttribute("Pass_" .. key) == true or (PlotCfgT ~= nil and PlotCfgT.autoCollectOwned(player)) end
 	local function refresh()
-		if player:GetAttribute("Pass_" .. key) ~= true then pp.show(true); return end
+		if not owned() then pp.show(true); return end
 		pp.show(false)
 		local on = val(key)
 		b:setColor(on and "green" or "red"); b:setText(on and "ON" or "OFF")
 	end
 	b.onClick = function()
-		if player:GetAttribute("Pass_" .. key) ~= true then pp.buy(); return end
+		if not owned() then pp.buy(); return end
 		send(key, not val(key)); refresh()
 	end
 	refresh()
 	refreshers[key] = refresh
 	player:GetAttributeChangedSignal("Pass_" .. key):Connect(refresh)
+	if PlotCfgT then player:GetAttributeChangedSignal("PlotLv"):Connect(refresh) end
 end
 passToggle(7, "AutoCollect", "AUTO COLLECT", "Crates empty into your inventory by themselves")
 passToggle(8, "FastRoll", "FAST ROLL", "Faster lever and rolls")

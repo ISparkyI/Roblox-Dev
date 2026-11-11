@@ -20,16 +20,21 @@ local indCol = ind and ind.Color
 local flash  = ind and ind:FindFirstChild("Flash")
 local sparks = hinge:FindFirstChild("Sparks", true)
 local pulled = lever:FindFirstChild("Pulled")
-local gear   = model:FindFirstChild("Gear")
-local hub    = gear and gear:FindFirstChild("GearHub")
+-- 11.11.2026: шестерень може бути кілька (новий пульт — дві) — крутяться всі
+local hubs = {}
+for _, g in model:GetChildren() do
+	local h = g.Name == "Gear" and g:FindFirstChild("GearHub")
+	if h then table.insert(hubs, { part = h, rest = h.CFrame }) end
+end
 local rest   = hinge.CFrame -- палиця відхилена від гравця; +кут = верх палиці до гравця
-local hubRest = hub and hub.CFrame
 
 local function at(deg) return rest * CFrame.Angles(math.rad(deg), 0, 0) end
 local function step(deg, t, style, dir, gearDeg)
 	local tw = TS:Create(hinge, TweenInfo.new(t, style, dir), {CFrame = at(deg)})
 	tw:Play()
-	if hub and gearDeg then TS:Create(hub, TweenInfo.new(t, style, dir), {CFrame = hubRest * CFrame.Angles(math.rad(gearDeg), 0, 0)}):Play() end
+	if gearDeg then
+		for _, h in hubs do TS:Create(h.part, TweenInfo.new(t, style, dir), {CFrame = h.rest * CFrame.Angles(math.rad(gearDeg), 0, 0)}):Play() end
+	end
 	tw.Completed:Wait()
 end
 

@@ -431,6 +431,8 @@ function StyleA.bind(obj, opts)
 		scaleTo(obj, 1, 0.1, Enum.EasingStyle.Quad)
 	end))
 	table.insert(conns, btn.Activated:Connect(function()
+		-- 11.11.2026: відпустили палець після свайпу ряду карток — це не клік
+		if os.clock() < (StyleA.swipeUntil or 0) then return end
 		if canClick() then
 			if opts.tap ~= false then StyleA.tap() end -- tap = false: у кнопки свій звук (покупка тощо)
 			obj.scale.Scale = 0.92

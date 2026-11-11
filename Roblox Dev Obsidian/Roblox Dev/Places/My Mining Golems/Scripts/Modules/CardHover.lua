@@ -128,11 +128,13 @@ function CardHover.attach(holder: GuiObject, hit: GuiObject?, enabled: (() -> bo
 	end
 	local conns = {
 		target.MouseEnter:Connect(function(x, _)
+			if UIS:GetLastInputType() == Enum.UserInputType.Touch then return end -- 11.11.2026: на телефоні дотик не «наводить» (картка смикалась на старті свайпу)
 			local on = enabled == nil or enabled()
 			if on and not st.hover then playHover() end
 			st.hover = on; aim(x); wake(st)
 		end),
 		target.MouseMoved:Connect(function(x, _)
+			if UIS:GetLastInputType() == Enum.UserInputType.Touch then return end -- 11.11.2026: на телефоні дотик не «наводить» (картка смикалась на старті свайпу)
 			local on = enabled == nil or enabled()
 			if on and not st.hover then playHover() end
 			st.hover = on; aim(x); wake(st)

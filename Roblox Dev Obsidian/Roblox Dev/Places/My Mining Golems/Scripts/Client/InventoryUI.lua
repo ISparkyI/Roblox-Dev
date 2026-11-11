@@ -331,7 +331,7 @@ local function makeSlot(parent, x, y, S, mini)
 	-- голем у сітці: зелений підпис сили («2 dmg» / «2 ore») — по центру НАД слотом, поза рамкою (не перекриває голема й лаймову рамку вибору);
 	-- зі значком хотбара / галочкою справа — центрується лівіше них. Слова мутації в слоті немає (26.10.2026)
 	local dmgTxt = textAt(card, P, P - 13, S, 12, "", C("7dff5a"), 2, { TextXAlignment = Enum.TextXAlignment.Center, FontFace = XBOLD, ZIndex = 5, Visible = false })
-	local keyNum = mini and textAt(card, P + 6, P + 13, 30, 15, "", C("c9ced4"), 2.2, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6 }) or nil
+	local keyNum = mini and textAt(card, P + 6, P + 14, 30, 18, "", C("ffffff"), 1.6, { TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 6 }) or nil -- 09.11.2026: було 15 / 2.2 — на малих екранах цифра розмивалась у товстій обводці
 	local ring = frame(card, P - 1, P - 1, S + 2, S + 2, nil, { BackgroundTransparency = 1, ZIndex = 7, Visible = false })
 	local ringStroke = stroke(ring, C("c8ff6a"), 4)
 	local lockImg = new("ImageLabel", { BackgroundTransparency = 1, Image = Items.ICONS.lock_inv or Items.ICONS.lock, ScaleType = Enum.ScaleType.Fit, ZIndex = 8, Visible = false,
@@ -821,7 +821,7 @@ end
 local function visibleItems()
 	-- предмет у слоті хотбара в сітці інвентаря не показується (v27): повертається, коли його прибрали з хотбара
 	local t = {}
-	for _, it in tabItems(tab) do if not tableFind(hotbar, it.key) then table.insert(t, it) end end
+	for _, it in tabItems(tab) do if Action.view or not tableFind(hotbar, it.key) then table.insert(t, it) end end -- 07.11.2026: перегляд з адмінки — у сітці все, разом із хотбаром
 	if tab ~= "golems" then return t end
 	local f, cases = {}, {}
 	for _, it in t do
@@ -947,7 +947,7 @@ local paint, paintEndAt = nil, -1 -- вибір перетягуванням у 
 local hitMap = {} -- Hit-кнопка слота сітки → слот
 local beginPaint -- нижче
 local function unitsPerPx() local a = gvp.AbsoluteSize.Y return a > 0 and gh / a or 1 end
-local function beginDrag(inp, thumb) if isPress(inp) then drag = { y = inp.Position.Y, s = gscroll, moved = false, thumb = thumb } end end
+local function beginDrag(inp, thumb) if isPress(inp) then drag = { y = inp.Position.Y, s = gscroll, moved = false, thumb = thumb, inp = inp } end end
 local function wheel(inp) if inp.UserInputType == Enum.UserInputType.MouseWheel and gmax() > 0 then setG(gscroll - inp.Position.Z * 70) end end
 slotIsDragging = function() return (drag ~= nil and drag.moved) or os.clock() - dragEndAt < 0.15 or paint ~= nil or os.clock() - paintEndAt < 0.3 end
 gvp.InputBegan:Connect(function(inp) if not (drag and drag.slot) then beginDrag(inp, false) end end) -- не затирати натиск на слот (перенесення в хотбар)
@@ -996,7 +996,19 @@ local function gridSlot(i: number)
 		s = makeSlot(gstrip, 0, 0, GS, false)
 		s.lazyVP = gridVP
 		-- у режимах — вибір перетягуванням (сітка не гортається), інакше — гортання сітки перетягуванням
-		s.onPress = function(inp) if mode then beginPaint(s, inp) else beginDrag(inp, false); if drag then drag.slot = s end end end
+		s.onPress = function(inp) if mode then beginPaint(s, inp) else beginDrag(inp, false); if drag then drag.slot = s; drag.key0 = s.item and s.item.key end end
+			-- 09.11.2026: дотик — коротке утримання (HOLD_PICK с) без руху одразу бере предмет під палець (як миша на ПК);
+			-- провів пальцем раніше — це гортання сітки. hitMap.__hold ставить блок GridDrag (нижче).
+			if not mode and drag and drag.slot == s and inp.UserInputType == Enum.UserInputType.Touch then
+				local d = drag
+				task.delay(0.15, function()
+					local st = inp.UserInputState
+					if drag == d and not d.moved and st ~= Enum.UserInputState.End and st ~= Enum.UserInputState.Cancel and hitMap.__hold then
+						hitMap.__hold(d, Vector2.new(inp.Position.X, inp.Position.Y))
+					end
+				end)
+			end
+		end
 		hitMap[s.hit] = s
 		s.hit.InputChanged:Connect(wheel)
 		s.onClick = function() if s.item then slotClick(s) end end
@@ -1734,7 +1746,7 @@ end, false, Enum.ContextActionPriority.High.Value + 100, Enum.KeyCode.Backquote)
 -- вікно перемикається на вкладку предмета (голем — Golems, руда / злитки — Ores / Bars, зілля — Potions) і виділяє його.
 -- Відпустив поза вікном — слот повертається на місце. Звичайний клік (без руху) — як і раніше, взяти / прибрати з рук.
 task.spawn(function() -- окрема функція: у головній уже ~200 локальних (ліміт регістрів)
-	local dragGui = new("ScreenGui", { Name = "HotbarDrag", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 30 }, playerGui)
+	local dragGui = new("ScreenGui", { Name = "HotbarDrag", ResetOnSpawn = false, IgnoreGuiInset = false, DisplayOrder = 30 }, playerGui) -- 09.11.2026: без IgnoreGuiInset — копія рівно під пальцем (раніше вище на висоту верхньої панелі)
 	local drag = nil
 	local suppressUntil = 0
 	local function insideOf(o: GuiObject, p: Vector2): boolean
@@ -1745,6 +1757,7 @@ task.spawn(function() -- окрема функція: у головній уже
 		if drag and drag.ghost then drag.ghost:Destroy() end
 		if drag and drag.src then drag.src.Visible = true end
 	end
+	local finish -- 09.11.2026: кінець перетягування; викликається й з InputEnded, й зі стану самого дотику (на телефоні InputEnded іноді не приходить)
 	for idx, sl in hot do
 		local old = sl.onClick
 		sl.onClick = function(...) if os.clock() < suppressUntil then return end; if old then old(...) end end
@@ -1754,7 +1767,8 @@ task.spawn(function() -- окрема функція: у головній уже
 			if not isOpen then return end
 			local key = hotbar[idx]
 			if not key or not live(key) then return end
-			drag = { i = idx, key = key, start = Vector2.new(inp.Position.X, inp.Position.Y), moved = false }
+			if drag then endGhost(); drag = nil; refreshHotbar() end
+			drag = { i = idx, key = key, start = Vector2.new(inp.Position.X, inp.Position.Y), moved = false, input = inp }
 		end)
 	end
 	UIS.InputChanged:Connect(function(inp)
@@ -1779,9 +1793,9 @@ task.spawn(function() -- окрема функція: у головній уже
 		drag.ghost.Position = UDim2.fromOffset(p.X, p.Y)
 		drag.ghost.Rotation = isOpen and insideOf(content, p) and 0 or -6
 	end)
-	UIS.InputEnded:Connect(function(inp)
-		if not drag or not isPress(inp) then return end
+	finish = function(inp)
 		local d = drag
+		if not d then return end
 		if not d.moved then drag = nil; return end
 		suppressUntil = os.clock() + 0.3
 		local p = Vector2.new(inp.Position.X, inp.Position.Y)
@@ -1799,6 +1813,16 @@ task.spawn(function() -- окрема функція: у головній уже
 		if it and it.tab and it.tab ~= tab and not mode then setTab(it.tab) end
 		if it then selKey = k end
 		refreshHotbar(); renderGrid(); renderInfo()
+	end
+	UIS.InputEnded:Connect(function(inp)
+		if not drag or not isPress(inp) then return end
+		finish(inp)
+	end)
+	game:GetService("RunService").Heartbeat:Connect(function()
+		local d = drag
+		if not (d and d.input) then return end
+		local st = d.input.UserInputState
+		if st == Enum.UserInputState.End or st == Enum.UserInputState.Cancel then finish(d.input) end
 	end)
 end)
 
@@ -1807,7 +1831,7 @@ end)
 -- Відпустив нижче вікна (зона хотбара) — предмет закріплюється в хотбарі, як кнопка Hotbar (InventoryAction "Pin").
 -- Відпустив деінде — нічого. Зілля не закріплюються (як і кнопкою). Повний хотбар — трясеться хотбар.
 task.spawn(function() -- окрема функція: у головній уже ~200 локальних
-	local gGui = new("ScreenGui", { Name = "GridDrag", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 30 }, playerGui)
+	local gGui = new("ScreenGui", { Name = "GridDrag", ResetOnSpawn = false, IgnoreGuiInset = false, DisplayOrder = 30 }, playerGui) -- 09.11.2026: як HotbarDrag
 	local gd = nil
 	local function inside(o: GuiObject, p: Vector2): boolean
 		local a, z = o.AbsolutePosition, o.AbsoluteSize
@@ -1816,15 +1840,15 @@ task.spawn(function() -- окрема функція: у головній уже
 	local function inZone(p: Vector2): boolean
 		return p.Y > content.AbsolutePosition.Y + content.AbsoluteSize.Y
 	end
-	UIS.InputChanged:Connect(function(inp)
-		if inp.UserInputType ~= Enum.UserInputType.MouseMovement and inp.UserInputType ~= Enum.UserInputType.Touch then return end
-		local p = Vector2.new(inp.Position.X, inp.Position.Y)
-		if not gd then
-			local d = drag
-			if not (d and not d.thumb and d.slot and isOpen and not mode) then return end
-			local it = d.slot.item
-			if not (it and it.key and (it.tab ~= "potions" or it.case)) or inside(content, p) then return end
-			-- вийшли за вікно: це вже не гортання, а перенесення предмета
+	-- почати перенесення предмета зі слота d.slot (force — утримання пальця: без умови «вийшли за вікно»)
+	local function startGhost(d, p: Vector2, force: boolean): boolean
+		if gd or not (d and not d.thumb and d.slot and isOpen and not mode) then return false end
+		local it = d.slot.item
+		if not (it and it.key and (it.tab ~= "potions" or it.case)) then return false end
+		if d.key0 and it.key ~= d.key0 then return false end -- у слоті вже інший предмет
+		if not force and inside(content, p) then return false end
+		do
+			-- вийшли за вікно / утримали палець: це вже не гортання, а перенесення предмета
 			setG(d.s); drag = nil; dragEndAt = os.clock()
 			local h = d.slot.holder
 			local k = h.Size.X.Offset > 0 and h.AbsoluteSize.X / h.Size.X.Offset or 1
@@ -1836,15 +1860,36 @@ task.spawn(function() -- окрема функція: у головній уже
 			local us = c:FindFirstChildOfClass("UIScale") or new("UIScale", {}, c)
 			us.Scale = k * 1.1
 			c.Parent = g
-			gd = { key = it.key, ghost = g }
+			gd = { key = it.key, ghost = g, input = d.inp }
 			UISounds.play("tap", 0.05)
+			g.Position = UDim2.fromOffset(p.X, p.Y)
+			g.Rotation = inZone(p) and 0 or -6
 		end
+		return true
+	end
+	hitMap.__hold = function(d, p) startGhost(d, p, true) end
+	UIS.InputChanged:Connect(function(inp)
+		if inp.UserInputType ~= Enum.UserInputType.MouseMovement and inp.UserInputType ~= Enum.UserInputType.Touch then return end
+		local p = Vector2.new(inp.Position.X, inp.Position.Y)
+		if not gd and not startGhost(drag, p, false) then return end
+		dragEndAt = os.clock() -- відпускання не рахується кліком по слоту
 		gd.ghost.Position = UDim2.fromOffset(p.X, p.Y)
 		gd.ghost.Rotation = inZone(p) and 0 or -6
 	end)
+	local endGrid -- нижче
 	UIS.InputEnded:Connect(function(inp)
 		if not gd or not isPress(inp) then return end
+		endGrid(inp)
+	end)
+	-- 09.11.2026: InputEnded дотику не прийшов, а дотик уже закінчився — завершити перенесення (копія не зависає)
+	game:GetService("RunService").Heartbeat:Connect(function()
+		local i = gd and gd.input
+		if i and (i.UserInputState == Enum.UserInputState.End or i.UserInputState == Enum.UserInputState.Cancel) then endGrid(i) end
+	end)
+	endGrid = function(inp)
 		local d = gd; gd = nil
+		if not d then return end
+		dragEndAt = os.clock()
 		d.ghost:Destroy()
 		local p = Vector2.new(inp.Position.X, inp.Position.Y)
 		if not (isOpen and inZone(p)) then return end
@@ -1860,7 +1905,7 @@ task.spawn(function() -- окрема функція: у головній уже
 		end
 		UISounds.play("claim", 0.1)
 		refreshHotbar(); renderGrid(); renderInfo()
-	end)
+	end
 end)
 
 -- дані: будь-яка зміна інвентаря → оновлення (раз за кадр)

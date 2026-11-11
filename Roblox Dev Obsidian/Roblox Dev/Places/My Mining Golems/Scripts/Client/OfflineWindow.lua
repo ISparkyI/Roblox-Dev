@@ -118,11 +118,38 @@ local amount = new("TextLabel", { BackgroundTransparency = 1, FontFace = HEAVY, 
 	Size = UDim2.fromOffset(0, 80), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = 2, ZIndex = 7 }, row)
 stroke(amount, INK, 6, 0, true)
 local amtScale = new("UIScale", {}, amount)
-label(win, 0, 188, W, 24, 18, "Your golems kept mining while you were away · max 24h", SUB_TXT, 2.5, { ZIndex = 6, FontFace = XBOLD })
+label(win, 0, 184, W, 24, 18, "Your golems kept mining while you were away · max 24h", SUB_TXT, 2.5, { ZIndex = 6, FontFace = XBOLD })
 
-local btn = StyleA.new(win, { size = Vector2.new(250, 74), position = Vector2.new((W - 250) / 2, H - 100), color = "green", text = "CLAIM",
-	textSize = 40, clickable = true, shine = true, zIndex = 8 })
+-- 10.11.2026: дві кнопки — CLAIM (безкоштовно) і x2 CLAIM за Robux (Developer Product OfflineX2, MonetizationConfig.Products)
+local BW, BG = 236, 20
+local bx0 = (W - BW * 2 - BG) / 2
+local btn = StyleA.new(win, { size = Vector2.new(BW, 74), position = Vector2.new(bx0, H - 100), color = "green", text = "CLAIM",
+	textSize = 38, clickable = true, shine = true, zIndex = 8 })
 StyleA.bind(btn, { debounce = 0.3, onClick = function() if btn.onClaim then btn.onClaim() end end })
+local MonCfg = require(Shared:WaitForChild("MonetizationConfig"))
+local X2 = MonCfg.Products.OfflineX2
+local btn2 = StyleA.new(win, { size = Vector2.new(BW, 74), position = Vector2.new(bx0 + BW + BG, H - 100), color = "yellow", text = "x2 CLAIM",
+	textSize = 36, clickable = true, shine = true, zIndex = 8 })
+-- ціна в Robux — плашка на правому верхньому куті кнопки
+do
+	-- 10.11.2026: без рамки; над верхнім краєм кнопки, щоб не налазила на напис «x2 CLAIM»
+	local tag = frame(win, bx0 + BW * 2 + BG - 72, H - 116, 78, 26, INK, { ZIndex = 12 })
+	new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, tag)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 4) }, tag)
+	new("ImageLabel", { BackgroundTransparency = 1, Image = "rbxassetid://139687766069559", ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(20, 20), ZIndex = 13 }, tag)
+	new("TextLabel", { BackgroundTransparency = 1, FontFace = HEAVY, TextSize = 20, TextColor3 = WHITE, Text = tostring(X2 and X2.robux or 19), AutoLocalize = false,
+		Size = UDim2.fromOffset(0, 24), AutomaticSize = Enum.AutomaticSize.X, ZIndex = 13 }, tag)
+end
+StyleA.bind(btn2, { debounce = 0.6, onClick = function()
+	if not X2 or (X2.id or 0) == 0 then
+		local ui = RS:FindFirstChild("UIEvents")
+		local toast = ui and ui:FindFirstChild("Toast")
+		if toast then toast:Fire("Coming soon!", "gray", nil) end
+		return
+	end
+	pcall(function() game:GetService("MarketplaceService"):PromptProductPurchase(player, X2.id) end)
+end })
 
 local function fit()
 	local cam = workspace.CurrentCamera
@@ -182,6 +209,11 @@ local function open()
 	popScale.Scale = 0.6
 	tween(popScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
 	task.delay(0.3, function() countUp(n) end)
+	-- 11.11.2026: аналітика — фанел OfflineEarnings, крок 1 «Window shown» (OfflineService)
+	task.spawn(function()
+		local rf = RS:FindFirstChild("Remotes") and RS.Remotes:FindFirstChild("OfflineAction")
+		if rf then pcall(rf.InvokeServer, rf, "Shown") end
+	end)
 end
 local function close()
 	if not isOpen then return end
@@ -205,6 +237,16 @@ btn.onClaim = function()
 		close()
 	end
 end
+-- 10.11.2026: x2 куплено (OfflineService.ClaimX2 ставить OfflineX2Gain) — тост і закрити вікно
+player:GetAttributeChangedSignal("OfflineX2Gain"):Connect(function()
+	local g = tonumber(player:GetAttribute("OfflineX2Gain")) or 0
+	if g <= 0 then return end
+	UISounds.play("claim", 0.1)
+	local ui = RS:FindFirstChild("UIEvents")
+	local toast = ui and ui:FindFirstChild("Toast")
+	if toast then toast:Fire("+" .. NF.money(g) .. " Money! (x2)", "green", nil) end
+	close()
+end)
 local cam = workspace.CurrentCamera
 if cam then cam:GetPropertyChangedSignal("ViewportSize"):Connect(function() if isOpen then fit() end end) end
 
@@ -214,76 +256,34 @@ if cam then cam:GetPropertyChangedSignal("ViewportSize"):Connect(function() if i
 --   в проміжок між лівою і правою групою кнопок і трохи зменшується (не менше HINT_MIN); не влазить і так — опускається під ряд кнопок.
 --   Позиція рахується від реальних кнопок, тож інші вікна / меню її не зсувають.
 local hint = new("ScreenGui", { Name = "OfflineHint", ResetOnSpawn = false, IgnoreGuiInset = true, ScreenInsets = Enum.ScreenInsets.None, DisplayOrder = 2, Enabled = true }, playerGui)
-local pill = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 34), Size = UDim2.fromOffset(0, 34),
-	AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = INK, BackgroundTransparency = 0.5, BorderSizePixel = 0 }, hint)
-new("UICorner", { CornerRadius = UDim.new(1, 0) }, pill)
-new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 16) }, pill)
-new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, pill)
+-- 10.11.2026: підказка перенесена з верхнього ряду кнопок — маленьким текстом зліва над TOTAL MULTI (MoneyHUD), коротко:
+--   «Offline $N/h» (на телефонах теж). Позиція й масштаб — від мітки TOTAL MULTI.
+local pill = new("Frame", { AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromOffset(16, 600), Size = UDim2.fromOffset(0, 24),
+	AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false }, hint)
+new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, pill)
 local hintScale = new("UIScale", {}, pill)
-new("ImageLabel", { BackgroundTransparency = 1, Image = SKIP_ICON, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(26, 26), ImageTransparency = 0.1, LayoutOrder = 1 }, pill)
--- три частини (для автоперекладу): «Golems mine» / сума (не перекладається) / «even offline»
+new("ImageLabel", { BackgroundTransparency = 1, Image = SKIP_ICON, ScaleType = Enum.ScaleType.Fit, Size = UDim2.fromOffset(18, 18), LayoutOrder = 1 }, pill)
+-- частини (для автоперекладу): «Offline» / сума (не перекладається)
 local function hintPart(text, color, order, localize)
-	local t = new("TextLabel", { BackgroundTransparency = 1, FontFace = XBOLD, TextSize = 19, TextColor3 = color, TextTransparency = 0.1, AutoLocalize = localize,
-		Text = text, Size = UDim2.fromOffset(0, 34), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = order }, pill)
-	stroke(t, INK, 2, 0.3, true)
+	local t = new("TextLabel", { BackgroundTransparency = 1, FontFace = XBOLD, TextSize = 15, TextColor3 = color, AutoLocalize = localize,
+		Text = text, Size = UDim2.fromOffset(0, 24), AutomaticSize = Enum.AutomaticSize.X, LayoutOrder = order }, pill)
+	stroke(t, INK, 2, 0, true)
 	return t
 end
-hintPart("Golems mine", C("dfe4ea"), 2, true)
+hintPart("Offline", C("dfe4ea"), 2, true)
 local hintText = hintPart("", C("b8ff5a"), 3, false)
-hintPart("even offline", C("dfe4ea"), 4, true)
 local GuiService = game:GetService("GuiService")
-local HINT_MIN, HINT_GAP = 0.72, 12 -- мінімальний масштаб у ряду кнопок (щоб читалось) і відступ від кнопок, px
--- 05.11.2026: на телефонах плашки немає зовсім (тісно, заважає); на інших пристроях — ховається, якщо не влазить у ряд кнопок
-local UIS = game:GetService("UserInputService")
 local hintWant, hintFits = false, true
-local function isPhone(): boolean
-	local cam3 = workspace.CurrentCamera
-	local v = cam3 and cam3.ViewportSize or Vector2.new(1280, 720)
-	return UIS.TouchEnabled and not UIS.KeyboardEnabled and math.min(v.X, v.Y) < 600
-end
-local hintNat: Vector2? = nil
 local function hintLayout()
-	local sw = hint.AbsoluteSize.X
-	if sw < 10 then return end
+	local hud = playerGui:FindFirstChild("MoneyHUD")
+	local tm = hud and hud:FindFirstChild("TotalMulti", true)
+	if not (tm and tm:IsA("GuiObject") and tm.AbsoluteSize.Y > 2 and hud.Enabled) then hintFits = false; pill.Visible = false; return end
+	hintFits = tm.Visible
 	local base = hint.AbsolutePosition
-	-- межі вільного місця в ряду: права грань лівих кнопок (і кнопок Roblox) / ліва грань правих
-	local left, right = GuiService.TopbarInset.Min.X, sw
-	local cy, rowBottom = 35, 55
-	local hud = playerGui:FindFirstChild("MainHUD")
-	local row = hud and hud:FindFirstChild("TopRow")
-	if row then
-		for _, b in row:GetChildren() do
-			if b:IsA("GuiObject") and b.Visible and b.Name:sub(1, 4) == "Btn_" then
-				local x0 = b.AbsolutePosition.X - base.X
-				local x1 = x0 + b.AbsoluteSize.X
-				cy = b.AbsolutePosition.Y - base.Y + b.AbsoluteSize.Y / 2
-				rowBottom = b.AbsolutePosition.Y - base.Y + b.AbsoluteSize.Y
-				if x0 + x1 < sw then left = math.max(left, x1) else right = math.min(right, x0) end
-			end
-		end
-	end
-	left += HINT_GAP; right -= HINT_GAP
-	local cur = math.max(hintScale.Scale, 0.01)
-	if pill.AbsoluteSize.X >= 10 then hintNat = Vector2.new(pill.AbsoluteSize.X / cur, pill.AbsoluteSize.Y / cur) end
-	local nat = hintNat
-	if not nat then return end
-	local natW = nat.X
-	local gap = right - left
-	local sc = math.min(1, gap / natW * 0.97)
-	local cx
-	if sc >= HINT_MIN then
-		-- у ряду: по центру екрана, а якщо не влазить симетрично — по центру вільного проміжку
-		local w = natW * sc
-		cx = math.clamp(sw / 2, left + w / 2, right - w / 2)
-		hintFits = not isPhone()
-	else
-		hintFits = false -- не влазить у ряд кнопок — не показуємо
-		sc, cx = hintScale.Scale, sw / 2
-	end
+	local k = math.clamp(tm.AbsoluteSize.Y / 36, 0.5, 1.4)
+	if math.abs(hintScale.Scale - k) > 0.02 then hintScale.Scale = k end
+	pill.Position = UDim2.fromOffset(math.floor(tm.AbsolutePosition.X - base.X + 4 * k + 0.5), math.floor(tm.AbsolutePosition.Y - base.Y - 1 * k + 0.5))
 	pill.Visible = hintWant and hintFits
-	-- без дрібних змін масштабу: інакше AutomaticSize / TextFitGuard дають нескінченний цикл перерахунку
-	if math.abs(hintScale.Scale - sc) > 0.02 then hintScale.Scale = sc end
-	pill.Position = UDim2.fromOffset(math.floor(cx + 0.5), math.floor(cy + 0.5))
 end
 local function hintUpdate()
 	local rate = tonumber(player:GetAttribute("IncomePerMin")) or 0

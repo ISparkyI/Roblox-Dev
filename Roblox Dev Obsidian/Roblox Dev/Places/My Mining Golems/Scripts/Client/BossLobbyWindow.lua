@@ -576,6 +576,7 @@ workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bindCamera)
 pcall(function() GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(fitWin) end)
 bindCamera()
 
+local hudOpen = false -- 10.11.2026: відкрито кнопкою JOIN у HUD (UIEvents/BossLobbyOpen) — не закривається, коли гравець не в колі порталу
 local function open()
 	isOpen = true
 	WindowManager.opened("BossLobby")
@@ -594,6 +595,7 @@ end
 local function close()
 	if not isOpen then return end
 	isOpen = false
+	hudOpen = false
 	animToken += 1
 	local my = animToken
 	tween(popScale, 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In, { Scale = 0.85 })
@@ -634,6 +636,19 @@ player:GetAttributeChangedSignal("BossSlotDia"):Connect(function()
 	if player:GetAttribute("BossSlotDia") == true then toast("4th Boss Slot unlocked!", "green", "claim") end
 end)
 
+-- 10.11.2026: кнопка JOIN біля NEXT BOSS (MainHUD) → UIEvents/BossLobbyOpen — вікно відкривається будь-де (без телепорту до порталу)
+do
+	local uiev = RS:FindFirstChild("UIEvents") or RS:WaitForChild("UIEvents", 10)
+	if uiev then
+		local ev = uiev:FindFirstChild("BossLobbyOpen") or Instance.new("BindableEvent")
+		ev.Name = "BossLobbyOpen"; ev.Parent = uiev
+		ev.Event:Connect(function()
+			if player:GetAttribute("InBossArena") == true then return end
+			hudOpen = true; dismissed = false
+			if not isOpen then open(); hudOpen = true else refresh() end
+		end)
+	end
+end
 local ringCenter
 task.spawn(function()
 	local hub = workspace:WaitForChild("Cave"):WaitForChild("Hub")
@@ -652,6 +667,8 @@ while true do
 		if not inside then dismissed = false end
 		if inside and not dismissed then
 			if not isOpen then open() else refresh() end
+		elseif isOpen and hudOpen and player:GetAttribute("InBossArena") ~= true then
+			refresh()
 		elseif isOpen then
 			close()
 		end

@@ -559,7 +559,7 @@ local collect -- нижче (Auto Collect викликає з deliver)
 -- force (носія знімають): що не влізло — у pl.carry, його забере наступний носій (ящик ніколи не переповнюється)
 local function deliver(st: State, pl: Plot, g: Golem, force: boolean?)
 	-- Auto Collect: те, що вже лежить у ящику (напр. повний ящик до покупки), спершу йде в інвентар
-	if st.player:GetAttribute("Pass_AutoCollect") == true and st.player:GetAttribute("Set_AutoCollect") ~= false and pl.binN > 0 then collect(st, pl) end
+	if st.player:GetAttribute("Pass_AutoCollect") == true and st.player:GetAttribute("Set_AutoCollect") ~= false and pl.binN > 0 then collect(st, pl) end -- геймпас — одразу (картка — за таймером, нижче)
 	local space = math.max(0, crateCap(st) - pl.binN)
 	local put = 0
 	while #g.load > 0 and put < space do
@@ -858,7 +858,7 @@ end
 -- ===== прокачка =====
 local function upgrade(st: State, key: string)
 	local card = Cfg.CARDS[key]
-	if not card then return end
+	if not card or not table.find(Cfg.CARD_ORDER, key) then return end -- 09.11.2026: лише картки табло (Auto Sell з табло прибрано)
 	local l = st.lv[key] or 1
 	if l >= card.max then return end
 	local p = st.player
@@ -1137,6 +1137,27 @@ function PlotService.Start()
 		if n and not states[p] then task.spawn(setup, p, n) end
 	end
 	RunService.Heartbeat:Connect(step)
+	-- Auto Collect карткою (09.11.2026): раз на AUTO_COLLECT_SECS с руда з кожного ящика йде в інвентар
+	-- (геймпас — одразу в deliver). Відлік — від останнього автозбору цього ящика.
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			local t = os.clock()
+			for p, st in states do
+				local secs = Cfg.autoCollectSecs(st.lv.AutoCollect or 1)
+				if secs and p:GetAttribute("Pass_AutoCollect") ~= true and p:GetAttribute("Set_AutoCollect") ~= false then
+					for _, pl in st.plots do
+						local last = (pl :: any).autoT
+						if not last then (pl :: any).autoT = t
+						elseif t - last >= secs then
+							(pl :: any).autoT = t
+							if pl.binN > 0 then pcall(collect, st, pl) end
+						end
+					end
+				end
+			end
+		end
+	end)
 end
 
 return PlotService

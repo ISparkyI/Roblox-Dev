@@ -5,6 +5,8 @@
 --   Крок k = гравець ДІЙШОВ до кроку навчання k (тобто виконав k − 1). Видно, на якому кроці новачки виходять з гри.
 --   Пропустив навчання (Skip) — Custom event "TutorialSkipped" (значення — крок, на якому пропустив).
 -- Progression (Funnels → Progression): шлях "Map" — почав / пройшов мапу N (атрибут Stage), шлях "Rebirth" — зробив N-й ребітх.
+-- 11.11.2026: Funnels → "Rolls" — 1-й, 10-й, 25-й, 50-й, 100-й, 500-й, 1000-й, 5000-й, 10000-й рол (Stat_Rolls, StatsService). Внизу файлу.
+-- 11.11.2026: Funnels → "OfflineEarnings" (вікно WELCOME BACK) — у OfflineService.
 local Players = game:GetService("Players")
 local AnalyticsService = game:GetService("AnalyticsService")
 local DataService = require(script.Parent:WaitForChild("DataService"))
@@ -134,4 +136,34 @@ do
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(p) seen[p] = nil; rate[p] = nil end)
+end
+
+-- ===== 11.11.2026: Funnels → "Rolls" — скільки разів гравець смикнув важіль ролу за весь час =====
+-- Лічильник — атрибут Stat_Rolls (StatsService: +1 на кожне смикання важеля, вручну чи Auto Roll; зберігається DataService).
+-- Крок k — гравець дійшов до позначки MARKS[k]; подія — у момент, коли лічильник її перейшов. funnelSessionId = UserId
+--   (один шлях на гравця). Разом з кроком дописуються попередні, ще не записані на цьому сервері: гравці, що ролили
+--   ще до появи фанела, теж проходять кроки по порядку.
+do
+	local MARKS = { 1, 10, 25, 50, 100, 500, 1000, 5000, 10000 }
+	local function onRolls(p: Player)
+		if not DataService.WaitLoaded(p) or p.Parent ~= Players then return end
+		local last = tonumber(p:GetAttribute("Stat_Rolls")) or 0
+		local done: { [number]: boolean } = {}
+		p:GetAttributeChangedSignal("Stat_Rolls"):Connect(function()
+			local v = tonumber(p:GetAttribute("Stat_Rolls")) or 0
+			local top = 0
+			for i, m in MARKS do
+				if last < m and v >= m then top = i end
+			end
+			last = math.max(last, v)
+			for i = 1, top do
+				if not done[i] then
+					done[i] = true
+					log(function() AnalyticsService:LogFunnelStepEvent(p, "Rolls", tostring(p.UserId), i, "Roll " .. MARKS[i]) end)
+				end
+			end
+		end)
+	end
+	Players.PlayerAdded:Connect(function(p) task.spawn(onRolls, p) end)
+	for _, p in Players:GetPlayers() do task.spawn(onRolls, p) end
 end

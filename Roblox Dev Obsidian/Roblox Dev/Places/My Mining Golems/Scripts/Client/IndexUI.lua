@@ -586,7 +586,7 @@ local function makeTab(name, i, icon, text)
 	local b = makeGroupButton(hold, 0, 0, TW, TH, { shadowDy = 7, color = "gray", z = 1, shine = false })
 	local ix = safeIcon(b.group, icon, TH, 10) + 8
 	textAt(b.group, ix, 28, TW - ix - 8, 24, text, WHITE, 2.6, { TextXAlignment = LEFT, ZIndex = 5 })
-	local c = textAt(b.group, ix, 52, TW - ix - 8, 15, "", SUB_TXT, 2, { TextXAlignment = LEFT, FontFace = XBOLD, ZIndex = 5 })
+	local c = textAt(b.group, ix, 53, TW - ix - 8, 17, "", WHITE, 1.4, { TextXAlignment = LEFT, FontFace = XBOLD, ZIndex = 5 }) -- 09.11.2026: було 15 / SUB_TXT / 2 — розмивалось на сірих вкладках
 	return { hold = hold, b = b, c = c, i = i, badge = makeBadge(b.group, TW - 8, 6, 8) }
 end
 local clsTabs = {}
