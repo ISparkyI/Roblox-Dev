@@ -298,6 +298,12 @@ local function buildPanel(f: Model, screen: BasePart, ownerId: number)
 	-- перетягування: повзунок (рух повзунка → ряд) або самі картки (рух мишки → ряд у зворотний бік).
 	-- Координата на полотні — променем з камери на грань (CardHover.surfaceX), тому працює й поза межами полотна.
 	local drag = nil
+	-- 11.11.2026: свайп на телефоні. Зсув пальця рахуємо на ЕКРАНІ × масштаб полотна (заміряний на старті), а не променем щокадру:
+	--   камера й персонаж рухались разом із пальцем → точка на табло стрибала → ряд смикався. Поріг 14 тепер без стрибка
+	--   (рух починається з нуля), на відпусканні — інерція, а кнопка під пальцем після свайпу не натискається (StyleA.swipeUntil).
+	--   Нативне гортання ScrollingFrame для дотику вимкнене зовсім (воно перехоплювало початок свайпу).
+	local TOUCH_ONLY = UIS.TouchEnabled and not UIS.MouseEnabled
+	if TOUCH_ONLY then vp.ScrollingEnabled = false end
 	-- точка в координатах вьюпорта: мишка — GetMouseLocation, дотик — позиція + верхній відступ GUI
 	local function pointOf(input)
 		if input.UserInputType == Enum.UserInputType.Touch then
@@ -306,10 +312,21 @@ local function buildPanel(f: Model, screen: BasePart, ownerId: number)
 		end
 		return nil
 	end
+	-- одиниць полотна на 1 піксель екрана по X біля точки p
+	local function kAt(p)
+		local a = CardHover.surfaceX(g, p - Vector2.new(20, 0))
+		local b = CardHover.surfaceX(g, p + Vector2.new(20, 0))
+		if a and b and math.abs(b - a) > 1 then return (b - a) / 40 end
+		return nil
+	end
 	local function startDrag(kind, input)
 		if lock.Visible or pn.maxX <= 0 then return end
-		local sx = CardHover.surfaceX(g, pointOf(input)) or 0
-		drag = { kind = kind, sx = sx, st = pn.tx, input = input, moved = false }
+		local isTouch = input.UserInputType == Enum.UserInputType.Touch
+		local p = pointOf(input) or UIS:GetMouseLocation()
+		local sx = CardHover.surfaceX(g, p) or 0
+		drag = { kind = kind, sx = sx, st = pn.tx, input = input, moved = false, touch = isTouch, px = p.X, k = isTouch and kAt(p) or nil,
+			d0 = 0, v = 0, lt = os.clock(), ltx = pn.tx }
+		if isTouch then vp.ScrollingEnabled = false end
 		if kind == "track" then -- клік по доріжці поза повзунком — стрибок туди
 			local rel = sx - track.AbsolutePosition.X
 			local tl = pn.x / math.max(1, pn.maxX) * (TRACK_W - thumbW)
@@ -328,19 +345,40 @@ local function buildPanel(f: Model, screen: BasePart, ownerId: number)
 	local moveConn = UIS.InputChanged:Connect(function(input)
 		if not drag then return end
 		if input.UserInputType ~= Enum.UserInputType.MouseMovement and input ~= drag.input then return end
-		local sx = CardHover.surfaceX(g, pointOf(input))
+		local sx
+		if drag.touch and drag.k then
+			sx = drag.sx + (input.Position.X - drag.px) * drag.k
+		else
+			sx = CardHover.surfaceX(g, pointOf(input))
+		end
 		if not sx then return end
 		local d = sx - drag.sx
 		if drag.kind == "track" then
 			pn.tx = drag.st + d * pn.maxX / math.max(1, TRACK_W - thumbW); go()
-		elseif input.UserInputType == Enum.UserInputType.MouseMovement and (drag.moved or math.abs(d) > 14) then
-			-- мишкою тягнемо ряд самі (дотик прокручує ScrollingFrame нативно)
-			drag.moved = true
-			pn.tx = drag.st - d; go()
+		elseif drag.moved or math.abs(d) > 14 then
+			if not drag.moved then drag.moved = true; drag.d0 = d end
+			pn.tx = drag.st - (d - drag.d0); go()
+			StyleA.swipeUntil = os.clock() + 0.3
+			local now = os.clock()
+			local dt = now - drag.lt
+			if dt > 0.004 then
+				drag.v = drag.v * 0.5 + ((pn.tx - drag.ltx) / dt) * 0.5
+				drag.lt, drag.ltx = now, pn.tx
+			end
 		end
 	end)
 	local endConn = UIS.InputEnded:Connect(function(input)
-		if drag and (input.UserInputType == Enum.UserInputType.MouseButton1 or input == drag.input) then drag = nil end
+		if drag and (input.UserInputType == Enum.UserInputType.MouseButton1 or input == drag.input) then
+			if drag.moved then
+				StyleA.swipeUntil = os.clock() + 0.25
+				-- інерція: лише якщо палець ще рухався в момент відпускання
+				if drag.touch and os.clock() - drag.lt < 0.1 then
+					pn.tx += math.clamp(drag.v * 0.16, -step0 * 2.5, step0 * 2.5); go()
+				end
+			end
+			drag = nil
+			vp.ScrollingEnabled = not TOUCH_ONLY
+		end
 	end)
 	g.Destroying:Connect(function() moveConn:Disconnect(); endConn:Disconnect() end)
 	-- наведення на картки (поки голем спить і картки під затемненням — не реагують)

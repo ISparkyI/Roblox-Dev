@@ -92,7 +92,7 @@ local function onSet(p: Player, key: any, v: any)
 	if key == "AutoBuy" and p:GetAttribute("Pass_AutoBuy") ~= true then return end
 	if key == "FastRoll" and p:GetAttribute("Pass_FastRoll") ~= true then return end
 	if key == "AutoWorkshop" and p:GetAttribute("Pass_AutoWorkshop") ~= true and p:GetAttribute("AutoWorkshopOwned") ~= true then return end
-	if key == "AutoCollect" and p:GetAttribute("Pass_AutoCollect") ~= true then return end
+	if key == "AutoCollect" and not require(RS.Shared.PlotConfig).autoCollectOwned(p) then return end -- 09.11.2026: геймпас або картка на табло плоту
 	if kind == "percent" then
 		if type(v) ~= "number" or v ~= v then return end
 		v = math.clamp(math.floor(v + 0.5), 0, 100)

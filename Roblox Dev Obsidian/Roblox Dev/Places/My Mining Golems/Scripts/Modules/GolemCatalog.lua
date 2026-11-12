@@ -8,7 +8,7 @@
 --   Швидкість — один множник на все: рух 8 × Швидкість стад/с, удар раз на 1,40 / Швидкість с, AnimSpeed = Швидкість.
 --   Мутація (Normal = 0 … Secret = 7) — готовий множник сили M (MUTATIONS[].power: 1 / 1,25 / 1,5 / 2 / 3 / 5 / 10 / 25):
 --   ціна, шкода, HP, місткість × M, швидкість без змін (27.10.2026; до цього — кроки ×1,35^k / ×1,25^k / ×1,05^k / ×1,5^k).
--- model — ім'я моделі в ReplicatedStorage/PlotAssets (є Stone Golem = "Golem", Wooden Golem = "WoodenGolem", Clay Golem = "ClayGolem", Gravel Golem = "GravelGolem", Mossback Golem = "MossbackGolem", Copperhead Golem = "CopperheadGolem", Flint Golem = "FlintGolem", Rustbolt Golem = "RustboltGolem", Granite Golem = "GraniteGolem", Lantern Golem = "LanternGolem", Ironclad Golem = "IroncladGolem", Quartzling Golem = "QuartzlingGolem", Tinker Golem = "TinkerGolem", Silverjaw Golem = "SilverjawGolem", Geode Golem = "GeodeGolem", Amethyst Golem = "AmethystGolem", Sapphire Golem = "SapphireGolem", Obsidian Golem = "ObsidianGolem", Magmaheart Golem = "MagmaheartGolem", Ruby Golem = "RubyGolem", Frostforged Golem = "FrostforgedGolem", Platinum Golem = "PlatinumGolem", Aurelian Golem = "AurelianGolem", Astral Golem = "AstralGolem"); nil — моделі ще немає.
+-- model — ім'я моделі в ReplicatedStorage/PlotAssets (є Stone Golem = "Golem", Wooden Golem = "WoodenGolem", Clay Golem = "ClayGolem", Gravel Golem = "GravelGolem", Mossback Golem = "MossbackGolem", Copperhead Golem = "CopperheadGolem", Flint Golem = "FlintGolem", Rustbolt Golem = "RustboltGolem", Granite Golem = "GraniteGolem", Lantern Golem = "LanternGolem", Ironclad Golem = "IroncladGolem", Quartzling Golem = "QuartzlingGolem", Lodestone Golem = "LodestoneGolem", Tinker Golem = "TinkerGolem", Silverjaw Golem = "SilverjawGolem", Topaz Golem = "TopazGolem", Geode Golem = "GeodeGolem", Amethyst Golem = "AmethystGolem", Sapphire Golem = "SapphireGolem", Emerald Golem = "EmeraldGolem", Obsidian Golem = "ObsidianGolem", Moonstone Golem = "MoonstoneGolem", Magmaheart Golem = "MagmaheartGolem", Ruby Golem = "RubyGolem", Frostforged Golem = "FrostforgedGolem", Prismatic Golem = "PrismaticGolem", Platinum Golem = "PlatinumGolem", Aurelian Golem = "AurelianGolem", Astral Golem = "AstralGolem"); nil — моделі ще немає.
 -- box — ім'я ящичка носія в PlotAssets (Stone = "CarryBox", Wooden = "WoodenCarryBox"). M.model(kind) / M.box(kind) — з фолбеком
 --   на "Golem" / "CarryBox"; M.applyClassItems(model, cls, strip, kind?) — предмет у руці за класом (Pickaxe / Sword).
 -- pickaxe / sword — ім'я префаба предмета в PlotAssets (Stone = "StonePickaxe" / "StoneSword", Wooden = "WoodenPickaxe" / "WoodenSword");
@@ -56,14 +56,14 @@ M.MUTATIONS = {
 		stroke = "14161a" },
 }
 
-M.ORDER = { "wooden", "stone", "clay", "gravel", "mossback", "copperhead", "flint", "rustbolt", "granite", "lantern", "ironclad", "quartzling", "tinker", "silverjaw", "geode", "amethyst", "sapphire", "obsidian", "magmaheart", "ruby", "frostforged", "platinum", "aurelian", "astral" }
+M.ORDER = { "wooden", "stone", "clay", "gravel", "mossback", "copperhead", "flint", "rustbolt", "granite", "lantern", "ironclad", "quartzling", "lodestone", "tinker", "silverjaw", "topaz", "geode", "amethyst", "sapphire", "emerald", "obsidian", "moonstone", "magmaheart", "ruby", "frostforged", "prismatic", "platinum", "aurelian", "astral" }
 
 -- значення Normal; odds — шанс ролу «1 до N»; map — мапа з таблиці GDD
 M.GOLEMS = {
 	wooden = { name = "Wooden Golem", rarity = "Common", map = 1, odds = 1, size = 1, model = "WoodenGolem", box = "WoodenCarryBox", pickaxe = "WoodenPickaxe", sword = "WoodenSword", icon = "rbxassetid://118736528199973",
 		miner = { price = 0, dmg = 1, speed = 1 },
 		carrier = { price = 0, cap = 1, speed = 1 },
-		warrior = { price = 50, dmg = 1, hp = 10, speed = 1 } },
+		warrior = { price = 0, dmg = 1, hp = 10, speed = 1 } }, -- 10.11.2026: перший воїн (Wooden) безкоштовний, як майнер і носій (було 50)
 	stone = { name = "Stone Golem", rarity = "Common", map = 1, odds = 10, size = 1, model = "Golem", box = "CarryBox", pickaxe = "StonePickaxe", sword = "StoneSword", icon = "rbxassetid://97975821667403",
 		miner = { price = 150, dmg = 2, speed = 1.05 },
 		carrier = { price = 100, cap = 2, speed = 1.125 },
@@ -108,6 +108,11 @@ M.GOLEMS = {
 		miner = { price = 75000, dmg = 50, speed = 1.35 },
 		carrier = { price = 60000, cap = 11, speed = 1.4 },
 		warrior = { price = 85000, dmg = 48, hp = 480, speed = 1.4 } },
+	-- Lodestone (08.11.2026): Rare 1 in 2000 між Quartzling і Tinker (стати — геометрично між сусідами за шансом)
+	lodestone = { name = "Lodestone Golem", rarity = "Rare", map = 1, odds = 2000, size = 1.1, model = "LodestoneGolem", box = "LodestoneCarryBox", pickaxe = "LodestonePickaxe", sword = "LodestoneSword", icon = nil,
+		miner = { price = 95000, dmg = 70, speed = 1.25 },
+		carrier = { price = 70000, cap = 14, speed = 1.3 },
+		warrior = { price = 125000, dmg = 67, hp = 670, speed = 1.3 } },
 	tinker = { name = "Tinker Golem", rarity = "Rare", map = 1, odds = 2500, size = 1, model = "TinkerGolem", box = "TinkerCarryBox", pickaxe = "TinkerPickaxe", sword = "TinkerSword", icon = nil,
 		miner = { price = 120000, dmg = 90, speed = 1.2 },
 		carrier = { price = 80000, cap = 17, speed = 1.25 },
@@ -116,6 +121,10 @@ M.GOLEMS = {
 		miner = { price = 250000, dmg = 200, speed = 1.15 },
 		carrier = { price = 150000, cap = 25, speed = 1.2 },
 		warrior = { price = 320000, dmg = 190, hp = 1900, speed = 1.2 } },
+	topaz = { name = "Topaz Golem", rarity = "Epic", map = 1, odds = 6000, size = 1.15, model = "TopazGolem", box = "TopazCarryBox", pickaxe = "TopazPickaxe", sword = "TopazSword", icon = nil,
+		miner = { price = 550000, dmg = 255, speed = 1.2 },
+		carrier = { price = 330000, cap = 32, speed = 1.25 },
+		warrior = { price = 750000, dmg = 245, hp = 2450, speed = 1.25 } },
 	geode = { name = "Geode Golem", rarity = "Epic", map = 1, odds = 8000, size = 1.2, model = "GeodeGolem", box = "GeodeCarryBox", pickaxe = "GeodePickaxe", sword = "GeodeSword", icon = nil,
 		miner = { price = 1000000, dmg = 310, speed = 1.1 },
 		carrier = { price = 570000, cap = 40, speed = 1.15 },
@@ -128,10 +137,18 @@ M.GOLEMS = {
 		miner = { price = 7500000, dmg = 920, speed = 1.25 },
 		carrier = { price = 5200000, cap = 60, speed = 1.3 },
 		warrior = { price = 10000000, dmg = 880, hp = 8800, speed = 1.3 } },
+	emerald = { name = "Emerald Golem", rarity = "Epic", map = 1, odds = 35000, size = 1.2, model = "EmeraldGolem", box = "EmeraldCarryBox", pickaxe = "EmeraldPickaxe", sword = "EmeraldSword", icon = nil,
+		miner = { price = 15000000, dmg = 1050, speed = 1.2 },
+		carrier = { price = 9000000, cap = 70, speed = 1.25 },
+		warrior = { price = 22000000, dmg = 940, hp = 11000, speed = 1.2 } },
 	obsidian = { name = "Obsidian Golem", rarity = "Legendary", map = 1, odds = 50000, size = 1.35, model = "ObsidianGolem", box = "ObsidianCarryBox", pickaxe = "ObsidianPickaxe", sword = "ObsidianSword", icon = nil,
 		miner = { price = 30000000, dmg = 1200, speed = 1.1 },
 		carrier = { price = 16000000, cap = 80, speed = 1.15 },
 		warrior = { price = 50000000, dmg = 1000, hp = 14000, speed = 1.1 } },
+	moonstone = { name = "Moonstone Golem", rarity = "Legendary", map = 1, odds = 75000, size = 1.35, model = "MoonstoneGolem", box = "MoonstoneCarryBox", pickaxe = "MoonstonePickaxe", sword = "MoonstoneSword", icon = nil,
+		miner = { price = 50000000, dmg = 1800, speed = 1.25 },
+		carrier = { price = 35000000, cap = 85, speed = 1.3 },
+		warrior = { price = 70000000, dmg = 1600, hp = 18000, speed = 1.3 } },
 	magmaheart = { name = "Magmaheart Golem", rarity = "Legendary", map = 3, odds = 100000, size = 1.25, model = "MagmaheartGolem", box = "MagmaheartCarryBox", pickaxe = "MagmaheartPickaxe", sword = "MagmaheartSword", icon = nil,
 		miner = { price = 80000000, dmg = 2400, speed = 1.5 },
 		carrier = { price = 64000000, cap = 90, speed = 1.55 },
@@ -144,6 +161,10 @@ M.GOLEMS = {
 		miner = { price = 1500000000, dmg = 5200, speed = 1.45 },
 		carrier = { price = 1100000000, cap = 140, speed = 1.5 },
 		warrior = { price = 1900000000, dmg = 5000, hp = 50000, speed = 1.5 } },
+	prismatic = { name = "Prismatic Golem", rarity = "Mythic", map = 4, odds = 650000, size = 1.4, model = "PrismaticGolem", box = "PrismaticCarryBox", pickaxe = "PrismaticPickaxe", sword = "PrismaticSword", icon = nil,
+		miner = { price = 3000000000, dmg = 6300, speed = 1.4 },
+		carrier = { price = 2000000000, cap = 175, speed = 1.45 },
+		warrior = { price = 4500000000, dmg = 5700, hp = 68000, speed = 1.4 } },
 	platinum = { name = "Platinum Golem", rarity = "Mythic", map = 4, odds = 1000000, size = 1.5, model = "PlatinumGolem", box = "PlatinumCarryBox", pickaxe = "PlatinumPickaxe", sword = "PlatinumSword", icon = nil,
 		miner = { price = 6000000000, dmg = 7500, speed = 1.3 },
 		carrier = { price = 3400000000, cap = 220, speed = 1.35 },

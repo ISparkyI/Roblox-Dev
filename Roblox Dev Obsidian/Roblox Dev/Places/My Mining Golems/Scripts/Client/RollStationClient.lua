@@ -1,14 +1,19 @@
--- RollStationClient — вибір типу голема для ролу: 3 картки НА ПІДЛОЗІ перед важелем (Miner, Carrier, Warrior — закритий до MAP 2).
+-- RollStationClient — вибір типу голема для ролу: 3 картки НА ЕКРАНІ (Miner, Carrier, Warrior — закритий під час навчання).
 -- Де: StarterPlayer/StarterPlayerScripts/RollStationClient (LocalScript). Сервер — ServerScriptService/RollRoleService.
--- 07.11.2026 v2: екран з картками на машині ролу прибрано (лишився лише важіль по центру). Картки — деталі
---   Niche*/RollSystem/RoleCards/Card1..3 (атрибут Role, прозорі, лежать на підлозі). SurfaceGui (грань Top) у PlayerGui з Adornee —
---   так клікається мишкою / тапом. Замість кнопок — великий напис: SELECTED (лайм) / SELECT / MAP 2 (закрито).
--- Стиль карток — як табло плоту (PlotBoard): градієнт, studs, косі смуги, блиск, обвідка.
--- Вибір: своя ніша — клік / тап по картці → Remotes.RollRole:FireServer(роль); атрибут власника RollRole.
--- Чужа / вільна ніша: видно вибір власника, картки не натискаються.
+-- 10.11.2026 v3: картки перенесено з підлоги перед важелем на екран (на телефоні в світі їх погано видно).
+--   ScreenGui RollRolePanel: стовпчик з 3 широких карток зліва (праворуч від кнопок Shop / Index / Quests), посередині висоти —
+--   не закриває персонажа й кнопку ROLL (10.11.2026 v3.1–3.2; спершу був ряд по центру над хотбаром). Виїжджає зліва, коли гравець у СВОЇЙ ніші
+--   біля важеля (ближче SHOW_R стадів до RollLeverModel по горизонталі), ховається, коли відійшов / на арені боса.
+--   3D-картки й рампа (RollSystem/RoleCards) з префабів прибрані (копії — ServerStorage/NicheBackup/RoleCards_<префаб>).
+-- Стиль карток — як табло плоту (PlotBoard): градієнт, studs, косі смуги, блиск, обвідка; наведення — CardHover.
+-- Вибір: клік / тап по картці → Remotes.RollRole:FireServer(роль); атрибут гравця RollRole. Замість кнопок — великий напис:
+--   SELECTED (лайм) / SELECT / LOCKED. v3.3: вкладка зі стрілкою праворуч — згорнути в міні-версію (лише значки) і назад.
+-- Навчання (TutorialClient, крок 3): кнопка картки — PlayerGui.RollRolePanel.Root.Card_<роль>…TextButton «Hit»;
+--   панель видно — атрибут Shown = true на RollRolePanel.
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local StyleA = require(RS:WaitForChild("Shared"):WaitForChild("StyleA"))
 local CardHover = require(RS.Shared:WaitForChild("CardHover")) -- 07.11.2026: наведення (збільшення) як на старому екрані
@@ -22,9 +27,8 @@ local C = Color3.fromHex
 local INK = C("14161a")
 local WHITE = Color3.new(1, 1, 1)
 local LIME = C("c9ff3a")
-local CW, CH = 500, 790
--- 07.11.2026: запас полотна навколо картки — щоб влазили збільшення при наведенні й лаймова рамка вибору
---   (деталі CardN 6,6 × 4,41 стада: сама картка 6 × 3,8, решта — запас)
+local CW, CH = 640, 200 -- широка картка: значок зліва, назва / опис / статус справа
+-- запас навколо картки — щоб влазили збільшення при наведенні й лаймова рамка вибору
 local PAD = 40
 local LOCK_ICON = "rbxassetid://122986621331664"
 
@@ -80,8 +84,8 @@ local function bands(parent, w, h)
 end
 
 -- галочка вибору: темне коло з лаймовим кругом і білою «пташкою»
-local function checkBadge(parent, cx, cy)
-	local D = 110
+local function checkBadge(parent, cx, cy, D)
+	D = D or 110
 	local b = frame(parent, cx - D / 2, cy - D / 2, D, D, INK, { Name = "Check", ZIndex = 6 }); corner(b, UDim.new(0.5, 0))
 	local f = frame(b, 7, 7, D - 14, D - 14, WHITE, { Name = "Fill", ZIndex = 6 }); corner(f, UDim.new(0.5, 0))
 	new("UIGradient", { Color = cseq({ { 0, "e8ff8a" }, { 0.55, "9be22e" }, { 1, "5fb81a" } }), Rotation = 90 }, f)
@@ -103,44 +107,40 @@ local function checkBadge(parent, cx, cy)
 	return b
 end
 
--- одна картка = свій SurfaceGui на грані Top деталі CardN (деталь: X — уздовж «до гравця» 6 стадів = висота картки, Z — ширина 3,8;
---   на грані Top ширина GUI іде вздовж −Z, висота — вздовж +X, тож картка читається гравцем, що стоїть перед важелем)
-local function buildCard(part: BasePart, r, niche: Instance)
-	local g = new("SurfaceGui", { Name = "RollCard_" .. niche.Name .. "_" .. r.key, Adornee = part, Face = Enum.NormalId.Top,
-		SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud, PixelsPerStud = (CW + 2 * PAD) / part.Size.Z, LightInfluence = 0, Brightness = 1.1,
-		ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ResetOnSpawn = false, ClipsDescendants = true, MaxDistance = 300, AlwaysOnTop = false }, playerGui)
-	local cd = { r = r, gui = g, part = part }
-	local canvasH = part.Size.X * (CW + 2 * PAD) / part.Size.Z
+-- одна широка картка (640 × 200 одиниць) у тримачі CardHover усередині кореня панелі; y — верхній край картки
+local function buildCard(parent: GuiObject, r, y: number)
 	local pad0 = CardHover.PAD; CardHover.PAD = PAD
-	local holder, o = CardHover.holder(g, PAD, math.floor((canvasH - CH) / 2), CW, CH)
+	local holder, o = CardHover.holder(parent, PAD, y, CW, CH)
 	CardHover.PAD = pad0
-	cd.holder = holder; cd.o = o
+	holder.Name = "Card_" .. r.key
+	local cd = { r = r, holder = holder, o = o }
 	local c = frame(holder, o.X, o.Y, CW, CH, WHITE, { Active = true }); cd.card = c
-	cd.grad = vgrad(c, r.th.grad); stroke(c, INK, 10)
-	cd.studs = StyleA.studTile(c, 10, 10, CW - 20, CH - 20, 46, C(r.th.stud), { ImageTransparency = 0.68 }, true)
+	cd.grad = vgrad(c, r.th.grad); stroke(c, INK, 8)
+	c.ClipsDescendants = true -- згорнута картка (лише значок) обрізає написи
+	cd.studs = StyleA.studTile(c, 8, 8, CW - 16, CH - 16, 40, C(r.th.stud), { ImageTransparency = 0.68 }, true)
 	bands(c, CW, CH)
-	local gloss = frame(c, 12, 12, CW - 24, math.floor(CH * 0.36), WHITE)
+	local gloss = frame(c, 10, 10, CW - 20, math.floor(CH * 0.4), WHITE)
+	cd.gloss = gloss
 	new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.68), NumberSequenceKeypoint.new(1, 1) }) }, gloss)
-	local rim = frame(c, 14, 14, CW - 28, CH - 28, nil, { BackgroundTransparency = 1 }); cd.rim = stroke(rim, C(r.th.rim), 6, 0.25)
-	local stripH = math.max(10, math.floor(CH * 0.03))
+	local rim = frame(c, 12, 12, CW - 24, CH - 24, nil, { BackgroundTransparency = 1 }); cd.rim = stroke(rim, C(r.th.rim), 5, 0.25); cd.rimF = rim
+	local stripH = 8
 	cd.strip = frame(c, 0, CH - stripH, CW, stripH, darken(C(r.th.grad[#r.th.grad][2]), 0.30), { Name = "BottomStrip", ZIndex = 2 })
-	cd.icon = new("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(CW / 2, 235), Size = UDim2.fromOffset(330, 330),
+	cd.icon = new("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(102, CH / 2), Size = UDim2.fromOffset(176, 176),
 		BackgroundTransparency = 1, Image = r.icon, ScaleType = Enum.ScaleType.Fit, ZIndex = 2 }, c)
-	cd.lock = new("ImageLabel", { Position = UDim2.fromOffset(155, 140), Size = UDim2.fromOffset(190, 190), BackgroundTransparency = 1,
-		Image = LOCK_ICON, ScaleType = Enum.ScaleType.Fit, ZIndex = 3, Visible = false }, c)
-	label(c, 0, 420, CW, 90, 84, r.title, WHITE, 8, { ZIndex = 3 })
-	cd.value = label(c, 0, 515, CW, 64, 48, r.line, C("d4ff3e"), 6, { ZIndex = 3 })
-	-- статус замість кнопки: великий напис з товстою обвідкою на темній смузі
-	local bar = frame(c, 24, 610, CW - 48, 120, INK, { BackgroundTransparency = 0.35, ZIndex = 3 }); corner(bar, 18)
+	cd.lock = new("ImageLabel", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(102, CH / 2), Size = UDim2.fromOffset(110, 110),
+		BackgroundTransparency = 1, Image = LOCK_ICON, ScaleType = Enum.ScaleType.Fit, ZIndex = 3, Visible = false }, c)
+	cd.title = label(c, 200, 14, 380, 70, 64, r.title, WHITE, 7, { ZIndex = 3, TextXAlignment = Enum.TextXAlignment.Left })
+	cd.value = label(c, 200, 82, 400, 40, 34, r.line, C("d4ff3e"), 5, { ZIndex = 3, TextXAlignment = Enum.TextXAlignment.Left })
+	-- статус замість кнопки: напис з обвідкою на темній смузі
+	local bar = frame(c, 196, 128, CW - 216, 56, INK, { BackgroundTransparency = 0.35, ZIndex = 3 }); corner(bar, 14)
 	cd.bar = bar
-	cd.status = label(bar, 0, 0, CW - 48, 120, 76, "SELECT", WHITE, 8, { ZIndex = 4 })
-	-- рамка вибору (лайм, усередині картки) і галочка в правому верхньому куті
-	-- лаймова рамка вибору ЗОВНІ картки (як було на екрані): лайм 10 + темний контур 6
+	cd.status = label(bar, 0, 0, CW - 216, 56, 40, "SELECT", WHITE, 6, { ZIndex = 4 })
+	-- лаймова рамка вибору ЗОВНІ картки: лайм 10 + темний контур 6; галочка в правому верхньому куті
 	cd.ring = frame(holder, o.X - 4, o.Y - 4, CW + 8, CH + 8, nil, { BackgroundTransparency = 1, ZIndex = 5, Visible = false })
 	stroke(cd.ring, LIME, 10)
-	local ringOut = frame(cd.ring, -10, -10, CW + 28, CH + 28, nil, { BackgroundTransparency = 1, ZIndex = 5 }); stroke(ringOut, INK, 6)
-	cd.check = checkBadge(c, CW - 72, 72); cd.check.Visible = false
-	cd.hit = new("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 9, AutoButtonColor = false }, c)
+	local ringOut = frame(cd.ring, -10, -10, CW + 28, CH + 28, nil, { BackgroundTransparency = 1, ZIndex = 5 }); stroke(ringOut, INK, 6); cd.ringOut = ringOut
+	cd.check = checkBadge(c, CW - 50, 50, 76); cd.check.Visible = false
+	cd.hit = new("TextButton", { Name = "Hit", Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 9, AutoButtonColor = false }, c)
 	cd.state = nil
 	return cd
 end
@@ -168,91 +168,198 @@ local function shake(cd)
 	end)
 end
 
-local function cardsOf(niche: Instance): { [number]: BasePart }
-	local rsys = niche:FindFirstChild("RollSystem")
-	local f = rsys and rsys:FindFirstChild("RoleCards")
-	local out = {}
-	if f then
-		for _, p in f:GetChildren() do
-			local i = p:IsA("BasePart") and BY_KEY[p:GetAttribute("Role") or ""]
-			if i then out[i] = p end
-		end
-	end
-	return out
+-- ===== панель на екрані =====
+local GAP = 26            -- проміжок між картками (одиниці картки)
+local COL_H = 0.42        -- висота стовпчика — частка висоти екрана
+local MAX_W = 0.30        -- ширина картки — не більше частки ширини екрана
+local CENTER_Y = 0.54     -- центр стовпчика по висоті (нижче валют зліва вгорі)
+local SHOW_R = 12         -- ближче до важеля (стади по горизонталі) — панель видно (кнопка ROLL — 8)
+local TW = CW + 2 * PAD
+local TH = 3 * CH + 2 * GAP + 2 * PAD
+
+local gui = new("ScreenGui", { Name = "RollRolePanel", ResetOnSpawn = false, IgnoreGuiInset = true, ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets, DisplayOrder = 4,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Enabled = false }, playerGui)
+local root = new("Frame", { Name = "Root", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 0.5), Size = UDim2.fromOffset(TW, TH) }, gui)
+local scale = new("UIScale", {}, root)
+local cards = {}
+for i, r in ROLES do
+	local cd = buildCard(root, r, PAD + (i - 1) * (CH + GAP))
+	cards[i] = cd
+	CardHover.attach(cd.holder, cd.card, function() return gui:GetAttribute("Shown") == true end, 1)
+	cd.hit.MouseButton1Click:Connect(function()
+		if gui:GetAttribute("Shown") ~= true then return end
+		if cd.locked then shake(cd); return end
+		if cd.state == "sel" then return end
+		StyleA.tap()
+		Remote:FireServer(r.key)
+	end)
 end
 
-local function buildPanel(niche: Instance, parts: { [number]: BasePart }, ownerId: number)
-	local mine = ownerId == player.UserId
-	local pn = { ownerId = ownerId, niche = niche, cards = {}, parts = parts }
-	for i, r in ROLES do
-		local part = parts[i]
-		if part then
-			local cd = buildCard(part, r, niche)
-			pn.cards[i] = cd
-			-- наведення: картка плавно збільшується (CardHover, без нахилу в SurfaceGui) — лише своя ніша
-			if mine then CardHover.attach(cd.holder, cd.card, function() return true end, 1) end
-			if mine then
-				cd.hit.MouseButton1Click:Connect(function()
-					if cd.locked then shake(cd); return end
-					if cd.state == "sel" then return end
-					StyleA.tap()
-					Remote:FireServer(r.key)
-				end)
-			else
-				cd.hit.Active = false; cd.hit.Selectable = false
-				pcall(function() cd.hit.Interactable = false end)
-			end
+-- ===== 10.11.2026 v3.3: згортання в міні-версію (лише значки) =====
+-- Вкладка зі стрілкою праворуч від стовпчика посередині: «‹» — згорнути (картки стають квадратами зі значком, вибрана — з лаймовою
+--   рамкою), «›» — розгорнути. Плавно. Стан пам'ятається до кінця сесії. Під час навчання — завжди розгорнуто, вкладки немає.
+local MINI_W = CH -- згорнута картка — квадрат зі значком
+local TAB_W, TAB_H, TAB_GAP = 70, 200, 16
+local mini = false
+local miniT = 0 -- 0 — розгорнуто, 1 — згорнуто
+local tab = new("TextButton", { Name = "CollapseTab", Text = "", AutoButtonColor = false, AnchorPoint = Vector2.new(0, 0.5),
+	Size = UDim2.fromOffset(TAB_W, TAB_H), BackgroundColor3 = INK, BackgroundTransparency = 0.2, ZIndex = 10 }, root)
+corner(tab, 20) -- без обвідки (біла напівпрозора давала квадратну «підкладку» на кутах)
+local chev = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(40, 60),
+	BackgroundTransparency = 1, ZIndex = 11 }, tab)
+-- шеврон «‹» з двох лаймових смуг; у згорнутому стані повернутий на 180° («›»)
+for _, b in { { 19, 19, -45 }, { 19, 41, 45 } } do
+	local bar = frame(chev, b[1], b[2], 38, 12, LIME, { AnchorPoint = Vector2.new(0.5, 0.5), Rotation = b[3], ZIndex = 11 })
+	corner(bar, UDim.new(0.5, 0))
+end
+local function applyWidth(w: number)
+	for _, cd in cards do
+		cd.card.Size = UDim2.fromOffset(w, CH)
+		cd.holder.Size = UDim2.fromOffset(w + 2 * PAD, CH + 2 * PAD)
+		cd.holder.Position = UDim2.fromOffset(PAD + w / 2, cd.holder.Position.Y.Offset)
+		cd.ring.Size = UDim2.fromOffset(w + 8, CH + 8)
+		cd.ringOut.Size = UDim2.fromOffset(w + 28, CH + 28)
+		cd.rimF.Size = UDim2.fromOffset(w - 24, CH - 24)
+		cd.gloss.Size = UDim2.fromOffset(w - 20, cd.gloss.Size.Y.Offset)
+		cd.studs.Size = UDim2.fromOffset(w - 16, CH - 16)
+		cd.strip.Size = UDim2.fromOffset(w, cd.strip.Size.Y.Offset)
+		local bands = cd.card:FindFirstChild("Bands")
+		if bands then bands.Size = UDim2.fromOffset(w, CH) end
+		-- написи — лише в розгорнутій картці: при наведенні картка нахиляється, а в повернутих елементах Roblox не обрізає вміст
+		local full = w > CW - 60
+		cd.title.Visible = full; cd.value.Visible = full; cd.bar.Visible = full
+		cd.check.Visible = full and cd.state == "sel"
+	end
+	root.Size = UDim2.fromOffset(w + 2 * PAD + TAB_GAP + TAB_W, TH)
+	tab.Position = UDim2.fromOffset(PAD + w + TAB_GAP, TH / 2)
+	chev.Rotation = miniT > 0.5 and 180 or 0
+end
+tab.MouseButton1Click:Connect(function()
+	if gui:GetAttribute("Shown") ~= true then return end
+	StyleA.tap()
+	mini = not mini
+end)
+RunService.RenderStepped:Connect(function(dt)
+	local tut = player:GetAttribute("TutStep") ~= nil
+	tab.Visible = not tut
+	local tgt = (mini and not tut) and 1 or 0
+	if miniT == tgt then return end
+	miniT += (tgt - miniT) * math.min(1, dt * 14)
+	if math.abs(tgt - miniT) < 0.005 then miniT = tgt end
+	applyWidth(CW + (MINI_W - CW) * miniT)
+end)
+applyWidth(CW)
+
+-- 10.11.2026 v3.2 (адаптивно): стовпчик точно повторює колонку кнопок MainHUD Shop / Index / Quests —
+--   лівий край праворуч від них, верх = верх Shop, низ = низ Quests (на будь-якому екрані не налазить на кнопки, валюти й джойстик).
+--   Кнопок не знайдено — запасний варіант: частки екрана. Рахується щоразу, поки панель видно (HUD міг змінитись).
+local function hudBox(): (number?, number?, number?)
+	local hud = playerGui:FindFirstChild("MainHUD")
+	if not hud then return nil end
+	local right, top, bottom = nil, nil, nil
+	for _, n in { "Btn_Shop", "Btn_Index", "Btn_Quests" } do
+		local b = hud:FindFirstChild(n, true)
+		local h = b and b:FindFirstChild("Hit", true)
+		local g = (h and h:IsA("GuiObject")) and h or ((b and b:IsA("GuiObject")) and b or nil)
+		if g and g.AbsoluteSize.X > 2 and g.AbsoluteSize.Y > 2 then
+			local p, sz = g.AbsolutePosition, g.AbsoluteSize
+			right = math.max(right or 0, p.X + sz.X)
+			top = math.min(top or math.huge, p.Y)
+			bottom = math.max(bottom or 0, p.Y + sz.Y)
 		end
 	end
-	return pn
+	if not (right and top and bottom) or bottom - top < 40 then return nil end
+	-- AbsolutePosition рахується без смуги Roblox згори; у Position панелі — від верху самого ScreenGui
+	local o = gui.AbsolutePosition
+	return right - o.X, top - o.Y, bottom - o.Y
 end
-local function destroyPanel(pn) for _, cd in pn.cards do cd.gui:Destroy() end end
 
-local panels = {} -- [niche] = pn
+local shownT = 0 -- 0 — схована (за лівим краєм), 1 — на місці
+local function layout()
+	local vs = camera.ViewportSize
+	if vs.X < 2 or vs.Y < 2 then return end
+	local u = vs.Y / 720
+	local right, top, bottom = hudBox()
+	local x, cy, colH
+	if right then
+		x = right + 20 * u -- 10.11.2026: +12 — не налазить на значки-лічильники кнопок (було 8); координати збігаються: ScreenGui як у MainHUD (IgnoreGuiInset + DeviceSafeInsets)
+		cy = (top + bottom) / 2
+		colH = bottom - top
+	else
+		x = 150 * u
+		cy = CENTER_Y * vs.Y
+		colH = COL_H * vs.Y
+	end
+	-- висота — як колонка кнопок; ширина картки не більше MAX_W екрана
+	local s = math.min(colH / (TH - 2 * PAD), MAX_W * vs.X / CW)
+	scale.Scale = s
+	local x0 = x - PAD * s
+	local hidden = x0 + root.Size.X.Offset * s + 20
+	root.Position = UDim2.fromOffset(x0 - (1 - shownT) * hidden, cy)
+end
+
+local function myNiche(): Instance?
+	local f = workspace:FindFirstChild("Niches")
+	if not f then return nil end
+	for _, n in f:GetChildren() do
+		if n:GetAttribute("OwnerUserId") == player.UserId then return n end
+	end
+	return nil
+end
+local function nearLever(): boolean
+	if player:GetAttribute("InBossArena") == true then return false end
+	local n = myNiche()
+	local rsys = n and n:FindFirstChild("RollSystem")
+	local lever = rsys and rsys:FindFirstChild("RollLeverModel")
+	local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if not (lever and hrp and hum and hum.Health > 0) then return false end
+	local d = (hrp.Position - lever:GetPivot().Position) * Vector3.new(1, 0, 1)
+	return d.Magnitude < SHOW_R and math.abs(hrp.Position.Y - lever:GetPivot().Position.Y) < 12
+end
+
 local function refresh()
-	local niches = workspace:FindFirstChild("Niches")
-	if not niches then return end
-	local camPos = camera.CFrame.Position
-	for n, pn in panels do
-		local alive = n:IsDescendantOf(workspace)
-		for _, p in pn.parts do if not p:IsDescendantOf(workspace) then alive = false end end
-		if not alive then destroyPanel(pn); panels[n] = nil end
-	end
-	for _, n in niches:GetChildren() do
-		local parts = cardsOf(n)
-		local ownerId = (n:GetAttribute("OwnerUserId") :: number?) or 0
-		local owner = ownerId ~= 0 and Players:GetPlayerByUserId(ownerId) or nil
-		local role = owner and owner:GetAttribute("RollRole") or "Miner"
-		local stage = owner and tonumber(owner:GetAttribute("Stage")) or 1
-		local selIdx = BY_KEY[role] or 1
-		local mid = parts[2] or parts[1]
-		local dist = mid and (mid.Position - camPos).Magnitude or math.huge
-		local pn = panels[n]
-		if pn and (dist > 200 or pn.ownerId ~= ownerId or pn.parts[2] ~= parts[2]) then destroyPanel(pn); panels[n] = nil; pn = nil end
-		if not pn and mid and dist < 140 then pn = buildPanel(n, parts, ownerId); panels[n] = pn end
-		if pn then
-			for i, cd in pn.cards do
-				local r = cd.r
-				local locked = (r.minStage ~= nil and stage < r.minStage) or (r.tutLock == true and owner ~= nil and owner:GetAttribute("TutStep") ~= nil)
-				local st = locked and "lock" or (i == selIdx and "sel" or "free")
-				if cd.state ~= st then
-					cd.state = st; cd.locked = locked
-					applyTheme(cd, locked and LOCK_TH or r.th, locked)
-					cd.ring.Visible = st == "sel"
-					cd.check.Visible = st == "sel"
-					if st == "lock" then cd.status.Text = r.lockText or "LOCKED"; cd.status.TextColor3 = C("d9dde2")
-					elseif st == "sel" then cd.status.Text = "SELECTED"; cd.status.TextColor3 = LIME
-					else cd.status.Text = "SELECT"; cd.status.TextColor3 = WHITE end
-				end
-			end
+	local role = player:GetAttribute("RollRole") or "Miner"
+	local selIdx = BY_KEY[role] or 1
+	local stage = tonumber(player:GetAttribute("Stage")) or 1
+	for i, cd in cards do
+		local r = cd.r
+		local locked = (r.minStage ~= nil and stage < r.minStage) or (r.tutLock == true and player:GetAttribute("TutStep") ~= nil)
+		local st = locked and "lock" or (i == selIdx and "sel" or "free")
+		if cd.state ~= st then
+			cd.state = st; cd.locked = locked
+			applyTheme(cd, locked and LOCK_TH or r.th, locked)
+			cd.ring.Visible = st == "sel"
+			cd.check.Visible = st == "sel" and miniT < 0.1
+			if st == "lock" then cd.status.Text = r.lockText or "LOCKED"; cd.status.TextColor3 = C("d9dde2")
+			elseif st == "sel" then cd.status.Text = "SELECTED"; cd.status.TextColor3 = LIME
+			else cd.status.Text = "SELECT"; cd.status.TextColor3 = WHITE end
 		end
 	end
 end
 
+local want = false
 task.spawn(function()
 	while true do
 		task.wait(0.15)
-		local ok, err = pcall(refresh)
+		local ok, err = pcall(function()
+			want = nearLever()
+			refresh()
+			if gui.Enabled then layout() end
+		end)
 		if not ok then warn("RollStationClient: " .. tostring(err)) end
 	end
 end)
+
+-- виїзд / ховання зліва (плавно, ~0,25 с)
+RunService.RenderStepped:Connect(function(dt)
+	local target = want and 1 or 0
+	if shownT == target and gui.Enabled == (target == 1) then return end
+	shownT += (target - shownT) * math.min(1, dt * 12)
+	if math.abs(target - shownT) < 0.01 then shownT = target end
+	gui.Enabled = shownT > 0
+	gui:SetAttribute("Shown", shownT > 0.9 or nil)
+	layout()
+end)
+camera:GetPropertyChangedSignal("ViewportSize"):Connect(layout)
+layout()

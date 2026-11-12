@@ -525,11 +525,7 @@ local function buildTabs()
 		local tx = 16
 		textAt(b.group, tx, 27, TAB_W - tx - 46, 26, g.version, WHITE, 2.8, { TextXAlignment = LEFT, ZIndex = 5 })
 		textAt(b.group, tx, 52, TAB_W - tx - 12, 15, g.date, SUB_TXT, 1.8, { TextXAlignment = LEFT, FontFace = XBOLD, ZIndex = 5 })
-		if g.pinned then -- значок «закріплено»: помаранчева мітка PIN праворуч
-			local pin = chip(b.group, "PIN", C("e09a10"), 0)
-			pin.AnchorPoint = Vector2.new(1, 0.5)
-			pin.Position = UDim2.fromOffset(TAB_W - 10, 46)
-		end
+		-- 09.11.2026: мітку PIN на вкладці версії прибрано (закріплені версії лише стоять першими)
 		local dot = makeDot(b.group, TAB_W - 10, 10, 8)
 		b.onClick = function() if selVer ~= g.key then selectVersion(g.key, true) end end
 		tabs[g.key] = { key = g.key, g = g, hold = hold, b = b, dot = dot, i = i }
@@ -554,11 +550,10 @@ local function renderNews(g)
 			AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 5 }, card)
 		new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, col)
 		new("UIPadding", { PaddingBottom = UDim.new(0, 16) }, col)
-		-- рядок: PINNED, версія · дата
+		-- рядок: версія · дата (09.11.2026: мітку PINNED прибрано)
 		local meta = new("Frame", { Name = "Meta", LayoutOrder = 1, BackgroundTransparency = 1, Size = UDim2.fromOffset(textW, 24), ZIndex = 5 }, col)
 		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), VerticalAlignment = Enum.VerticalAlignment.Center,
 			SortOrder = Enum.SortOrder.LayoutOrder }, meta)
-		if u.pinned then chip(meta, "PINNED", C("e09a10"), 1) end
 		local metaTxt = (u.version ~= "" and vLabel(u.version) or "") .. ((u.version ~= "" and u.date ~= "") and "  ·  " or "") .. (u.date or "")
 		if metaTxt ~= "" then
 			label(meta, 0, 0, 0, 24, 16, metaTxt, MUTED, 1.6, { LayoutOrder = 3, AutomaticSize = Enum.AutomaticSize.X, FontFace = XBOLD, ZIndex = 5 })

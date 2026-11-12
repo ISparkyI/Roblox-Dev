@@ -40,6 +40,9 @@ local STATS = { "Stat_TotalMoney", "Stat_Rolls", "Stat_Playtime", "Stat_RobuxSpe
 	"Stat_OresMined", "Stat_Mutations", "Stat_BestStreak", "Stat_MarketBought", "Stat_MarketSold" }
 
 local function num(p: Player, a: string): number return tonumber(p:GetAttribute(a)) or 0 end
+-- 10.11.2026: топи за Robux (TOP DONATORS / TOP GIFTERS) — без ліміту часу в грі: покупець потрапляє в топ одразу
+local NO_PLAYTIME_LIMIT = { Stat_RobuxSpent = true, Stat_RobuxGifted = true }
+local schedulePublishOne: (string) -> () = function() end -- нижче
 function StatsService.Add(p: Player, key: string, n: number)
 	if not (p and p.Parent and DataService.IsLoaded(p)) or type(n) ~= "number" or n ~= n then return end
 	local a = "Stat_" .. key
@@ -60,6 +63,10 @@ local function onPlayer(p: Player)
 	local d = DataService.GetData(p)
 	local ps = d and d.stats and tonumber(d.stats.playSeconds) or 0
 	if ps > num(p, "Stat_Playtime") then p:SetAttribute("Stat_Playtime", ps) end
+	-- 10.11.2026: Robux витрачені / подаровані — табло оновлюється одразу
+	for a in NO_PLAYTIME_LIMIT do
+		p:GetAttributeChangedSignal(a):Connect(function() schedulePublishOne(a) end)
+	end
 	local st = { money = num(p, "Money"), tick = os.clock() }
 	tracked[p] = st
 	local function inc() StatsService.Max(p, "BestIncome", math.floor(num(p, "IncomePerMin"))) end
@@ -107,7 +114,7 @@ local function nameOf(uid: number): string
 	if ok and type(n) == "string" then names[uid] = n; return n end
 	return "Player"
 end
-local LB_MIN_PLAYTIME = 20 * 60
+local LB_MIN_PLAYTIME = 20 * 60 -- крім NO_PLAYTIME_LIMIT (вище)
 -- 06.11.2026: адміни / модератори (AdminService.IsStaffId) у лідерборди не потрапляють — ні в лобі, ні на маркеті:
 --   не записуємо їхні значення, відфільтровуємо з топу (беремо із запасом) і раз за сесію сервера видаляємо їхні старі записи зі сховища.
 local AdminService = nil
@@ -126,7 +133,7 @@ local function write(b)
 		if DataService.IsLoaded(p) and not isStaff(p.UserId) then
 			local v = math.floor(num(p, b.stat))
 			-- у топ потрапляють лише гравці з часом у грі ≥ LB_MIN_PLAYTIME (20 хв)
-			if num(p, "Stat_Playtime") < LB_MIN_PLAYTIME then v = 0 end
+			if not NO_PLAYTIME_LIMIT[b.stat] and num(p, "Stat_Playtime") < LB_MIN_PLAYTIME then v = 0 end
 			if v > 0 and written[b.key][p.UserId] ~= v then
 				if not useMemory then
 					-- 08.11.2026: бюджет запитів сервера вичерпано — пропускаємо (допишемо наступного разу), а не ставимо в чергу
@@ -266,6 +273,36 @@ local function publishMarket()
 			m:SetAttribute("NextAt", workspace:GetServerTimeNow() + HubCfg.LB_PERIOD)
 		end
 	end
+end
+
+-- 10.11.2026: оновити одне табло одразу (після покупки за Robux), не чекаючи LB_PERIOD
+local function publishOne(statName: string)
+	if HubCfg.isMarket() then return end
+	local hub = workspace:FindFirstChild("Cave") and workspace.Cave:FindFirstChild("Hub")
+	local folder = hub and hub:FindFirstChild("Leaderboards")
+	for _, b in HubCfg.BOARDS do
+		if b.stat == statName then
+			write(b)
+			local list = read(b)
+			for _, e in list do e.n = nameOf(e.u) end
+			local m = folder and folder:FindFirstChild(b.key)
+			if m then
+				m:SetAttribute("Data", HttpService:JSONEncode(list))
+				m:SetAttribute("UpdatedAt", workspace:GetServerTimeNow())
+				task.spawn(placeStatue, m, list[1] and list[1].u or 0)
+			end
+		end
+	end
+end
+local pendingOne: { [string]: boolean } = {}
+schedulePublishOne = function(statName: string)
+	if pendingOne[statName] then return end
+	pendingOne[statName] = true
+	task.delay(3, function() -- кілька покупок поспіль — одне оновлення
+		pendingOne[statName] = nil
+		local ok, err = pcall(publishOne, statName)
+		if not ok then warn("StatsService: ", err) end
+	end)
 end
 
 local function publish()

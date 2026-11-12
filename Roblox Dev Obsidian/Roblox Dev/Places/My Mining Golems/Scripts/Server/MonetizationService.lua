@@ -72,6 +72,10 @@ function MonetizationService.GrantProduct(p: Player, key: string): boolean
 		end
 	elseif key == "MarketSlots" then -- +3 слоти лотів на маркеті, один раз (03.11.2026)
 		p:SetAttribute("Pass_MarketSlots", true)
+	elseif d.offlineX2 then -- 10.11.2026: x2 CLAIM офлайн-доходу (OfflineService.ClaimX2)
+		local okO, OS = pcall(require, script.Parent:FindFirstChild("OfflineService"))
+		if okO and OS and OS.ClaimX2 then return OS.ClaimX2(p) end
+		return false
 	elseif key == "ExtraStorage" then
 		p:SetAttribute("ExtraSlots", ((tonumber(p:GetAttribute("ExtraSlots")) or 0) :: number) + d.slots)
 	elseif d.skipMin then -- тайм-скіп: дохід за хвилину × хвилини
@@ -131,6 +135,14 @@ baseGrant = function(p: Player, productId: number): boolean
 		local okX, MX = pcall(require, script.Parent:FindFirstChild("MarketExclusiveService"))
 		if okX and MX and MX.GrantProduct then
 			local r = MX.GrantProduct(p, productId)
+			if r ~= nil then return r end
+		end
+	end
+	-- стенд големів за Robux у ніші (10.11.2026): RobuxStandService.GrantProduct (nil — не його продукт)
+	do
+		local okR, RSS = pcall(require, script.Parent:FindFirstChild("RobuxStandService"))
+		if okR and RSS and RSS.GrantProduct then
+			local r = RSS.GrantProduct(p, productId)
 			if r ~= nil then return r end
 		end
 	end
@@ -201,6 +213,7 @@ local function onShop(p: Player, action: any, key: any): any
 		if not d or d.diamonds or d.noTickets then return { ok = false } end -- 06.11.2026: noTickets — паки лише за Robux
 		if (d.cases or d.luckRoll) and p:GetAttribute("PolicyNoRandom") == true then return { ok = false, err = "region" } end -- 06.11.2026: ArePaidRandomItemsRestricted
 		if d.once and p:GetAttribute("Pass_" .. key) == true then return { ok = false, err = "owned" } end
+		if key == "StarterPack" then local e = tonumber(p:GetAttribute("StarterEndsAt")); if not e or e <= workspace:GetServerTimeNow() then return { ok = false, err = "expired" } end end
 		price = MonCfg.ticketPrice(d.robux)
 		grant = function() MonetizationService.GrantProduct(p, key) end
 	elseif action == "BuyTier" then
@@ -228,6 +241,9 @@ function MonetizationService.Start()
 	local rf = remotes:FindFirstChild("ShopAction") or Instance.new("RemoteFunction")
 	rf.Name = "ShopAction"; rf.Parent = remotes
 	rf.OnServerInvoke = onShop
+	-- 10.11.2026: звук успішної покупки за Robux — сервер каже клієнту, що чек видано (ShopActions грає "purchase")
+	local doneEv = remotes:FindFirstChild("PurchaseDone") or Instance.new("RemoteEvent")
+	doneEv.Name = "PurchaseDone"; doneEv.Parent = remotes
 	Players.PlayerRemoving:Connect(function(p) shopBusy[p] = nil end)
 	MarketplaceService.ProcessReceipt = function(info)
 		MonetizationService.Debug("[Receipt] in", info.PlayerId, info.ProductId)
@@ -248,6 +264,8 @@ function MonetizationService.Start()
 			while #data.receipts > MAX_RECEIPTS do table.remove(data.receipts, 1) end
 			-- статистика: витрачені Robux (лідерборд TOP DONATORS, StatsService); геймпаси рахує StatsService сам
 			p:SetAttribute("Stat_RobuxSpent", (tonumber(p:GetAttribute("Stat_RobuxSpent")) or 0) + math.max(0, tonumber(info.CurrencySpent) or 0))
+			local ev = remotes:FindFirstChild("PurchaseDone")
+			if ev and ev:IsA("RemoteEvent") then ev:FireClient(p, info.ProductId) end
 		end
 		local saved = DataService.SaveNow(p)
 		MonetizationService.Debug("[Receipt] saved", saved)
@@ -283,9 +301,33 @@ function MonetizationService.Start()
 			task.wait(3)
 		end
 	end
+	-- 10.11.2026: Starter Pack — лише першу STARTER_SECS с гри (рахується лише онлайн). Залишок — секція даних "StarterOffer" { left };
+	--   поки гравець у грі — атрибут StarterEndsAt (час сервера, до якого діє; 0 — вже ні: куплено або час вийшов).
+	--   При збереженні left = StarterEndsAt − зараз, тож поки гравця немає — час стоїть. Клієнт (ShopWindow) ховає розділ.
+	local STARTER_SECS = 3600
+	local function starterLeft(p: Player): number?
+		local e = tonumber(p:GetAttribute("StarterEndsAt"))
+		if not e then return nil end
+		if e <= 0 then return 0 end
+		return math.max(0, math.floor(e - workspace:GetServerTimeNow()))
+	end
+	DataService.RegisterSection("StarterOffer", function(p: Player, old: any)
+		local l = starterLeft(p)
+		if l == nil then return old end
+		return { left = l }
+	end)
+	local function startStarter(p: Player)
+		if p:GetAttribute("Pass_StarterPack") == true then p:SetAttribute("StarterEndsAt", 0); return end
+		local sec = DataService.GetSection(p, "StarterOffer")
+		local left = (type(sec) == "table" and tonumber(sec.left)) or STARTER_SECS
+		p:SetAttribute("StarterEndsAt", left > 0 and (workspace:GetServerTimeNow() + left) or 0)
+		p:GetAttributeChangedSignal("Pass_StarterPack"):Connect(function()
+			if p:GetAttribute("Pass_StarterPack") == true then p:SetAttribute("StarterEndsAt", 0) end
+		end)
+	end
 	local function onPlayer(p: Player)
 		task.spawn(applyPolicy, p)
-		if DataService.WaitLoaded(p) then checkPasses(p) end
+		if DataService.WaitLoaded(p) then checkPasses(p); startStarter(p) end
 	end
 	Players.PlayerAdded:Connect(function(p) task.spawn(onPlayer, p) end)
 	for _, p in Players:GetPlayers() do task.spawn(onPlayer, p) end

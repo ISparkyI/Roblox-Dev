@@ -287,7 +287,9 @@ task.spawn(function()
 			local t = arg == "soon" and "Next map is coming soon!" or arg == "plots" and "Max all plot upgrades first!"
 				or arg == "rebirths" and "Do all rebirths of this map first!"
 				or arg == "mutation" and "Take your golems out of the Mutation Machines first!"
-				or arg == "far" and "Come a bit closer to the board!" or "Can't move to the next map right now"
+				or arg == "far" and "Come a bit closer to the board!"
+				or arg == "cave" and "You haven't saved any golem in the Cave!" -- 10.11.2026: навчання Cave (MapService)
+				or "Can't move to the next map right now"
 			b:Fire(t, arg == "soon" and "yellow" or "red", "deny")
 		end
 	end)

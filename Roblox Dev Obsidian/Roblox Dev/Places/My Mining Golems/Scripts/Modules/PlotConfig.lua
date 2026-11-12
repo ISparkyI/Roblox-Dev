@@ -145,6 +145,12 @@ Config.CARDS = {
 	--   і назавжди (картку тоді не купують). Ціна — $250K фіксована (flat: без множника мапи; рішення користувача).
 	--   optional: не рахується в прогрес NEXT MAP (MapService).
 	AutoSell = { name = "Auto Sell", max = 2, minStage = 2, flat = true, optional = true, pass = "AutoSell", price = function(l: number, stage: number?) return require(script.Parent:WaitForChild("MultiConfig")).round2(125000 * Config.priceMult(stage)) end }, -- 03.11.2026: × множник цін мапи (мапа 2 ≈ $1.5B; було фіксовані $250K)
+	-- Auto Collect (09.11.2026, v2): 6 прокачок з мапи 2 — руда з ящиків сама йде в інвентар раз на 30 / 25 / 20 / 15 / 10 / 5 с
+	--   (AUTO_COLLECT_SECS; рівень 1 = немає). Усі 6 разом = ціна Auto Sell на цій мапі (частки AUTO_COLLECT_SHARE).
+	--   Геймпас Auto Collect — як раніше, одразу. Перемикач ON / OFF — Set_AutoCollect (SETTINGS).
+	AutoCollect = { name = "Auto Collect", max = 7, minStage = 2, flat = true, optional = true, pass = "AutoCollect", price = function(l: number, stage: number?)
+		local share = Config.AUTO_COLLECT_SHARE[math.clamp(math.floor(l), 1, 6)]
+		return require(script.Parent:WaitForChild("MultiConfig")).round2(share * 125000 * Config.priceMult(stage)) end },
 }
 -- ціни карток на мапі N (29.10.2026, рішення користувача): приріст множника мапи (MultiConfig.STAGE_MULTS) подвоюється —
 -- ціна × (1 + 2 × (множник мапи − 1)). Мапа 1 ×1 → ×1; мапа 2 ×1,5 → ×2; мапа 3 ×2 → ×3 … Ціни ростуть удвічі швидше за заробіток
@@ -158,7 +164,15 @@ function Config.cardPrice(key: string, l: number, stage: number?): number
 	if c and c.flat then return math.floor(c.price(l, stage)) end -- одна ціна без рівнів (Auto Sell; сама враховує мапу)
 	return c and math.floor(c.price(l) * Config.priceMult(stage) * MultiCfg.earlyDiscount(l, stage)) or math.huge -- 04.11.2026: знижка перших рівнів (мапи 2+)
 end
-Config.CARD_ORDER = { "Plots", "Points", "Spawn", "Slots", "Carry", "Crate", "Drop", "AutoSell" }
+-- 09.11.2026: картку Auto Sell прибрано з табло на всіх мапах (лише геймпас); купити можна тільки картки з CARD_ORDER (PlotService)
+Config.CARD_ORDER = { "Plots", "Points", "Spawn", "Slots", "Carry", "Crate", "Drop", "AutoCollect" }
+Config.AUTO_COLLECT_SECS = { 30, 25, 20, 15, 10, 5 }
+Config.AUTO_COLLECT_SHARE = { 0.04, 0.07, 0.11, 0.17, 0.25, 0.36 } -- разом 1,0 = ціна Auto Sell
+-- інтервал автозбору за рівнем картки (nil — ще не куплено)
+function Config.autoCollectSecs(l: number): number?
+	if l < 2 then return nil end
+	return Config.AUTO_COLLECT_SECS[math.clamp(math.floor(l) - 1, 1, #Config.AUTO_COLLECT_SECS)]
+end
 -- чи відкрита картка для гравця на етапі stage
 function Config.cardOpen(key: string, stage: number?): boolean
 	local c = Config.CARDS[key]
@@ -171,6 +185,20 @@ function Config.autoSellOwned(p: Instance): boolean
 	if type(raw) ~= "string" then return false end
 	local ok, t = pcall(game:GetService("HttpService").JSONDecode, game:GetService("HttpService"), raw)
 	return ok and type(t) == "table" and (tonumber(t.AutoSell) or 1) >= 2
+end
+-- чи є в гравця Auto Collect: геймпас або куплена картка (09.11.2026)
+function Config.autoCollectOwned(p: Instance): boolean
+	if p:GetAttribute("Pass_AutoCollect") == true then return true end
+	local raw = p:GetAttribute("PlotLv")
+	if type(raw) ~= "string" then return false end
+	local ok, t = pcall(game:GetService("HttpService").JSONDecode, game:GetService("HttpService"), raw)
+	return ok and type(t) == "table" and (tonumber(t.AutoCollect) or 1) >= 2
+end
+-- чи куплено авто-картку key (Auto Sell / Auto Collect)
+function Config.cardOwned(key: string, p: Instance): boolean
+	if key == "AutoSell" then return Config.autoSellOwned(p) end
+	if key == "AutoCollect" then return p:GetAttribute("Pass_AutoCollect") == true end -- картка — звичайні рівні, геймпас — відразу ON
+	return false
 end
 function Config.defaultLevels(): { [string]: number }
 	local t = {}

@@ -54,6 +54,9 @@ local CARDS = {
 		{ grad = { { 0, "ffe27a" }, { 0.55, "f5b616" }, { 1, "b07a06" } }, rim = "fff1b8", stud = "ffe89a", studShade = "b98309" } },
 	AutoSell = { "Auto Sell", 72, "rbxassetid://110396437023647",
 		{ grad = { { 0, "ff8ad8" }, { 0.55, "e83cb4" }, { 1, "a3187c" } }, rim = "ffd0ef", stud = "ffaee6", studShade = "a8187e" } },
+	-- 09.11.2026: Auto Collect — іконка геймпаса Auto Collect, синьо-фіолетова тема
+	AutoCollect = { "Auto Collect", 60, "rbxassetid://81190850894357",
+		{ grad = { { 0, "a9b6ff" }, { 0.55, "6170f0" }, { 1, "3038a8" } }, rim = "d6dcff", stud = "bcc6ff", studShade = "3540ad" } },
 }
 -- закрита картка (ще не та карта): сіра тема, сіра іконка, замок поверх
 local LOCK_TH = { grad = { { 0, "9aa1aa" }, { 0.55, "6f7680" }, { 1, "4a5058" } }, rim = "c9ced4", stud = "b4bac2", studShade = "555b63" }
@@ -70,6 +73,7 @@ local function valueOf(key: string, l: number): string
 	elseif key == "Crate" then return NF.full(Cfg.crateOf(l)) -- кількість руди, без «$»
 	elseif key == "Drop" then return string.format("x%.1f", Cfg.dropOf(l))
 	elseif key == "AutoSell" then return l >= 2 and "On" or "Off"
+	elseif key == "AutoCollect" then local s = Cfg.autoCollectSecs(l) return s and (s .. "s") or "Off" -- 09.11.2026: інтервал автозбору
 	end
 	return tostring(l)
 end
@@ -143,7 +147,7 @@ local function card(parent, x, y, key)
 	local lock = new("ImageLabel", { Position = UDim2.fromOffset(155, 150), Size = UDim2.fromOffset(190, 190), BackgroundTransparency = 1,
 		Image = LOCK_ICON, ScaleType = Enum.ScaleType.Fit, ZIndex = 3, Visible = false }, c)
 	label(c, 0, 432, CW, 90, d[2], d[1], WHITE, 7)
-	local value = label(c, 0, 530, CW, 70, 50, "", WHITE, 6, { RichText = true })
+	local value = label(c, 0, 530, CW, 70, key == "AutoCollect" and 40 or 50, "", WHITE, 6, { RichText = true }) -- Auto Collect: довший текст
 	local bx, by, bw, bh = 70, 640, CW - 140, 100
 	local saShadow = frame(c, bx, by + 8, bw, bh, Color3.new(0, 0, 0), { BackgroundTransparency = 0.7 })
 	local sa = StyleA.new(c, { size = Vector2.new(bw, bh), position = Vector2.new(bx, by), color = "green", text = "", textSize = 58,
@@ -215,11 +219,15 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		label(a.root, 0, -7, ARROW, 50, 54, dir < 0 and "‹" or "›", WHITE, 5, { ZIndex = 9 })
 		arrows[i] = { sa = a, dir = dir }
 	end
-	local pn = { gui = g, screen = screen, ownerId = ownerId, cards = cards, can = {}, owned = {}, x = 0, tx = 0, maxX = math.max(0, rowW - PW), anim = false }
-	local function clampT() pn.tx = math.clamp(pn.tx, 0, pn.maxX) end
+	local pn = { gui = g, screen = screen, ownerId = ownerId, cards = cards, can = {}, owned = {}, toggle = {}, x = 0, tx = 0, maxX = math.max(0, rowW - PW), anim = false }
+	-- 10.11.2026: справжній максимум прокрутки (CanvasSize − вікно в одиницях SurfaceGui); розрахунковий rowW − PW міг бути більшим —
+	--   у кінці ряду повзунок стояв посередині
+	local function realMax() local m = vp.AbsoluteCanvasSize.X - vp.AbsoluteWindowSize.X; if m > 0 then pn.maxX = m end; return pn.maxX end
+	local function clampT() pn.tx = math.clamp(pn.tx, 0, realMax()) end
 	local function layout()
 		pn.x = vp.CanvasPosition.X
-		local u = pn.maxX > 0 and pn.x / pn.maxX or 0
+		realMax()
+		local u = pn.maxX > 0 and math.clamp(pn.x / pn.maxX, 0, 1) or 0
 		thumb:setPosition(Vector2.new(u * (TRACK_W - thumbW), 0))
 	end
 	layout()
@@ -244,6 +252,13 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 			onClick = function() pn.tx = pn.x + a.dir * step0; go() end })
 	end
 	local drag = nil
+	-- 11.11.2026: свайп на телефоні. Зсув пальця рахуємо на ЕКРАНІ × масштаб полотна (заміряний на старті), а не променем щокадру:
+	--   камера й персонаж рухались разом із пальцем → точка на табло стрибала → ряд смикався. Поріг 14 тепер без стрибка
+	--   (рух починається з нуля), на відпусканні — інерція, а кнопка під пальцем після свайпу не натискається (StyleA.swipeUntil).
+	--   Нативне гортання ScrollingFrame для дотику вимкнене зовсім (воно перехоплювало початок свайпу).
+	local TOUCH_ONLY = UIS.TouchEnabled and not UIS.MouseEnabled
+	if TOUCH_ONLY then vp.ScrollingEnabled = false end
+	-- точка в координатах вьюпорта: мишка — GetMouseLocation, дотик — позиція + верхній відступ GUI
 	local function pointOf(input)
 		if input.UserInputType == Enum.UserInputType.Touch then
 			local inset = game:GetService("GuiService"):GetGuiInset()
@@ -251,11 +266,22 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 		end
 		return nil
 	end
+	-- одиниць полотна на 1 піксель екрана по X біля точки p
+	local function kAt(p)
+		local a = CardHover.surfaceX(g, p - Vector2.new(20, 0))
+		local b = CardHover.surfaceX(g, p + Vector2.new(20, 0))
+		if a and b and math.abs(b - a) > 1 then return (b - a) / 40 end
+		return nil
+	end
 	local function startDrag(kind, input)
 		if pn.maxX <= 0 then return end
-		local sx = CardHover.surfaceX(g, pointOf(input)) or 0
-		drag = { kind = kind, sx = sx, st = pn.tx, input = input, moved = false }
-		if kind == "track" then
+		local isTouch = input.UserInputType == Enum.UserInputType.Touch
+		local p = pointOf(input) or UIS:GetMouseLocation()
+		local sx = CardHover.surfaceX(g, p) or 0
+		drag = { kind = kind, sx = sx, st = pn.tx, input = input, moved = false, touch = isTouch, px = p.X, k = isTouch and kAt(p) or nil,
+			d0 = 0, v = 0, lt = os.clock(), ltx = pn.tx }
+		if isTouch then vp.ScrollingEnabled = false end
+		if kind == "track" then -- клік по доріжці поза повзунком — стрибок туди
 			local rel = sx - track.AbsolutePosition.X
 			local tl = pn.x / math.max(1, pn.maxX) * (TRACK_W - thumbW)
 			if rel < tl or rel > tl + thumbW then pn.tx = (rel - thumbW / 2) / (TRACK_W - thumbW) * pn.maxX; go() end
@@ -273,18 +299,40 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 	local moveConn = UIS.InputChanged:Connect(function(input)
 		if not drag then return end
 		if input.UserInputType ~= Enum.UserInputType.MouseMovement and input ~= drag.input then return end
-		local sx = CardHover.surfaceX(g, pointOf(input))
+		local sx
+		if drag.touch and drag.k then
+			sx = drag.sx + (input.Position.X - drag.px) * drag.k
+		else
+			sx = CardHover.surfaceX(g, pointOf(input))
+		end
 		if not sx then return end
 		local d = sx - drag.sx
 		if drag.kind == "track" then
 			pn.tx = drag.st + d * pn.maxX / math.max(1, TRACK_W - thumbW); go()
-		elseif input.UserInputType == Enum.UserInputType.MouseMovement and (drag.moved or math.abs(d) > 14) then
-			drag.moved = true
-			pn.tx = drag.st - d; go()
+		elseif drag.moved or math.abs(d) > 14 then
+			if not drag.moved then drag.moved = true; drag.d0 = d end
+			pn.tx = drag.st - (d - drag.d0); go()
+			StyleA.swipeUntil = os.clock() + 0.3
+			local now = os.clock()
+			local dt = now - drag.lt
+			if dt > 0.004 then
+				drag.v = drag.v * 0.5 + ((pn.tx - drag.ltx) / dt) * 0.5
+				drag.lt, drag.ltx = now, pn.tx
+			end
 		end
 	end)
 	local endConn = UIS.InputEnded:Connect(function(input)
-		if drag and (input.UserInputType == Enum.UserInputType.MouseButton1 or input == drag.input) then drag = nil end
+		if drag and (input.UserInputType == Enum.UserInputType.MouseButton1 or input == drag.input) then
+			if drag.moved then
+				StyleA.swipeUntil = os.clock() + 0.25
+				-- інерція: лише якщо палець ще рухався в момент відпускання
+				if drag.touch and os.clock() - drag.lt < 0.1 then
+					pn.tx += math.clamp(drag.v * 0.16, -step0 * 2.5, step0 * 2.5); go()
+				end
+			end
+			drag = nil
+			vp.ScrollingEnabled = not TOUCH_ONLY
+		end
 	end)
 	g.Destroying:Connect(function() moveConn:Disconnect(); endConn:Disconnect() end)
 	for _, cd in cards do CardHover.attach(cd.holder, cd.card, function() return true end, CARD_K) end
@@ -293,6 +341,13 @@ local function buildPanel(niche: Model, screen: BasePart, ownerId: number)
 			-- tap = false: у покупки свій звук BuySound (без нашарування з tap)
 			StyleA.bind(cd.sa, { hoverAlways = true, tap = false, canClick = function() return pn.can[key] == true end,
 				onClick = function()
+					-- 11.11.2026: перемикач — і з геймпасом, і з карткою на MAX (pn.toggle); той самий Set_AutoCollect, що й у SETTINGS
+					if (pn.owned[key] or pn.toggle[key]) and key == "AutoCollect" then -- 09.11.2026: Auto Collect уже є — кнопка перемикає ON / OFF (Set_AutoCollect)
+						local r = RS:FindFirstChild("Remotes")
+						local ev = r and r:FindFirstChild("SettingsAction")
+						if ev then ev:FireServer("AutoCollect", player:GetAttribute("Set_AutoCollect") == false) end
+						return
+					end
 					if pn.owned[key] then -- Auto Sell уже є (картка або геймпас): кнопка SETTINGS відкриває вікно AutoSellWindow
 						local ui = RS:FindFirstChild("UIEvents")
 						local e = ui and ui:FindFirstChild("AutoSellOpen")
@@ -348,29 +403,53 @@ local function refresh()
 				local def = Cfg.CARDS[key]
 				local l = math.clamp(math.floor(tonumber(lv[key]) or 1), 1, def.max)
 				-- Auto Sell (29.10.2026): куплена картка або геймпас Auto Sell (тоді відкрита з мапи 1) — кнопка SETTINGS
-				local owned = def.pass ~= nil and owner ~= nil and Cfg.autoSellOwned(owner)
+				local owned = def.pass ~= nil and owner ~= nil and Cfg.cardOwned(key, owner) -- Auto Sell / Auto Collect (09.11.2026)
 				pn.owned[key] = owned
+				pn.toggle[key] = nil
 				local open = owned or Cfg.cardOpen(key, stage)
+				-- 11.11.2026: Auto Collect карткою (без геймпаса) теж слухається перемикача Set_AutoCollect (SETTINGS) — показуємо OFF
+				local acOn = key == "AutoCollect" and owner ~= nil and owner:GetAttribute("Set_AutoCollect") ~= false
 				setLocked(cd, not open)
 				if owned then
-					local on = owner:GetAttribute("Set_AutoSell") ~= false
+					local on = owner:GetAttribute("Set_" .. key) ~= false
 					cd.value.Text = on and '<font color="#D4FF3E">ON</font>' or '<font color="#FF8A96">OFF</font>'
-					cd.sa:setText("SETTINGS")
-					cd.sa:setColor("blue")
+					-- 09.11.2026: геймпас Auto Collect — збір одразу
+					if key == "AutoCollect" then cd.value.Text = on and '<font color="#D4FF3E">Instant · ON</font>' or '<font color="#FF8A96">Instant · OFF</font>' end
+					if key == "AutoCollect" then -- кнопка — перемикач
+						cd.sa:setText(on and "TURN OFF" or "TURN ON")
+						cd.sa:setColor(on and "red" or "green")
+					else
+						cd.sa:setText("SETTINGS")
+						cd.sa:setColor("blue")
+					end
 					pn.can[key] = owner == player
 				elseif not open then
 					cd.value.Text = "Map " .. tostring(def.minStage)
 					cd.sa:setText("MAP " .. tostring(def.minStage))
 					cd.sa:setColor("gray")
 					pn.can[key] = false
+				elseif l >= def.max and key == "AutoCollect" then
+					-- 11.11.2026: картка Auto Collect на MAX — кнопка стає перемикачем ON / OFF (як із геймпасом)
+					cd.value.Text = acOn and string.format('<font color="#D4FF3E">Every %s · ON</font>', valueOf(key, l))
+						or string.format('<font color="#FF8A96">Every %s · OFF</font>', valueOf(key, l))
+					cd.sa:setText(acOn and "TURN OFF" or "TURN ON")
+					cd.sa:setColor(acOn and "red" or "green")
+					pn.toggle[key] = true
+					pn.can[key] = owner == player
 				elseif l >= def.max then
-					cd.value.Text = string.format('<font color="#D4FF3E">MAX (%s%s)</font>', valueOf(key, l), MAX_SUFFIX[key] or "")
+					cd.value.Text = string.format('<font color="#D4FF3E">MAX (%s%s)</font>', (key == "AutoCollect" and "every " or "") .. valueOf(key, l), MAX_SUFFIX[key] or "")
 					cd.sa:setText("MAX")
 					cd.sa:setColor("gray")
 					pn.can[key] = false
 				else
 					local price = Cfg.cardPrice(key, l, stage)
+					if key == "AutoCollect" then -- 09.11.2026: «раз на N с», щоб було зрозуміло, чому збір не моментальний
+						cd.value.Text = string.format('<font color="#FFFFFF">%s</font> <font color="#D4FF3E">› %s</font>', l >= 2 and ("every " .. valueOf(key, l)) or "Off", (l >= 2 and "" or "every ") .. valueOf(key, l + 1))
+						-- 11.11.2026: картку куплено, але в SETTINGS вимкнено — видно, що автозбір зараз не працює
+						if l >= 2 and not acOn then cd.value.Text = string.format('<font color="#FF8A96">OFF</font> <font color="#D4FF3E">› every %s</font>', valueOf(key, l + 1)) end
+					else
 					cd.value.Text = string.format('<font color="#FFFFFF">%s</font>  <font color="#D4FF3E">›  %s</font>', valueOf(key, l), valueOf(key, l + 1))
+					end
 					cd.sa:setText(NF.money(price))
 					cd.sa:setColor(money >= price and "green" or "gray")
 					pn.can[key] = owner ~= nil and money >= price

@@ -1,11 +1,12 @@
 --!nocheck
--- TrailerDirector — режисер трейлера (07.11.2026). Лише Studio і лише коли workspace.TrailerMode = true; у живій грі не працює.
+-- TrailerDirector — режисер трейлера (07.11.2026; v3 11.11.2026: підписи кадрів, кадри Cave і Marketplace, мутація з виходом голема). Лише Studio і лише коли workspace.TrailerMode = true; у живій грі не працює.
 -- Сети готує ServerScriptService/TrailerServer (копії ніш Stage1..6 і арени в Workspace/TrailerSets, бос і Bacon у
 --   ReplicatedStorage/TrailerAssets). Тут — камера (сплайни, easing, тряска, удари FOV), големи (Shared/GolemModel, анімує
 --   їхній GolemAnimator; у режимі TrailerLive GolemAnimRunner анімує їх щокадру), події кадрів і спливаючі цифри.
 -- Керування (Play у Studio):
 --   F6 — увесь трейлер (спершу підготовка, потім відлік 3-2-1 на чорному екрані й старт);
---   F7 — лише підготовка (зібрати големів у всіх сетах); 1…7 — окремий кадр; F8 — стоп і повернення камери.
+--   F7 — лише підготовка (зібрати големів у всіх сетах); 1…9 — окремий кадр (8 Cave, 9 Marketplace); F8 — стоп і повернення камери.
+--   Порядок у трейлері (F6): 1 2 3 4 5 8 9 6 7. Підписи (caption) — Luckiest Guy, жовто-помаранчеві, з плавною появою / зникненням.
 --   _G.TrailerPeek(n, t) — поставити камеру кадру n на момент t (перевірка ракурсу).
 -- Кадри: 1 Рол (ричаг → Secret-голем) · 2 Відліт над плотами з шахтарями · 3 Носильщики й гроші · 4 Шість світів ·
 --   5 Машина мутацій · 6 Бій з босом (армія воїнів) · 7 Фінал (Bacon перед армією, дрон угору).
@@ -30,6 +31,7 @@ local PlotAssets = RS:WaitForChild("PlotAssets", 60)
 
 local C = Color3.fromHex
 local HEAVY = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Heavy)
+local LUCKY = Font.new("rbxasset://fonts/families/LuckiestGuy.json")
 -- перед голема — −Z моделі (як у CFrame.lookAt)
 local V3 = Vector3.new
 
@@ -360,6 +362,14 @@ RunService:BindToRenderStep("TrailerCam", Enum.RenderPriority.Camera.Value, func
 	cam.CFrame = camCF
 	for _, e in Lighting:GetChildren() do if e:IsA("BlurEffect") or e:IsA("DepthOfFieldEffect") then if e.Enabled then e.Enabled = false end end end -- кожен кадр
 	cam.FieldOfView = math.clamp(camFov - pk, 10, 110)
+	-- 11.11.2026: свій персонаж у кадрі не потрібен (стояв у хабі за машиною мутацій) — ховаємо локально
+	local ch = player.Character
+	if ch then
+		for _, d in ch:GetDescendants() do
+			if d:IsA("BasePart") then d.LocalTransparencyModifier = 1
+			elseif d:IsA("BillboardGui") and d.Enabled then d.Enabled = false end
+		end
+	end
 end)
 
 -- ================= інтерфейс / середовище =================
@@ -384,6 +394,13 @@ end
 player:WaitForChild("PlayerGui").ChildAdded:Connect(function(g)
 	if active and g:IsA("ScreenGui") and g.Name ~= "TrailerUI" then hiddenGuis[g] = true; g.Enabled = false end
 end)
+-- 11.11.2026: ігрові вікна, які самі вмикаються під час трейлера (напр. RollRolePanel у новачка), — ховаємо щокадру
+RunService.Heartbeat:Connect(function()
+	if not active then return end
+	for _, g in player.PlayerGui:GetChildren() do
+		if g:IsA("ScreenGui") and g.Enabled and g.Name ~= "TrailerUI" then hiddenGuis[g] = true; g.Enabled = false end
+	end
+end)
 local ui = new("ScreenGui", { Name = "TrailerUI", IgnoreGuiInset = true, ResetOnSpawn = false, DisplayOrder = 1000 }, player.PlayerGui)
 local black = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0 }, ui)
 local white = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, BorderSizePixel = 0 }, ui)
@@ -392,6 +409,26 @@ local info = new("TextLabel", { BackgroundTransparency = 1, AnchorPoint = Vector
 local function flashWhite(a: number, dur: number)
 	white.BackgroundTransparency = 1 - a
 	tween(white, dur, { BackgroundTransparency = 1 })
+end
+-- підписи кадрів (11.11.2026): Luckiest Guy, жовто-помаранчевий перелив, темна обводка й тінь; поява / зникнення — setCaption(text, a)
+local capHold = new("Frame", { Name = "Caption", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.855),
+	Size = UDim2.fromScale(0.92, 0.15), BackgroundTransparency = 1 }, ui)
+local capScale = new("UIScale", {}, capHold)
+local capShadow = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromScale(0, 0.075), Size = UDim2.fromScale(1, 1), FontFace = LUCKY,
+	TextScaled = true, Text = "", TextColor3 = C("2b1403"), TextTransparency = 1, ZIndex = 1 }, capHold)
+local capShadowStroke = new("UIStroke", { Color = C("2b1403"), Thickness = 9, Transparency = 1, LineJoinMode = Enum.LineJoinMode.Round }, capShadow)
+local capText = new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), FontFace = LUCKY, TextScaled = true, Text = "",
+	TextColor3 = Color3.new(1, 1, 1), TextTransparency = 1, ZIndex = 2 }, capHold)
+new("UIGradient", { Rotation = 90, Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, C("fff48a")), ColorSequenceKeypoint.new(0.5, C("ffd21f")),
+	ColorSequenceKeypoint.new(1, C("ff9416")) }) }, capText)
+local capStroke = new("UIStroke", { Color = C("4a2406"), Thickness = 7, Transparency = 1, LineJoinMode = Enum.LineJoinMode.Round }, capText)
+local function setCaption(text: string, a: number)
+	if capText.Text ~= text then capText.Text = text; capShadow.Text = text end
+	capText.TextTransparency = 1 - a; capStroke.Transparency = 1 - a
+	capShadow.TextTransparency = 1 - a * 0.6; capShadowStroke.Transparency = 1 - a * 0.6
+	capScale.Scale = 0.9 + 0.1 * a
+	local th = math.max(3, ui.AbsoluteSize.Y / 1080 * 7)
+	capStroke.Thickness = th; capShadowStroke.Thickness = th * 1.3
 end
 
 -- ================= сети =================
@@ -493,11 +530,17 @@ S[1].prep = function()
 	for _, p in rl:GetDescendants() do if p:IsA("BasePart") then roll.parts[p] = p.CFrame end end
 	roll.h = rl:FindFirstChild("Hinge").Position
 	roll.knob0 = rl:FindFirstChild("Knob").Position
-	roll.floor = floorAt(roll.knob0 + V3(0, 0, -3), st1)
+	-- 11.11.2026: підлога променем від рівня важеля вниз (floorAt згори влучав у балку над новим місцем важеля — Bacon опинявся на даху)
+	local function floorLow(pos: Vector3): number
+		rayParams.FilterDescendantsInstances = { st1 }
+		local r = workspace:Raycast(pos + V3(0, 2, 0), V3(0, -25, 0), rayParams)
+		return r and r.Position.Y or pos.Y
+	end
+	roll.floor = floorLow(V3(roll.knob0.X + 0.95, roll.knob0.Y, roll.knob0.Z - 2.4))
 	roll.bpos = V3(roll.knob0.X + 0.95, roll.floor, roll.knob0.Z - 2.4)
 	roll.b = bacon(roll.bpos, roll.bpos + V3(0, 0, 10))
 	local sp = st1.RollSystem.StandPoints:FindFirstChild("Point1")
-	roll.standPos = V3(sp.Position.X, floorAt(sp.Position, st1), sp.Position.Z)
+	roll.standPos = V3(sp.Position.X, floorLow(sp.Position + V3(0, 3, 0)), sp.Position.Z)
 	local stand = RS:FindFirstChild("Prefabs") and RS.Prefabs:FindFirstChild("RollStand")
 	roll.standTop = roll.standPos.Y
 	if stand then
@@ -665,8 +708,12 @@ S[2].prep = function()
 	S[2].op = op
 	S[2].hp = hp
 end
-S[2].start = function() S[2].popT = 0 end
+S[2].start = function()
+	S[2].popT = 0
+	if S[3] and S[3].walkStart then S[3].walkStart() end
+end
 S[2].update = function(t, dt)
+	if S[3] and S[3].walk then S[3].walk(t) end -- 11.11.2026: носії (кадр 3) ідуть уже зараз, а не топчуться на місці
 	S[2].popT -= dt
 	if S[2].popT <= 0 and #miners1 > 0 then
 		S[2].popT = 0.1
@@ -706,14 +753,20 @@ S[3].prep = function()
 		end
 	end
 end
-S[3].start = function()
+local CAR_V = 7
+local CAR_LEAD = 4.0 -- = S[2].dur: носії починають іти з початку кадру 2; S[3].from — де вони на початку кадру 3
+S[3].walkStart = function()
 	for _, c in carriers do setState(c.m, "Walk", 1.2) end
 end
-local CAR_V = 7
-S[3].update = function(t)
+S[3].walk = function(T) -- T — секунди від початку кадру 2
+	if not S[3].from then return end
 	for _, c in carriers do
-		moveGolem(c.m, S[3].from + c.off + S[3].dir * (t * CAR_V), S[3].dir, c.foot)
+		moveGolem(c.m, S[3].from + c.off + S[3].dir * ((T - CAR_LEAD) * CAR_V), S[3].dir, c.foot)
 	end
+end
+S[3].start = S[3].walkStart
+S[3].update = function(t)
+	S[3].walk(CAR_LEAD + t)
 	local c = carriers[math.random(1, math.max(1, #carriers))]
 	if c then snd("Footstep", 0.35, 1.2 + math.random() * 0.2, c.m:GetPivot().Position, 0.16, "carstep") end
 end
@@ -723,8 +776,9 @@ S[3].events = {
 S[3].cam = function(t)
 	local lead = S[3].from + S[3].dir * (t * CAR_V)
 	local k = E.sine(seg(t, 0, 3.0))
-	local p = lead + V3(lerp(24, 27, k), lerp(5, 7, k), lerp(-5, 4, k))
-	return look(p, lead + V3(-2, 3.4, 0)), 58
+	-- камера їде разом із носіями й плавно опускається зверху до рівня очей
+	local p = lead + V3(lerp(27, 24, k), lerp(12.5, 5.2, k), lerp(-7, 4, k))
+	return look(p, lead + V3(-2, lerp(2.6, 3.6, k), 0)), lerp(62, 56, k)
 end
 S[3].focus = function() return S[3].from + V3(0, 5, 0) end
 
@@ -733,7 +787,16 @@ local worlds = {}
 local WORLD = { 3, 5, 6 }
 local SUB = 1.3
 S[4] = { name = "Worlds", dur = SUB * #WORLD }
+local mapBoards = {} -- 11.11.2026: табло «NEXT MAP» на кожній мапі трейлера (будує MapBoard через _G.TrailerMapBoard)
 S[4].prep = function()
+	for i = 1, 6 do
+		local st = stage(i)
+		local g = mapBoards[i]
+		if st and _G.TrailerMapBoard and not (g and g.Parent) then
+			local ok, res = pcall(_G.TrailerMapBoard, st, i)
+			if ok then mapBoards[i] = res else warn("[Trailer] map board " .. i .. ": " .. tostring(res)) end
+		end
+	end
 	for _, i in WORLD do
 		local st = stage(i)
 		if st then
@@ -776,7 +839,7 @@ S[4].focus = function() local w = worlds[WORLD[1]]; return w and w.a + V3(30, 5,
 -- ---------- 5. МУТАЦІЯ (4,2 с): як у грі (MutationMachineClient) — големи на плитах обличчям до камери машини,
 --   по черзі (найближчий першим) йдуть конвеєром у камеру й зникають, спалах, на виході — голем з наступною мутацією ----------
 local mut = {}
-S[5] = { name = "Mutation", dur = 5.2 }
+S[5] = { name = "Mutation", dur = 7.3 }
 local GOLEM_H, GOLEM_W, RIDE = 6.5, 4.6, 7
 S[5].prep = function()
 	local mm = workspace:FindFirstChild("Cave") and workspace.Cave:FindFirstChild("Hub") and workspace.Cave.Hub:FindFirstChild("MutationMachines")
@@ -819,27 +882,33 @@ S[5].prep = function()
 		hide(mut.res)
 	end
 end
--- черга: слот 3 (біля камери машини) першим
+-- черга: слот 3 (біля тунелю) першим; ідуть майже разом (11.11.2026: раніше по черзі — готовий голем не встигав вийти в кадрі)
 local ORDER = { 3, 2, 1 }
+local RAINBOW = { C("ff2a2a"), C("ff8a00"), C("ffe600"), C("22e04a"), C("00c8ff"), C("b02aff"), C("ff6ad5") }
 local function walkT(g) return (g.to - g.from).Magnitude / RIDE end
 S[5].start = function()
-	local t = 0.45
+	local t, last = 0.4, 0
 	for _, i in ORDER do
 		local g = mut.g[i]
 		if g then
 			g.t0 = t
 			g.t1 = t + math.max(0.4, walkT(g))
-			t = g.t1 - 0.25
+			last = math.max(last, g.t1)
+			t += 0.35
 			g.done = false
 			moveGolem(g.m, g.from, g.to - g.from, g.foot)
 			setState(g.m, "Idle", 1)
 		end
 	end
-	mut.burstT = t + 0.4
+	mut.burstT = last + 0.25
 	mut.resT = mut.burstT + 0.3
+	mut.walkDur = math.max(0.5, (mut.out - V3(mut.center.X, mut.out.Y, mut.center.Z)).Magnitude / RIDE)
+	mut.landT = mut.resT + mut.walkDur
+	S[5].dur = mut.landT + 2.1 -- готовий голем стоїть у кадрі з ефектами
 	mut.fired = false
 	mut.resShown = false
 	mut.resDone = false
+	mut.sparkT = 0
 	hide(mut.res)
 end
 S[5].update = function(t)
@@ -866,50 +935,77 @@ S[5].update = function(t)
 	end
 	if mut.res and t >= mut.resT then
 		local from = V3(mut.center.X, mut.out.Y, mut.center.Z)
-		local walkDur = math.max(0.5, (mut.out - from).Magnitude / RIDE)
-		local k = seg(t, mut.resT, mut.resT + walkDur)
+		local k = seg(t, mut.resT, mut.landT)
 		if not mut.resShown then
 			mut.resShown = true
 			setState(mut.res, "Walk", 1.1)
+			snd("ZapSmall", 1.4, 1.25, mut.center)
 		end
 		if k < 1 then
 			local e = k * k * (3 - 2 * k)
-			moveGolem(mut.res, from:Lerp(mut.out, e), mut.out - from, mut.resFoot)
+			local p = from:Lerp(mut.out, e)
+			moveGolem(mut.res, p, mut.out - from, mut.resFoot)
+			if t >= mut.sparkT then
+				mut.sparkT = t + 0.1
+				Boss.sparks(p + V3(0, 3, 0), 5, pick(RAINBOW))
+			end
 		else
 			if not mut.resDone then
 				mut.resDone = true
-				snd("ClaimReward", 1.3)
+				snd("ClaimReward", 1.5)
+				snd("ZapBig", 0.8, 1.3, mut.out)
 				setState(mut.res, "Idle", 1)
-				burst(mut.out + V3(0, 3, 0), C("ffffff"), 0.8)
+				burst(mut.out + V3(0, 3, 0), C("ffffff"), 1.5)
+				burst(mut.out + V3(0, 3, 0), C("ff6ad5"), 1.1)
+				flashWhite(0.45, 0.35)
+				fovPunch(7)
+				Boss.shake(0.5, 0.4)
+				pop(mut.out + V3(0, GOLEM_H + 2.6, 0), "RAINBOW!", C("ff6ad5"), 3.4, 2.2, 1.7)
 			end
-			local kk = E.out(seg(t, mut.resT + walkDur, mut.resT + walkDur + 0.35))
-			local d = (mut.out - from).Unit:Lerp(V3(1, 0, 0), kk)
-			moveGolem(mut.res, mut.out, d, mut.resFoot)
+			-- розворот до камери, підстрибування, іскри веселкою
+			local tl = t - mut.landT
+			local camP = S[5].cam(t).Position
+			local toCam = V3(camP.X - mut.out.X, 0, camP.Z - mut.out.Z).Unit
+			local d = (mut.out - from).Unit:Lerp(toCam, E.out(seg(tl, 0, 0.35)))
+			local hop = math.abs(math.sin(math.min(tl, 0.84) * 7.5)) * 1.2 * (1 - seg(tl, 0, 0.84))
+			moveGolem(mut.res, mut.out + V3(0, hop, 0), d, mut.resFoot)
+			if t >= mut.sparkT then
+				mut.sparkT = t + 0.16
+				Boss.sparks(mut.out + V3((math.random() - 0.5) * 5, 1.5 + math.random() * 5, (math.random() - 0.5) * 5), 5, pick(RAINBOW))
+			end
 		end
 	end
 end
 S[5].cam = function(t)
-	-- збоку машини (+X), на рівні голів, достатньо далеко, щоб у кадрі були всі слоти й вихід; повільний проїзд до виходу
+	-- 1) дугою збоку машини (+X) від слотів до тунелю; 2) після спалаху — до виходу, готовий голем великим планом
 	local s1, out = mut.slot1, mut.out
-	local k = E.sine(seg(t, 0, 5.2))
-	-- проліт дугою навколо машини: від слотів (згори-збоку) до виходу, з опусканням камери
+	local tA = (mut.burstT or 4) + 0.3
+	local landT = mut.landT or (tA + 1.3)
+	local k = E.sine(seg(t, 0, tA))
 	local zc = lerp((s1.Z + mut.center.Z) / 2, (mut.center.Z + out.Z) / 2, k)
 	local mc = V3(mut.center.X, s1.Y, (s1.Z + out.Z) / 2)
 	local a = math.rad(lerp(-50, 40, k))
 	local r = lerp(27, 19, k)
-	local p = mc + V3(math.cos(a) * r, lerp(11, 4.5, k), math.sin(a) * r)
-	return look(p, V3(mc.X, s1.Y + 2.2, zc)), lerp(58, 52, k)
+	local pA = mc + V3(math.cos(a) * r, lerp(11, 4.5, k), math.sin(a) * r)
+	local atA = V3(mc.X, s1.Y + 2.2, zc)
+	local k2 = E.inout(seg(t, tA - 0.6, landT - 0.05))
+	local push = E.sine(seg(t, landT, S[5].dur))
+	local pB = out + V3(lerp(12, 9.5, push), lerp(4.2, 3.8, push), lerp(10, 8, push))
+	local atB = out + V3(0, 3.6, 0)
+	return look(pA:Lerp(pB, k2), atA:Lerp(atB, k2)), lerp(lerp(58, 52, k), 46, k2)
 end
 S[5].focus = function() return mut.center and mut.center + V3(25, 3, 0) end
 
 -- ---------- 6. БОС (7 с) ----------
 local bossS = { g = {} }
 local fin = {} -- (кадр 7; оголошено тут — кадр 6 ховає фінальних Bacon і армію)
-S[6] = { name = "Boss", dur = 7.0 }
+S[6] = { name = "Boss", dur = 6.0 }
 S[6].prep = function()
 	local arena = sets:FindFirstChild("BossArena")
 	if not arena then warn("[Trailer] no arena"); return end
-	local c = V3(-709.736 + 9000, 0, -784.736)
+	local mv = arena:GetAttribute("MovedBy") -- 11.11.2026: зсув арени в ServerStorage (TrailerServer копіює атрибут)
+	if typeof(mv) ~= "Vector3" then mv = Vector3.zero end
+	local c = V3(-709.736 + 9000 + mv.X, 0, -784.736 + mv.Z)
 	bossS.c = V3(c.X, floorAt(V3(c.X, 40, c.Z), arena), c.Z)
 	bossS.arena = arena
 	Boss.setFloor(bossS.c.Y)
@@ -962,6 +1058,14 @@ S[6].prep = function()
 		end
 	end
 end
+-- 11.11.2026 (v3): бій 6 с — армія вбігає, бос б'є кулаком, останній ряд (8 големів) застрибує на боса з усіх боків,
+--   добиває й зістрибує, бос падає. Таймінги: JUMP0 — перший стрибок, FALL_T — смерть боса (падіння триває 2,25 с).
+local RUN_T = 1.45
+local JUMP0, JUMP_GAP, JUMP_LEN = 2.15, 0.09, 0.62
+local FALL_T = 3.45
+local OFF_LEN = 0.75
+local JUMP_H = { 43, 34, 28, 38, 31, 25, 36, 29 } -- висота точки на босі для кожного стрибуна
+local JUMP_R = { 3, 9, 10, 8, 10, 11, 9, 10 } -- відстань від осі боса
 S[6].start = function()
 	if fin.b then hideBacon(fin.b) end
 	for _, g in (fin.g or {}) do hide(g.m) end
@@ -971,16 +1075,62 @@ S[6].start = function()
 		bossS.m.Parent = live
 		Boss.bind(bossS.m)
 	end
+	local j = 0
 	for _, g in bossS.g do
-		g.arrived, g.cheer, g.last = false, false, nil
+		g.arrived, g.cheer, g.last, g.up, g.hit = false, false, nil, false, false
+		if g.r1 > 30 then
+			j += 1
+			g.j = j
+			g.jh, g.jr = JUMP_H[(j - 1) % #JUMP_H + 1], JUMP_R[(j - 1) % #JUMP_R + 1]
+		end
 		moveGolem(g.m, g.from, bossS.c - g.from, g.foot)
-		setState(g.m, "Run", 1.3)
+		setState(g.m, "Run", 1.5)
 	end
 	bossS.popT = 0
 end
-local RUN_T = 2.0
 S[6].update = function(t, dt)
 	for _, g in bossS.g do
+		local tj = g.j and (JUMP0 + (g.j - 1) * JUMP_GAP)
+		if tj and t >= tj then
+			-- стрибун: дуга на боса → б'є, тримаючись на ньому → зістрибує, коли бос падає
+			g.arrived = true
+			local a = g.a1
+			local from = V3(g.to.X, g.y1, g.to.Z)
+			local hold = bossS.c + V3(math.sin(a) * g.jr, g.jh, math.cos(a) * g.jr)
+			local tl = tj + JUMP_LEN
+			local p
+			if t < tl then
+				local k = (t - tj) / JUMP_LEN
+				p = from:Lerp(hold, k) + V3(0, math.sin(k * math.pi) * 11, 0)
+				if not g.up then
+					g.up = true
+					setState(g.m, "Mine", 2.4)
+					snd("Footstep", 1, 0.8, from, 0.03, "jumpoff")
+				end
+			elseif t < FALL_T then
+				p = hold + V3(0, math.abs(math.sin((t - tl) * 14)) * 0.6, 0)
+				if not g.hit then
+					g.hit = true
+					Boss.sparks(hold, 14, C("ffe27a"))
+					burst(hold, C("fff2a8"), 1.3)
+					pop(hold + V3(0, 5, 0), "-" .. math.random(120, 980) .. "K", C("ff4a4a"), 3.6, 3, 0.7)
+					snd("GolemHit", 1.1, 0.75 + math.random() * 0.15, hold, 0.03, "jumphit")
+					Boss.shake(0.5, 0.2)
+					fovPunch(2.5)
+				end
+			else
+				local k = clamp01((t - FALL_T) / OFF_LEN)
+				local out = bossS.c + V3(math.sin(a) * (g.r1 + 7), 0, math.cos(a) * (g.r1 + 7))
+				out = V3(out.X, g.y1, out.Z)
+				p = hold:Lerp(out, k) + V3(0, math.sin(k * math.pi) * 9, 0)
+				if k >= 1 and not g.cheer then
+					g.cheer = true
+					setState(g.m, "Idle", 1)
+				end
+			end
+			moveGolem(g.m, p, bossS.c - p, g.foot)
+			continue
+		end
 		local k = seg(t, g.t0, g.t0 + RUN_T)
 		if not g.arrived then
 			-- по дузі: радіус зменшується швидше, кут — плавно (оббігають боса з боків)
@@ -996,41 +1146,40 @@ S[6].update = function(t, dt)
 			moveGolem(g.m, p, dir, g.foot)
 			if k >= 1 then
 				g.arrived = true
-				setState(g.m, "Mine", 1.6 + math.random() * 0.4)
+				setState(g.m, "Mine", 1.8 + math.random() * 0.5)
 			end
 		end
-		if t > 6.1 and not g.cheer then
+		if t > FALL_T + 2.3 and not g.cheer then
 			g.cheer = true
 			setState(g.m, "Idle", 1)
 		end
 	end
-	bossS.fighting = t > 1.8 and t < 5.0
-	if t < 2.1 and #bossS.g > 0 then
+	bossS.fighting = t > 1.4 and t < FALL_T + 0.3
+	if t < 1.7 and #bossS.g > 0 then
 		local g = bossS.g[math.random(1, #bossS.g)]
 		snd("Footstep", 0.6, 1.1 + math.random() * 0.3, g.m:GetPivot().Position, 0.07, "armystep")
 	end
-	bossS.popT -= dt
-	if false then
-		bossS.popT = 0.05
-		local g = bossS.g[math.random(1, #bossS.g)]
-		if g.arrived then
-			local to = bossS.c - g.to
-			pop(g.to + to.Unit * 6 + V3(0, 6 + math.random() * 4, 0), "-" .. math.random(12, 98) .. "." .. math.random(0, 9) .. "K", C("ff4a4a"), 2.6, 3, 0.6)
-		end
-	end
 end
 S[6].events = {
-	{ 0.2, function() Boss.sfx("AttackScream", bossS.c + V3(0, 40, 0), { spd = 0.85, vol = 1, min = 60, max = 400 }) end },
-	{ 2.8, function() Boss.attack("Slam", 0.8, 0) end },
-	{ 3.6, function()
+	{ 0.15, function() Boss.sfx("AttackScream", bossS.c + V3(0, 40, 0), { spd = 0.85, vol = 1, min = 60, max = 400 }) end },
+	{ 1.15, function() Boss.attack("Slam", 0.7, 0) end },
+	{ 1.85, function()
 		local f = Boss.fist("FistL") or bossS.c
 		Boss.impact(V3(f.X, bossS.c.Y, f.Z + 4), 1.6)
-		Boss.shake(1.6, 0.7)
+		Boss.shake(1.6, 0.6)
 		fovPunch(8)
 		Boss.sfx("Punch", bossS.c, { spd = 0.8, vol = 1.3, min = 60, max = 400 })
 	end },
-	{ 4.0, function() Boss.die() end },
-	{ 6.3, function()
+	{ FALL_T, function()
+		-- останній удар: бос валиться
+		Boss.die()
+		Boss.shake(1.5, 0.6)
+		fovPunch(9)
+		flashWhite(0.35, 0.25)
+		Boss.sfx("Punch", bossS.c, { spd = 0.65, vol = 1.5, min = 60, max = 400 })
+		pop(bossS.c + V3(0, 50, 6), "-9.9M", C("ff4a4a"), 7, 5, 1.1)
+	end },
+	{ FALL_T + 2.27, function()
 		local p = bossS.c + V3(0, 3, 12)
 		Boss.debris(p, 26, 1.6, 55, { C("ffd24a"), C("5cc8ff"), C("ff5a8a"), C("5af078") }, true)
 		Boss.sparks(p, 40, C("ffd24a"))
@@ -1042,11 +1191,12 @@ S[6].events = {
 }
 S[6].cam = function(t)
 	local c = bossS.c
-	-- армія біжить на камеру; камера піднімається над нею й розвертається на боса; далі широкий облет і кран угору
-	local k = E.sine(seg(t, 0, 7.0))
-	local pts = { c + V3(0, 18, 96), c + V3(0, 15, 60), c + V3(-24, 14, 52), c + V3(-50, 18, 42), c + V3(-40, 48, 100) }
-	local ats = { c + V3(0, 0, 70), c + V3(0, 3, 30), c + V3(0, 22, 0), c + V3(0, 14, 0), c + V3(0, 0, 14) }
-	return look(spline(pts, k), spline(ats, k)), 68
+	-- проліт: низько за армією → повз неї до боса → низький ракурс збоку на стрибки → облет і відліт угору на падіння
+	local k = seg(t, 0, 6.0)
+	local pts = { c + V3(6, 9, 102), c + V3(-8, 10, 68), c + V3(-46, 15, 56), c + V3(-64, 19, 30), c + V3(-60, 27, 58), c + V3(-38, 37, 90) }
+	local ats = { c + V3(0, 12, 40), c + V3(0, 20, 0), c + V3(0, 24, 0), c + V3(0, 24, 2), c + V3(0, 14, 8), c + V3(0, 6, 12) }
+	local fov = t < 3 and lerp(76, 60, E.sine(seg(t, 0, 3))) or lerp(60, 66, E.sine(seg(t, 3, 6)))
+	return look(spline(pts, k), spline(ats, k)), fov
 end
 S[6].focus = function() return bossS.c and bossS.c + V3(0, 6, 70) end
 
@@ -1121,6 +1271,196 @@ S[7].cam = function(t)
 end
 S[7].focus = function() return fin.c and fin.c + V3(0, 6, 40) end
 
+-- ---------- 8. CAVE (4,6 с): стенди печери — на кожному майнер, воїн і носій трикутником (11.11.2026) ----------
+local caveS = { st = {} }
+S[8] = { name = "Cave", dur = 4.6 }
+-- [стенд] = { майнер, воїн, носій, мутації… }
+local CAVE_TRIOS = {
+	{ "obsidian", "moonstone", "sapphire", 4, 0, 3 }, { "ruby", "emerald", "geode", 0, 2, 0 }, { "magmaheart", "ruby", "amethyst", 5, 0, 1 },
+	{ "topaz", "sapphire", "silverjaw", 1, 0, 0 }, { "aurelian", "platinum", "frostforged", 6, 3, 0 }, { "emerald", "obsidian", "topaz", 0, 0, 2 },
+}
+local CAVE_ANG = { 0, 120, -120 } -- майнер до цінника, воїн і носій — задні сторони трикутника
+local CAVE_ROLE = { "miner", "warrior", "carrier" }
+local CAVE_T = { [1] = 0.55, [3] = 1.35, [5] = 2.15 } -- коли на стенді з'являються големи (решта стоять одразу)
+S[8].prep = function()
+	local cs = sets:FindFirstChild("CaveSet")
+	local stands = cs and cs:FindFirstChild("Stands")
+	if not stands then warn("[Trailer] no CaveSet"); return end
+	for _, sm in stands:GetChildren() do
+		local i = sm:GetAttribute("SlotIndex")
+		local bed, board = sm:FindFirstChild("Bed"), sm:FindFirstChild("PriceBoard")
+		if type(i) == "number" and CAVE_TRIOS[i] and bed and board then
+			local top = bed.Position + V3(0, bed.Size.Y / 2, 0)
+			local d = V3(board.Position.X - bed.Position.X, 0, board.Position.Z - bed.Position.Z).Unit
+			-- стенд «куплений»: без ціни й зеленого світла
+			local pg = board:FindFirstChild("PriceGui")
+			local pr = pg and pg:FindFirstChild("Price")
+			if pr then pr.Visible = false end
+			for _, l in board:GetChildren() do if l:IsA("Light") then l.Enabled = false end end
+			local e = { top = top, dir = d, g = {}, fired = false }
+			local trio = CAVE_TRIOS[i]
+			for r = 1, 3 do
+				local outv = CFrame.fromAxisAngle(Vector3.yAxis, math.rad(CAVE_ANG[r])):VectorToWorldSpace(d)
+				local m = golem(trio[r], CAVE_ROLE[r], trio[3 + r] or 0, 0.85)
+				if m then
+					m.Parent = live
+					local pos = top + outv * 3.7
+					ground(m, pos, pos + outv)
+					setState(m, "Idle", 1)
+					table.insert(e.g, { m = m, pos = pos, at = pos + outv, base = m:GetScale() })
+				end
+			end
+			caveS.st[i] = e
+		end
+	end
+end
+local function cavePlace(g, k: number)
+	local want = g.base * math.max(0.03, k)
+	if math.abs(g.m:GetScale() - want) > 1e-4 then g.m:ScaleTo(want) end
+	ground(g.m, g.pos, g.at)
+end
+S[8].start = function()
+	for i, e in caveS.st do
+		e.fired = false
+		for _, g in e.g do
+			if CAVE_T[i] then hide(g.m) else cavePlace(g, 1) end
+		end
+	end
+end
+S[8].update = function(t)
+	for i, e in caveS.st do
+		local t0 = CAVE_T[i]
+		if t0 and t >= t0 then
+			if not e.fired then
+				e.fired = true
+				snd("BuySound", 1.7, 1 + 0.05 * i)
+				burst(e.top + V3(0, 3, 0), C("8dff5a"), 1.0)
+				Boss.sparks(e.top + V3(0, 2.5, 0), 14, C("ffd84a"))
+				fovPunch(3)
+			end
+			for j, g in e.g do cavePlace(g, backOut(clamp01((t - t0 - (j - 1) * 0.09) / 0.26))) end
+		end
+	end
+end
+S[8].cam = function(t)
+	local e1 = caveS.st[1]
+	if not e1 then return CFrame.new(), 60 end
+	-- проїзд проходом між рядами стендів: уздовж ряду 1-3-5, камера трохи попереду стенда, що «спалахує»
+	local ref, d = e1.top, e1.dir
+	local along = V3(caveS.st[3].top.X - ref.X, 0, caveS.st[3].top.Z - ref.Z).Unit -- від стенда 1 до стенда 3
+	local k = E.sine(seg(t, 0, 4.6))
+	local p = ref + d * lerp(27, 22, k) + along * lerp(-15, 22, k) + V3(0, lerp(9, 7.5, k), 0)
+	local at = ref + d * 1.5 + along * lerp(1, 33, k) + V3(0, 3.2, 0)
+	return look(p, at), lerp(60, 54, k)
+end
+S[8].focus = function() return caveS.st[1] and caveS.st[1].top + V3(0, 6, 0) end
+
+-- ---------- 9. MARKETPLACE (4,2 с): ексклюзивні големи колом біля порталу маркету, ціни й SOLD! (11.11.2026) ----------
+local mkS = { g = {} }
+S[9] = { name = "Market", dur = 4.2 }
+local MK_GOLEMS = { { "cyborg", "miner" }, { "spartan", "warrior" }, { "lampminer", "carrier" }, { "chrono", "miner" }, { "phantom", "warrior" },
+	{ "storm", "carrier" }, { "jade", "miner" } }
+local MK_TAGS = { "250K", "780K", "1.2M", "89K", "2.3M", "4.5M", "620K" }
+local function coins(pos: Vector3, n: number)
+	local TS = game:GetService("TweenService")
+	for _ = 1, n do
+		local a = math.random() * math.pi * 2
+		local r = 2.5 + math.random() * 3.5
+		local c = new("Part", { Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false, Shape = Enum.PartType.Cylinder,
+			Material = Enum.Material.Neon, Color = C("ffd23a"), Size = V3(0.22, 1.15, 1.15), CFrame = CFrame.new(pos) * CFrame.Angles(0, a, math.pi / 2) }, fx)
+		local mid = pos + V3(math.cos(a) * r * 0.6, 3 + math.random() * 3, math.sin(a) * r * 0.6)
+		local endp = pos + V3(math.cos(a) * r, -3.5, math.sin(a) * r)
+		TS:Create(c, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = CFrame.new(mid) * CFrame.Angles(a, a * 2, math.pi / 2) }):Play()
+		task.delay(0.3, function()
+			TS:Create(c, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = CFrame.new(endp) * CFrame.Angles(a * 3, 0, math.pi / 2), Transparency = 1 }):Play()
+			task.delay(0.5, function() c:Destroy() end)
+		end)
+	end
+end
+S[9].prep = function()
+	local hub = workspace:FindFirstChild("Cave") and workspace.Cave:FindFirstChild("Hub")
+	local mk = hub and hub:FindFirstChild("Marketplace")
+	if not mk then warn("[Trailer] no Marketplace"); return end
+	local cf = mk:GetBoundingBox()
+	local t2 = mk:FindFirstChild("Tier2")
+	local y = t2 and (t2.Position.Y + math.min(t2.Size.X, t2.Size.Y, t2.Size.Z) / 2) or cf.Position.Y
+	mkS.c = V3(cf.Position.X, y, cf.Position.Z)
+	mkS.g = {}
+	-- лічильник «N PLAYERS» над порталом у трейлері не потрібен
+	for _, root in { mk, player.PlayerGui } do
+		for _, d in root:GetDescendants() do
+			if d:IsA("TextLabel") and string.find(d.Text, "PLAYER", 1, true) then
+				local bb = d:FindFirstAncestorWhichIsA("BillboardGui")
+				if bb and (root == mk or (bb.Adornee and bb.Adornee:IsDescendantOf(mk))) then d.Visible = false end
+			end
+		end
+	end
+	local n = #MK_GOLEMS
+	for i, spec in MK_GOLEMS do
+		local a = (i - 1) / n * math.pi * 2
+		local dir = V3(math.cos(a), 0, math.sin(a))
+		local m = golem(spec[1], spec[2], 0, 0.68)
+		if m then
+			m.Parent = live
+			local pos = mkS.c + dir * 12.6
+			ground(m, pos, pos + dir)
+			setState(m, "Idle", 1)
+			table.insert(mkS.g, { m = m, tag = MK_TAGS[i], a = a })
+		end
+	end
+end
+S[9].start = function()
+	mkS.next = 0.3
+	mkS.i = 0
+	for _, g in mkS.g do g.popT = nil end
+end
+S[9].update = function(t)
+	if #mkS.g == 0 then return end
+	if t >= mkS.next and t < 3.9 then
+		mkS.next = t + 0.2
+		mkS.i += 1
+		-- продаж над големом, який зараз у кадрі й найдовше не «продавався» (щоразу інший)
+		local ca = math.rad(lerp(-125, -55, E.sine(seg(t, 0, 4.2))))
+		local best, bt = nil, math.huge
+		for _, g in mkS.g do
+			local dlt = math.abs((g.a - ca + math.pi) % (2 * math.pi) - math.pi)
+			local last = (g.popT or -9) + math.random() * 0.05
+			if dlt < 1.6 and last < t - 0.7 and last < bt then best, bt = g, last end
+		end
+		if best then
+			best.popT = t
+			local top = headTop(best.m)
+			pop(top + V3(0, 1.6, 0), "SOLD!", C("5af078"), 2.9, 2.6, 0.9)
+			pop(top + V3(0, 4.8, 0), "+$" .. best.tag, C("ffd84a"), 2.1, 3.2, 0.9)
+			coins(top + V3(0, 0.5, 0), 10)
+			Boss.sparks(top, 12, C("ffd84a"))
+			burst(top, C("ffe27a"), 0.9)
+			snd("SellSound", 1.5, 0.95 + 0.05 * (mkS.i % 5), top, 0.05, "mksold")
+		end
+	end
+end
+S[9].cam = function(t)
+	local c = mkS.c
+	if not c then return CFrame.new(), 60 end
+	local k = E.sine(seg(t, 0, 4.2))
+	local a = math.rad(lerp(-125, -55, k))
+	local r = lerp(36, 29, k)
+	return look(c + V3(math.cos(a) * r, lerp(13, 9.5, k), math.sin(a) * r), c + V3(0, 7, 0)), lerp(60, 54, k)
+end
+S[9].focus = function() return mkS.c and mkS.c + V3(0, 6, -25) end
+
+-- підписи кадрів (11.11.2026)
+S[1].caption = "ROLL RARE GOLEMS"
+S[2].caption = "MINE ORE"
+S[3].caption = "EARN MONEY"
+S[4].caption = "UNLOCK NEW WORLDS"
+S[5].caption = "MUTATE YOUR GOLEMS"
+S[6].caption = "DEFEAT BOSSES"
+S[7].caption = "BUILD YOUR ARMY"
+S[8].caption = "SAVE YOUR BEST GOLEMS"
+S[9].caption = "TRADE GOLEMS"
+local ORDER_ALL = { 1, 2, 3, 4, 5, 8, 9, 6, 7 }
+
 -- ================= рушій =================
 local stopFlag = false
 local function prepare()
@@ -1139,7 +1479,9 @@ local function prepare()
 		end
 		if mine then
 			for _, g in player.PlayerGui:GetChildren() do
-				if (g:IsA("SurfaceGui") or g:IsA("BillboardGui")) and g.Adornee and g.Adornee:IsDescendantOf(mine) then
+				-- табло «NEXT MAP» не копіюємо: для кожної мапи його будує MapBoard (_G.TrailerMapBoard, кадр 4) зі своїм номером мапи
+				if (g:IsA("SurfaceGui") or g:IsA("BillboardGui")) and g.Adornee and g.Adornee:IsDescendantOf(mine)
+					and not (_G.TrailerMapBoard and g.Name:sub(1, 9) == "MapBoard_") then
 					local path = relPath(g.Adornee, mine)
 					for _, si in { 1, 3, 5, 6 } do
 						local st = stage(si)
@@ -1202,10 +1544,16 @@ local function runShot(i)
 		end
 		local ok, er = pcall(setShotTime, s, t, now - last)
 		if not ok then warn("[Trailer] shot " .. i, er); break end
+		if s.caption then
+			local cin = s.capIn or 0.3
+			local cout = s.capOut or (s.dur - 0.5)
+			setCaption(s.caption, math.min(E.out(seg(t, cin, cin + 0.4)), 1 - E.inout(seg(t, cout, cout + 0.4))))
+		end
 		last = now
 		RunService.RenderStepped:Wait()
 	end
 	if s.stop then pcall(s.stop) end
+	setCaption(s.caption or "", 0)
 	curShot = 0
 end
 
@@ -1281,14 +1629,14 @@ UIS.InputBegan:Connect(function(io, gp)
 	if gp then return end
 	local kc = io.KeyCode
 	if kc == Enum.KeyCode.F6 then
-		task.spawn(play, { 1, 2, 3, 4, 5, 6, 7 })
+		task.spawn(play, ORDER_ALL)
 	elseif kc == Enum.KeyCode.F7 then
 		task.spawn(prepare)
 	elseif kc == Enum.KeyCode.F8 then
 		task.spawn(stop)
 	else
 		local map = { [Enum.KeyCode.One] = 1, [Enum.KeyCode.Two] = 2, [Enum.KeyCode.Three] = 3, [Enum.KeyCode.Four] = 4,
-			[Enum.KeyCode.Five] = 5, [Enum.KeyCode.Six] = 6, [Enum.KeyCode.Seven] = 7 }
+			[Enum.KeyCode.Five] = 5, [Enum.KeyCode.Six] = 6, [Enum.KeyCode.Seven] = 7, [Enum.KeyCode.Eight] = 8, [Enum.KeyCode.Nine] = 9 }
 		local n = map[kc]
 		if n and not running then task.spawn(play, { n }) end
 	end
@@ -1304,7 +1652,11 @@ _G.TrailerPeek = function(n, t)
 	local s = S[n]
 	if s.start then s.start() end
 	for _, e in s.events or {} do if e[1] <= t then pcall(e[2]) end end
+	-- оновлення з кроком (щоб стан кадру на момент t був як у справжньому прогоні)
+	local tt = 0
+	while tt < t do pcall(setShotTime, s, tt, 0.1); tt += 0.1 end
 	setShotTime(s, t, 0)
+	if s.caption then setCaption(s.caption, 1) end
 	local f = s.focus and s.focus()
 	if f and false then focusEv:FireServer(f) end
 	return tostring(camCF.Position)

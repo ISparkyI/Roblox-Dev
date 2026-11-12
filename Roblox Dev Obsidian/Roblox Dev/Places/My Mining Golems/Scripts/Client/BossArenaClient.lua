@@ -24,6 +24,16 @@ local ItemViewport = require(Shared:WaitForChild("ItemViewport"))
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local remotes = RS:WaitForChild("Remotes")
+-- 10.11.2026: навчання «бос» (BossTutorialService) — своя арена Workspace/<BossTutArena> і атрибути бою в гравця (TB_*) замість Workspace.*
+local function wa(n: string): any
+	if player:GetAttribute("BossTutArena") ~= nil then return player:GetAttribute("TB_" .. n) end
+	return workspace:GetAttribute(n)
+end
+local function bossMap(): Instance?
+	local tn = player:GetAttribute("BossTutArena")
+	if type(tn) == "string" then return workspace:FindFirstChild(tn) end
+	return workspace:FindFirstChild("Boss Map")
+end
 
 local C = Color3.fromHex
 local INK = C("14161a")
@@ -221,7 +231,12 @@ for i = 1, Cfg.MAX_PLAYERS do
 end
 
 -- зайвий HUD на арені ховаємо (як на Marketplace), після арени — вертаємо
-local HIDE_TEXT = { Shop = true, Quests = true, Index = true, ["x2 Money"] = true, Rebirth = true, Daily = true, ["NEXT BOSS"] = true, Boss = true, BOSS = true, ["TOTAL MULTI"] = true }
+-- 10.11.2026: Backpack на арені теж ховаємо (і на ПК, і на телефоні)
+local HIDE_TEXT = { Shop = true, Quests = true, Index = true, ["x2 Money"] = true, Rebirth = true, Daily = true, ["NEXT BOSS"] = true, Boss = true, BOSS = true, ["TOTAL MULTI"] = true, Backpack = true }
+-- 10.11.2026: телефон / планшет (дотик без клавіатури) — на арені ще й увесь верхній ряд (Invite, Settings, Feedback, Codes, Updates)
+--   і таблиця DAMAGE: екран малий, лишаються HP боса, таймер і гроші
+local UIS = game:GetService("UserInputService")
+local function isMobile(): boolean return UIS.TouchEnabled and not UIS.KeyboardEnabled end
 local hiddenHud: { [GuiObject]: { conn: RBXScriptConnection, was: boolean } } = {}
 local function keepHidden(o: GuiObject)
 	if hiddenHud[o] then return end
@@ -255,7 +270,11 @@ local function hideHud()
 			local b = top:FindFirstChild(n)
 			if b and b:IsA("GuiObject") then keepHidden(b) end
 		end
+		if isMobile() then
+			for _, c in top:GetChildren() do if c:IsA("GuiObject") then keepHidden(c) end end
+		end
 	end
+	if isMobile() then keepHidden(lb) end
 	local f = hud and hud:FindFirstChild("Frame")
 	if not f then return end
 	local money: GuiObject? = nil
@@ -322,6 +341,7 @@ local toothIm, toothT = rewardItem(Cfg.ICON_TOOTH, C("fff1cf"), "FOSSIL TEETH", 
 local diaIm, diaT = rewardItem(Cfg.ICON_DIAMOND, C("8fe0ff"), "DIAMONDS", 2)
 local loseNote = label(resPanel, 0, 316, 488, 24, 19, "", WHITE, 3, { ZIndex = 24, FontFace = XBOLD })
 local okBtn = StyleA.new(resPanel, { size = Vector2.new(220, 64), position = Vector2.new(134, 352), color = "green", text = "CLAIM", textSize = 30, clickable = true, zIndex = 26 })
+do local r = okBtn.root or okBtn.group; if r then r.Name = "Btn_BossClaim" end end -- 10.11.2026: ціль руки в навчанні «бос» (TutorialClient)
 -- 06.11.2026: CLAIM — нагороди «летять» у кнопку інвентаря (рюкзак, MainHUD … Btn_Inventory; на арені схована — летять туди ж)
 local flyN = 0
 local lastRes: any = nil
@@ -391,7 +411,7 @@ end)
 -- ===== зони ударів =====
 local fxFolder = new("Folder", { Name = "BossFx" }, workspace)
 local zones = {} -- [id] = { parts, t0, warn }
-local function floorY(): number return tonumber(workspace:GetAttribute("BossFloorY")) or 0 end
+local function floorY(): number return tonumber(wa("BossFloorY")) or 0 end
 local function zonePart(cf, size, color, tr, neon)
 	return new("Part", { Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false, Size = size, CFrame = cf,
 		Color = color, Transparency = tr, Material = neon and Enum.Material.Neon or Enum.Material.SmoothPlastic }, fxFolder)
@@ -421,7 +441,7 @@ local function sfx(name: string, pos: Vector3, o: any?)
 	if (o.delay or 0) > 0 then task.delay(o.delay, go) else go() end
 end
 local function bossHead(): Vector3?
-	local bm = workspace:FindFirstChild("Boss Map")
+	local bm = bossMap()
 	local m = bm and bm:FindFirstChild("Boss")
 	local hb = m and m:FindFirstChild("Hitbox")
 	if hb and hb:IsA("BasePart") then return hb.Position + Vector3.new(0, hb.Size.Y * 0.35, 0) end
@@ -511,7 +531,10 @@ local function spawnGolems(list)
 				-- 06.11.2026: один замах = інтервал удару сервера (MINE_T аніматора = 1,4 с); удар мечем → цифра шкоди
 				if info.iv then m:SetAttribute("AnimSpeed", 1.4 / math.max(0.3, info.iv)) end
 				local tgt = new("Configuration", { Name = "BossHitTarget" }, m)
-				new("ObjectValue", { Name = "MineTarget", Value = tgt }, m)
+				-- 10.11.2026: у префабах уже є порожній MineTarget (для плотів) — аніматор бере перший за ім'ям, тож другий
+				--   не створюємо (інакше HitTime ніколи не приходив і звук грав з запасного таймера — розсинхрон)
+				local mt = m:FindFirstChild("MineTarget")
+				if mt and mt:IsA("ObjectValue") then mt.Value = tgt else new("ObjectValue", { Name = "MineTarget", Value = tgt }, m) end
 				tgt:GetAttributeChangedSignal("HitTime"):Connect(function() animHit(g) end)
 				m.Parent = fxFolder
 				golems[info.key] = g
@@ -522,7 +545,7 @@ end
 -- 06.11.2026: спливаючі цифри шкоди над точкою удару голема (у бік боса): «-N», 0,6 с — вискакує, піднімається й тане.
 --   Свої — червоні (3,3 × 1,2 стада), чужих гравців — білі й менші (2,2 × 0,8); розмір у світі, не від камери
 local function popAt(g: any, val: number)
-	local bm = workspace:FindFirstChild("Boss Map")
+	local bm = bossMap()
 	local bmod = bm and bm:FindFirstChild("Boss")
 	local hb = bmod and bmod:FindFirstChild("Hitbox")
 	if not hb or not hb:IsA("BasePart") or not g.x then return end
@@ -558,9 +581,10 @@ local function dmgPops(list)
 		end
 	end
 end
-animHit = function(g: any)
+animHit = function(g: any, silent: boolean?)
 	-- 04.11.2026: звук удару голема — у мить удару мечем; швидкість звуку = швидкість замаху (AnimSpeed)
-	if g.x and g.m and g.m.Parent then
+	-- 10.11.2026: запасний показ цифри (без анімації удару) — без звуку (silent), щоб звук був лише на мечі
+	if not silent and g.x and g.m and g.m.Parent then
 		local bp = bossHead()
 		local p = Vector3.new(g.x, floorY() + 3, g.z)
 		if bp then local d = Vector3.new(bp.X - g.x, 0, bp.Z - g.z); if d.Magnitude > 0.1 then p += d.Unit * 2.5 end end
@@ -830,7 +854,7 @@ local function diePose(t: number, root: CFrame, hb: BasePart): (any, CFrame)
 	return pose, r2
 end
 local function animStep()
-	local bm = workspace:FindFirstChild("Boss Map")
+	local bm = bossMap()
 	local m = bm and bm:FindFirstChild("Boss")
 	if not m or not m:IsA("Model") then A.m = nil; return end
 	if A.m ~= m and not animInit(m) then return end
@@ -1118,7 +1142,7 @@ local function attackFx(key: string, rects: any, warn: number)
 	end
 end
 local function bossAnim(kind, key, warn, side)
-	local bm = workspace:FindFirstChild("Boss Map")
+	local bm = bossMap()
 	local m = bm and bm:FindFirstChild("Boss")
 	if not m then return end
 	if kind == "attack" then
@@ -1147,7 +1171,12 @@ remotes:WaitForChild("BossFx").OnClientEvent:Connect(function(kind, a, b, c, d)
 	elseif kind == "hit" then hitRects(a)
 	elseif kind == "dead" then killGolem(a)
 	elseif kind == "dmg" then dmgPops(a)
-	elseif kind == "boss" then bossAnim(a, b, c, d)
+	elseif kind == "boss" then
+		bossAnim(a, b, c, d)
+		-- 10.11.2026: бос загинув / втік — усі воїни зупиняються (Idle), а не б'ють далі в порожнечу
+		if a == "die" or a == "escape" then
+			for _, g in golems do g.st = 0; g.stT = 0 end
+		end
 	end
 end)
 
@@ -1197,7 +1226,7 @@ local lastHide = 0
 local shownHp = 1
 RunService.RenderStepped:Connect(function(dt)
 	animStep()
-	local active = player:GetAttribute("InBossArena") == true and (workspace:GetAttribute("BossPhase") == "fight" or workspace:GetAttribute("BossPhase") == "results")
+	local active = player:GetAttribute("InBossArena") == true and (wa("BossPhase") == "fight" or wa("BossPhase") == "results")
 	local want = active or res.Visible or flyN > 0
 	if gui.Enabled ~= want then gui.Enabled = want end
 	local inArena = player:GetAttribute("InBossArena") == true
@@ -1213,7 +1242,7 @@ RunService.RenderStepped:Connect(function(dt)
 	local y0 = floorY()
 	local k = math.min(1, dt * 12)
 	for _, g in golems do
-		if (g.pend or 0) > 0 and os.clock() - (g.pendT or 0) > 1.2 then animHit(g) end -- запасний показ без анімації
+		if (g.pend or 0) > 0 and os.clock() - (g.pendT or 0) > 1.2 then animHit(g, true) end -- запасний показ без анімації
 		if g.x then
 			g.x += (g.tx - g.x) * k
 			g.z += (g.tz - g.z) * k
@@ -1259,20 +1288,20 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 	-- HP боса
-	local mx = math.max(1, tonumber(workspace:GetAttribute("BossMaxHP")) or 1)
-	local hp = math.max(0, tonumber(workspace:GetAttribute("BossHP")) or 0)
+	local mx = math.max(1, tonumber(wa("BossMaxHP")) or 1)
+	local hp = math.max(0, tonumber(wa("BossHP")) or 0)
 	local kk = hp / mx
 	barFill.Size = UDim2.new(kk, 0, 1, 0)
 	shownHp += (kk - shownHp) * math.min(1, dt * 3)
 	barGhost.Size = UDim2.new(math.max(kk, shownHp), 0, 1, 0)
 	barNum.Text = NF.short(hp) .. " / " .. NF.short(mx)
-	bossName.Text = tostring(workspace:GetAttribute("BossName") or "BOSS")
-	local ph = workspace:GetAttribute("BossPhase")
-	timer.Text = ph == "fight" and fmtLeft((tonumber(workspace:GetAttribute("BossPhaseEnd")) or 0) - workspace:GetServerTimeNow()) or "0:00"
+	bossName.Text = tostring(wa("BossName") or "BOSS")
+	local ph = wa("BossPhase")
+	timer.Text = ph == "fight" and fmtLeft((tonumber(wa("BossPhaseEnd")) or 0) - workspace:GetServerTimeNow()) or "0:00"
 	-- лідерборд — 4 рази на секунду
 	if os.clock() - lastUi < 0.25 then return end
 	lastUi = os.clock()
-	local dmg = decode(workspace:GetAttribute("BossDamage"), {})
+	local dmg = decode(wa("BossDamage"), {})
 	local list = {}
 	for uid, v in dmg do table.insert(list, { u = tonumber(uid), d = v }) end
 	table.sort(list, function(a, b) return a.d > b.d end)
@@ -1292,7 +1321,10 @@ end)
 
 -- новий бій — скинути піктограми воїнів
 workspace:GetAttributeChangedSignal("BossPhase"):Connect(function()
-	if workspace:GetAttribute("BossPhase") == "fight" then
+	if wa("BossPhase") == "fight" then
 		shownHp = 1
 	end
+end)
+player:GetAttributeChangedSignal("TB_BossPhase"):Connect(function()
+	if wa("BossPhase") == "fight" then shownHp = 1 end
 end)

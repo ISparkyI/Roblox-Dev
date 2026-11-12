@@ -49,7 +49,7 @@ end
 
 -- ===== модель руки (05.11.2026 v2): мультяшна біла рукавичка — об'ємна, з чорними швами й розтрубом манжети =====
 --   кінчик вказівного пальця в (0,0,0), рука тягнеться в +Z (до манжети); тильна сторона — вгору (+Y)
-local U = 0.62 -- стадів на одиницю креслення (довжина ≈ 3,7 стада, ширина ≈ 1,7)
+local U = 0.78 -- стадів на одиницю креслення (довжина ≈ 4,5 стада, ширина ≈ 2,1); 10.11.2026: більша рука (було 0,62)
 local GLOVE = Color3.fromHex("fbfbf8")
 local SEAM = Color3.fromHex("2a2c31")
 local function handParts(): { any }
@@ -172,19 +172,62 @@ local function hideChevrons() for _, c in chev do for _, p in c:GetChildren() do
 local ui = new("ScreenGui", { Name = "TutorialUI", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 60, Enabled = false,
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling }, playerGui)
 local root = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, ui)
-local VP = 190
+local VP = 300 -- 10.11.2026: більша 2D-рука (було 190)
 local vp = new("ViewportFrame", { Size = UDim2.fromOffset(VP, VP), BackgroundTransparency = 1, Ambient = Color3.fromRGB(200, 195, 180),
 	LightColor = Color3.fromRGB(255, 245, 225), LightDirection = Vector3.new(-0.4, -1, -0.6), Visible = false, ZIndex = 50 }, root)
-local vpCam = new("Camera", { FieldOfView = 30 }, vp)
+local vpCam = new("Camera", { FieldOfView = 34 }, vp)
 vp.CurrentCamera = vpCam
 local vpScale = new("UIScale", {}, vp) -- 05.11.2026: рука, підпис і SKIP масштабуються під висоту екрана (телефон)
 local h2, h2Parts, h2Offs = buildHand(vp, true)
-local DIR2 = Vector3.new(-0.62, 0.72, -0.3).Unit -- палець на екрані вгору-ліворуч, рука — вниз-праворуч
-do
-	local rot = CFrame.lookAt(Vector3.zero, DIR2)
-	for i, prt in h2Parts do prt.CFrame = rot * h2Offs[i] end
+-- 10.11.2026: чорна обводка 2D-руки (Highlight у ViewportFrame не працює): 8 чорних силуетів тієї ж руки, зсунутих на OUTLINE пікселів
+--   у 8 напрямках, під рукою; позиція, видимість і масштаб — як у vp
+local OUTLINE = 4
+local outl = {}
+for i = 1, 8 do
+	local a = (i - 1) * math.pi / 4
+	local ov = new("ViewportFrame", { Size = vp.Size, BackgroundTransparency = 1, Ambient = Color3.new(0, 0, 0), LightColor = Color3.new(0, 0, 0),
+		ImageColor3 = INK, Visible = false, ZIndex = 49 }, root)
+	local oc = new("Camera", { FieldOfView = 34 }, ov)
+	ov.CurrentCamera = oc
+	local os_ = new("UIScale", {}, ov)
+	local _, oParts, oOffs = buildHand(ov, true)
+	for _, prt in oParts do prt.Color = Color3.new(0, 0, 0) end
+	outl[i] = { vp = ov, cam = oc, scale = os_, parts = oParts, offs = oOffs, d = Vector2.new(math.cos(a), math.sin(a)) * OUTLINE }
 end
-vpCam.CFrame = CFrame.lookAt(Vector3.new(0, 0, 16) - DIR2 * 2.2, -DIR2 * 2.2)
+local function syncOutline()
+	local k = vpScale.Scale
+	for _, o in outl do
+		o.vp.Visible = vp.Visible
+		o.scale.Scale = k
+		o.vp.Position = vp.Position + UDim2.fromOffset(o.d.X, o.d.Y)
+	end
+end
+vp:GetPropertyChangedSignal("Position"):Connect(syncOutline)
+vp:GetPropertyChangedSignal("Visible"):Connect(syncOutline)
+vpScale:GetPropertyChangedSignal("Scale"):Connect(syncOutline)
+-- 10.11.2026: рука на екрані пряма (не 3/4), тильною стороною (шви) до камери; кінчик пальця — у центрі кадру.
+--   "up" — палець угору (рука під кнопкою), "down" — палець униз (рука над кнопкою, якщо знизу не влазить)
+local ROT_UP = CFrame.fromMatrix(Vector3.zero, Vector3.xAxis, Vector3.zAxis, -Vector3.yAxis)
+local ROT_DOWN = CFrame.Angles(0, 0, math.pi) * ROT_UP
+local ROT_LEFT = CFrame.Angles(0, 0, math.pi / 2) * ROT_UP -- палець ліворуч (рука праворуч від кнопки)
+-- 10.11.2026: дзеркальна рука (палець праворуч, рука ліворуч від кнопки): віддзеркалення по осі X екрана
+--   (позиція −x, поворот M·R·M) — деталі симетричні (кулі, еліпсоїди, циліндри), тильна сторона так само до камери
+local function mirrorX(cf: CFrame): CFrame
+	local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = cf:GetComponents()
+	return CFrame.new(-x, y, z, r00, -r01, -r02, -r10, r11, r12, -r20, r21, r22)
+end
+local h2Dir = ""
+local function setDir2(d: string)
+	if h2Dir == d then return end
+	h2Dir = d
+	local rot = d == "down" and ROT_DOWN or ((d == "left" or d == "right") and ROT_LEFT or ROT_UP)
+	local mir = d == "right"
+	for i, prt in h2Parts do local cf = rot * h2Offs[i]; prt.CFrame = if mir then mirrorX(cf) else cf end
+	for _, o in outl do for i, prt in o.parts do local cf = rot * o.offs[i]; prt.CFrame = if mir then mirrorX(cf) else cf end end
+end
+setDir2("up")
+vpCam.CFrame = CFrame.lookAt(Vector3.new(0, 0, 16), Vector3.zero)
+for _, o in outl do o.cam.CFrame = vpCam.CFrame end
 -- де на кадрі кінчик пальця (пікселі від лівого верхнього кута)
 local function tipPixel(): Vector2
 	local v = vpCam.CFrame:PointToObjectSpace(Vector3.zero)
@@ -264,6 +307,13 @@ StyleA.bind(skipBtn, { debounce = 0.3, onClick = function()
 end })
 StyleA.bind(bCont, { debounce = 0.2, onClick = function() dim.Visible = false end })
 StyleA.bind(bSkip, { debounce = 0.5, onClick = function()
+	-- 10.11.2026: навчання «бос» — пропуск через BossTutorialService (Remotes/BossAction "TutSkip")
+	if player:GetAttribute("TutStep") == nil and player:GetAttribute("BossTut") ~= nil then
+		local ba = RS:FindFirstChild("Remotes") and RS.Remotes:FindFirstChild("BossAction")
+		if ba then ba:FireServer("TutSkip") end
+		dim.Visible = false
+		return
+	end
 	local rf = RS:FindFirstChild("Remotes") and RS.Remotes:FindFirstChild("TutorialAction")
 	if rf then pcall(rf.InvokeServer, rf, "Skip") end
 	dim.Visible = false
@@ -403,18 +453,17 @@ local function target(step: number): any
 		-- кнопка ROLL — BillboardGui CustomPrompt на RollLeverModel.PromptAnchor (не всередині RollLever): шукаємо по всій моделі важеля
 		return knob and { world = knob.Position, tag = "Roll", mode = "hold", obj = lever.RollLever, btn = bbButton(lever) }
 	elseif step == 2 or step == 5 then
-		return buy and { world = buy.Position, tag = "Buy", mode = "hold", obj = stand, btn = bbButton(stand) }
+		return buy and { world = buy.Position, tag = "", mode = "hold", obj = stand, btn = bbButton(stand) }
 	elseif step == 3 then
-		-- 07.11.2026: картки ролей лежать на підлозі перед важелем (RollSystem/RoleCards, RollStationClient) — рука тицяє в картку Carrier згори
-		local cards = rs and rs:FindFirstChild("RoleCards")
-		local card
-		for _, c in (cards and cards:GetChildren() or {}) do if c:GetAttribute("Role") == "Carrier" then card = c end end
-		if card and card:IsA("BasePart") then
-			local g = playerGui:FindFirstChild("RollCard_" .. niche.Name .. "_Carrier")
-			local b = g and g:FindFirstChildWhichIsA("TextButton", true)
-			return { world = card.Position + card.CFrame.UpVector * 0.15, normal = card.CFrame.UpVector, tag = "Carrier", mode = "tap", area = card.Position, obj = card, btn = b } -- 08.11.2026: картка на рампі (нахилена)
+		-- 10.11.2026: картки ролей — на екрані (RollStationClient, ScreenGui RollRolePanel), з'являються біля важеля.
+		--   Панель видно — рука тицяє в картку Carrier; ні — ведемо до важеля (стрілки до нього).
+		local pg = playerGui:FindFirstChild("RollRolePanel")
+		if pg and pg.Enabled and pg:GetAttribute("Shown") == true then
+			local cardC = pg:FindFirstChild("Card_Carrier", true)
+			local b = cardC and cardC:FindFirstChild("Hit", true)
+			if b then return { gui = b, tag = "Carrier" } end
 		end
-		return nil
+		return knob and { world = knob.Position, tag = "Carrier", mode = "look", area = knob.Position, obj = lever.RollLever }
 	elseif step == 6 then
 		if guiOpen("PlotPlaceWindow") then
 			local lbl = findText(playerGui:FindFirstChild("PlotPlaceWindow"), function(t) return t == "EQUIP BEST" end)
@@ -464,6 +513,19 @@ local function target(step: number): any
 		local want = ({ "Ore Spawn", "Ore Limit", "Plots" })[(tonumber(player:GetAttribute("TutBuys")) or 0) + 1] or "Ore Spawn"
 		local lbl = findText(g, function(t) return t == want end)
 		local b = cardButton(lbl)
+		-- 10.11.2026: картку прокрутили за край табло — рука на стрілку прокрутки в її бік, а не «повз табло»
+		local sf = b and b:FindFirstAncestorWhichIsA("ScrollingFrame")
+		if g and b and sf then
+			local cx = b.AbsolutePosition.X + b.AbsoluteSize.X / 2
+			local x0 = sf.AbsolutePosition.X
+			local x1 = x0 + sf.AbsoluteWindowSize.X
+			local arrowTxt = if cx < x0 + 20 then "‹" elseif cx > x1 - 20 then "›" else nil
+			if arrowTxt then
+				local al = findText(g, function(t) return t == arrowTxt end)
+				local ab = al and (if al.Parent and al.Parent:IsA("GuiButton") then al.Parent :: GuiObject else cardButton(al))
+				if ab then b = ab end
+			end
+		end
 		if g and b then
 			local p, n = surfacePoint(g, b)
 			if p then return { world = p, normal = n, tag = "Upgrade", mode = "tap", area = scr and scr.Position, obj = scr, btn = b } end
@@ -474,6 +536,233 @@ local function target(step: number): any
 end
 
 -- ===== анімація =====
+-- ===== навчання «бос» (10.11.2026, BossTutorialService; атрибут BossTut) =====
+-- "roll": картки ролей на екрані й вибрано не Warrior — рука на картці Warrior; далеко від важеля — провідник до важеля;
+--   вибрано Warrior — рука на важелі (ROLL). "buy": рука на кнопці Buy підставки з воїном.
+--   "join": вікно реєстрації відкрите — рука на JOIN FIGHT; інакше — на кнопці JOIN біля NEXT BOSS (MainHUD/Btn_BossJoin, лише під час реєстрації).
+local function visibleChain(g: Instance?): boolean
+	while g and g:IsA("GuiObject") do
+		if not g.Visible then return false end
+		g = g.Parent
+	end
+	return g ~= nil and (not g:IsA("LayerCollector") or (g :: any).Enabled)
+end
+local function bossTarget(st: string): any
+	local niche = myNiche()
+	local rs = niche and niche:FindFirstChild("RollSystem")
+	local lever = rs and rs:FindFirstChild("RollLeverModel")
+	local knob = lever and lever:FindFirstChild("RollLever") and lever.RollLever:FindFirstChild("Knob")
+	if st == "roll" then
+		local warrior = player:GetAttribute("RollRole") == "Warrior"
+		local pg = playerGui:FindFirstChild("RollRolePanel")
+		if not warrior and pg and pg.Enabled and pg:GetAttribute("Shown") == true then
+			local cw = pg:FindFirstChild("Card_Warrior", true)
+			local b = cw and cw:FindFirstChild("Hit", true)
+			if b then return { gui = b, tag = "", showTag = true } end
+		end
+		if not warrior then
+			return knob and { world = knob.Position, tag = "", mode = "look", area = knob.Position, obj = lever.RollLever }
+		end
+		return knob and { world = knob.Position, tag = "Roll", mode = "hold", obj = lever.RollLever, btn = bbButton(lever) }
+	elseif st == "buy" then
+		local stands = rs and rs:FindFirstChild("Stands")
+		local first = nil
+		for i = 1, 10 do
+			local stand = stands and stands:FindFirstChild("Stand" .. i)
+			local buy = stand and stand:FindFirstChild("RollBuyAnchor")
+			if buy then
+				first = first or { world = buy.Position, tag = "", mode = "hold", obj = stand, btn = bbButton(stand) }
+				local b = bbButton(stand)
+				if b then return { world = buy.Position, tag = "", mode = "hold", obj = stand, btn = b } end
+			end
+		end
+		return first
+	elseif st == "join" then
+		local lw = playerGui:FindFirstChild("BossLobbyWindow")
+		local jl = lw and findText(lw, function(t) return t == "JOIN FIGHT" end)
+		if jl and visibleChain(jl) then
+			local b = jl:FindFirstAncestorWhichIsA("GuiButton") or cardButton(jl) or jl.Parent
+			return { gui = b, tag = "Join" }
+		end
+		local hud = playerGui:FindFirstChild("MainHUD")
+		local jb = hud and hud:FindFirstChild("Btn_BossJoin", true)
+		if jb and jb:IsA("GuiObject") and visibleChain(jb) then return { gui = jb, tag = "Join", side = "left" } end -- на кнопці й так написано JOIN
+		return nil
+	elseif st == "claim" then
+		-- 10.11.2026: бос переможений — рука на CLAIM у вікні VICTORY! (BossArenaClient, Btn_BossClaim) → додому
+		local cb = playerGui:FindFirstChild("Btn_BossClaim", true)
+		if cb and cb:IsA("GuiObject") and visibleChain(cb) then return { gui = cb, tag = "Claim" } end
+		return nil
+	elseif st == "dodge" or st == "back" then
+		-- 10.11.2026: урок ухилення — рука на точці подалі від боса (TB_Safe); ухилився — назад до боса (TB_Back)
+		local v = player:GetAttribute(st == "dodge" and "TB_Safe" or "TB_Back")
+		if typeof(v) == "Vector3" then
+			return { world = v + Vector3.new(0, 0.3, 0), area = v, mode = "look", tag = "" } -- підказка — банер по центру (нижче)
+		end
+		return nil
+	end
+	if st == "shop" then
+		-- 10.11.2026: після навчання з босом — стрілки на підлозі до Boss Shop (магазин за Fossil Teeth); близько — рука над ним
+		local v = player:GetAttribute("BossShopPos")
+		if typeof(v) == "Vector3" then
+			local hub = workspace:FindFirstChild("Cave") and workspace.Cave:FindFirstChild("Hub")
+			local sh = hub and hub:FindFirstChild("Shops") and hub.Shops:FindFirstChild("EventShop")
+			return { world = v + Vector3.new(0, 1, 0), area = v, mode = "look", obj = sh, tag = "" }
+		end
+		return nil
+	end
+	return nil -- "fight": воїни б'ють самі, рука не потрібна
+end
+
+-- ===== навчання Cave (10.11.2026, MapService / CaveStandService; атрибут CaveTut) =====
+-- Перший MAP 2 без голема в печері. Поза печерою — до входу (ENTER CAVE); у печері: стенд не куплений — на BUY першого стенда;
+--   куплений — на кнопку стенда (OPEN / PLACE); вікно стенда відкрите — на вкладку або голема з атрибутом TutPick
+--   (його обирає CaveStandUI: найсильніший голем вільного класу). Підписів біля руки немає — на кнопках і так написано.
+local function myCave(): Model?
+	local f = workspace:FindFirstChild("Caves")
+	if not f then return nil end
+	for _, c in f:GetChildren() do if c:GetAttribute("OwnerUserId") == player.UserId then return c end end
+	return nil
+end
+local function caveTarget(): any
+	if guiOpen("CaveStandWindow") then
+		local w = playerGui:FindFirstChild("CaveStandWindow")
+		for _, d in w:GetDescendants() do
+			if d:IsA("GuiObject") and d:GetAttribute("TutPick") == true and visibleChain(d) then return { gui = d, tag = "" } end
+		end
+		return nil
+	end
+	if player:GetAttribute("InCave") ~= true then
+		local niche = myNiche()
+		local gc = niche and niche:FindFirstChild("GolemCave")
+		local pa = gc and gc:FindFirstChild("PromptAnchor", true)
+		if pa and pa:IsA("BasePart") then
+			return { world = pa.Position, area = pa.Position, mode = "hold", tag = "", btn = bbButton(pa) }
+		end
+		return nil
+	end
+	local cave = myCave()
+	local stands = cave and cave:FindFirstChild("Stands")
+	if not stands then return nil end
+	local want = 1
+	local okJ, bought = pcall(HttpService.JSONDecode, HttpService, player:GetAttribute("CaveStands") or "[]")
+	if okJ and type(bought) == "table" and #bought > 0 then
+		want = math.huge
+		for _, i in bought do if type(i) == "number" and i < want then want = i end end
+	end
+	for _, s in stands:GetChildren() do
+		if s:GetAttribute("SlotIndex") == want then
+			local sb = s:FindFirstChild("StandButton")
+			if sb and sb:IsA("BasePart") then
+				return { world = sb.Position, area = sb.Position, mode = "hold", tag = "", obj = s, btn = bbButton(sb) }
+			end
+		end
+	end
+	return nil
+end
+
+-- 10.11.2026: стрілки на підлозі — по шляху PathfindingService (в обхід стін), а не навпростець.
+--   10.11.2026 v2: повний шлях до цілі рахується ОДИН раз; далі лише:
+--   • пройдені точки відкидаються (масив коротшає — менше роботи щокадру);
+--   • гравець відійшов від шляху (> OFF_R) — рахується лише короткий шматок від гравця до точки попереду на старому шляху
+--     і «пришивається» до решти шляху (решта точок не перераховується); зовсім далеко (> FAR_OFF) — шлях заново;
+--   • проєкція гравця на шлях шукається лише серед перших SCAN відрізків. Немає шляху — стрілки навпростець.
+local PFS = game:GetService("PathfindingService")
+local AGENT = { AgentRadius = 2, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 4 }
+local OFF_R, FAR_OFF, SCAN = 5, 40, 24
+local pathPts: { Vector3 }? = nil
+local pathGoal: Vector3? = nil
+local pathBusy = false
+local fixAt = 0
+local function computePath(from: Vector3, goal: Vector3, done: ({ Vector3 }?) -> ())
+	pathBusy = true
+	task.spawn(function()
+		local path = PFS:CreatePath(AGENT)
+		local ok = pcall(function() path:ComputeAsync(from, goal) end)
+		local pts: { Vector3 }? = nil
+		if ok and (path.Status == Enum.PathStatus.Success or path.Status == Enum.PathStatus.ClosestNoPath) then
+			local l = {}
+			for _, w in path:GetWaypoints() do table.insert(l, w.Position) end
+			if #l >= 2 then pts = l end
+		end
+		pathBusy = false
+		done(pts)
+	end)
+end
+-- найближча до origin точка шляху (у площині) серед перших SCAN відрізків: відстань, номер відрізка, частка t
+local function project(pts: { Vector3 }, origin: Vector3): (number, number, number)
+	local best, bi, bt = math.huge, 1, 0
+	for i = 1, math.min(#pts - 1, SCAN) do
+		local a, b = pts[i], pts[i + 1]
+		local abx, abz = b.X - a.X, b.Z - a.Z
+		local l2 = abx * abx + abz * abz
+		local tt = l2 > 0 and math.clamp(((origin.X - a.X) * abx + (origin.Z - a.Z) * abz) / l2, 0, 1) or 0
+		local dx, dz = origin.X - (a.X + abx * tt), origin.Z - (a.Z + abz * tt)
+		local dist = math.sqrt(dx * dx + dz * dz)
+		if dist < best then best, bi, bt = dist, i, tt end
+	end
+	return best, bi, bt
+end
+local function refreshPath(from: Vector3, goal: Vector3)
+	-- нова ціль — повний шлях один раз
+	if not pathGoal or ((pathGoal :: Vector3) - goal).Magnitude >= 1 then
+		if pathBusy then return end
+		pathGoal = goal; pathPts = nil; fixAt = os.clock()
+		computePath(from, goal, function(pts) if pathGoal == goal then pathPts = pts end end)
+		return
+	end
+	local pts = pathPts
+	if not pts then
+		-- шляху немає (не знайшовся) — спробувати ще раз, але не частіше ніж раз на 2 с
+		if not pathBusy and os.clock() - fixAt > 2 then
+			fixAt = os.clock()
+			computePath(from, goal, function(np) if pathGoal == goal then pathPts = np end end)
+		end
+		return
+	end
+	local dist, i = project(pts, from)
+	-- пройдене відкидаємо (лишаємо поточний відрізок)
+	if i > 1 and not pathBusy then
+		local n = table.create(#pts - i + 1)
+		for k = i, #pts do n[#n + 1] = pts[k] end
+		pathPts = n; pts = n; i = 1
+	end
+	if dist > OFF_R and not pathBusy and os.clock() - fixAt > 0.4 then
+		fixAt = os.clock()
+		if dist > FAR_OFF then
+			computePath(from, goal, function(np) if pathGoal == goal and np then pathPts = np end end)
+		else
+			-- короткий шматок до точки на 2 вузли попереду; решта шляху без змін
+			local j = math.min(#pts, i + 2)
+			computePath(from, pts[j], function(np)
+				if pathGoal ~= goal or not np or pathPts ~= pts then return end
+				local merged = np
+				for k = j + 1, #pts do merged[#merged + 1] = pts[k] end
+				pathPts = merged
+			end)
+		end
+	end
+end
+-- точка шляху на відстані d (по площині) від проєкції origin на шлях; повертає позицію й напрям відрізка
+local function alongPath(origin: Vector3, d: number): (Vector3?, Vector3?)
+	local pts = pathPts
+	if not pts then return nil, nil end
+	local best, bi, bt = project(pts, origin)
+	if best > 12 then return nil, nil end -- далеко від шляху — поки шматок не дорахувався, стрілки навпростець
+	local i, tt, rem = bi, bt, d
+	while i < #pts do
+		local a, b = pts[i], pts[i + 1]
+		local seg = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+		local len = seg.Magnitude
+		local left = len * (1 - tt)
+		if len > 0.01 and rem <= left then
+			return a + (b - a) * (tt + rem / len), seg.Unit
+		end
+		rem -= left; i += 1; tt = 0
+	end
+	return nil, nil -- далі кінця шляху
+end
+
 local function tapAmp(mode: string, t: number): number
 	if mode == "hold" then
 		local ph = t % 2.2
@@ -541,6 +830,7 @@ local function buildLike(): Model
 	return m
 end
 local stepTagShown = ""
+local boomF: Folder? = nil
 local function setTag(text: string)
 	if stepTagShown ~= text then
 		stepTagShown = text
@@ -584,15 +874,16 @@ RunService.RenderStepped:Connect(function(dt)
 				workspace:BulkMoveTo(likeParts, cfs, Enum.BulkMoveMode.FireCFrameChanged)
 			elseif not likeBoom then
 				likeBoom = true
+				boomF = new("Folder", { Name = "TutBoom" }, workspace) -- 10.11.2026: шматки вибуху окремо (fxFolder лишається для навчання «бос»)
 				local center = cf.Position
 				likeM:Destroy(); likeM = nil
 				UISounds.play("purchase", 0.1)
 				-- спалах
 				local fl = new("Part", { Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false, Shape = Enum.PartType.Ball,
-					Material = Enum.Material.Neon, Color = GOLD, Transparency = 0.2, Size = Vector3.one * 1.5, CFrame = CFrame.new(center) }, fxFolder)
+					Material = Enum.Material.Neon, Color = GOLD, Transparency = 0.2, Size = Vector3.one * 1.5, CFrame = CFrame.new(center) }, boomF)
 				TweenService:Create(fl, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.one * 9, Transparency = 1 }):Play()
 				-- іскри
-				local at = new("Part", { Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false, Transparency = 1, Size = Vector3.one * 0.2, CFrame = CFrame.new(center) }, fxFolder)
+				local at = new("Part", { Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false, Transparency = 1, Size = Vector3.one * 0.2, CFrame = CFrame.new(center) }, boomF)
 				for _, col in { GOLD, WHITE } do
 					local pe = new("ParticleEmitter", { Texture = "rbxasset://textures/particles/sparkles_main.dds", Color = ColorSequence.new(col), LightEmission = 1,
 						Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.7), NumberSequenceKeypoint.new(1, 0) }), Lifetime = NumberRange.new(0.5, 1),
@@ -604,7 +895,7 @@ RunService.RenderStepped:Connect(function(dt)
 					local r = 0.25 + math.random() * 0.35
 					local bit = new("Part", { Anchored = true, CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false, Shape = Enum.PartType.Ball,
 						Material = Enum.Material.SmoothPlastic, Color = math.random() < 0.15 and Color3.fromHex("2a2c31") or Color3.fromHex("fbfbf8"),
-						Size = Vector3.one * r * 2, CFrame = CFrame.new(center) }, fxFolder)
+						Size = Vector3.one * r * 2, CFrame = CFrame.new(center) }, boomF)
 					local dir = Vector3.new(math.random() - 0.5, math.random() * 0.8 - 0.1, math.random() - 0.5).Unit
 					TweenService:Create(bit, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 						{ CFrame = CFrame.new(center + dir * (5 + math.random() * 4)), Size = Vector3.one * 0.05, Transparency = 1 }):Play()
@@ -613,14 +904,61 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 		local fade = math.clamp((age - 1.65) / 0.5, 0, 1)
 		tagText.TextTransparency = fade
-		if age > 2.6 then waveT = nil; fxFolder:Destroy(); ui:Destroy() end
+		-- 10.11.2026: рука й UI не знищуються — потрібні для навчання «бос» (BossTutorialService)
+		if age > 2.6 then
+			waveT = nil
+			if boomF then boomF:Destroy(); boomF = nil end
+			ui.Enabled = false; tagBB.Enabled = false; tagBB.Adornee = hParts[1]; tagText.TextTransparency = 0
+		end
 		return
 	end
-	enforceHidden()
+	-- 10.11.2026: навчання «бос» (BossTutorialService, атрибут BossTut) — після основного; HUD не ховаємо (потрібна кнопка JOIN)
+	local bossSt = player:GetAttribute("TutStep") == nil and player:GetAttribute("BossTut") or nil
+	local caveOn = player:GetAttribute("TutStep") == nil and not bossSt and player:GetAttribute("CaveTut") ~= nil -- 10.11.2026: навчання Cave
+	if not bossSt and not caveOn then enforceHidden() end
 	local step = tonumber(player:GetAttribute("TutStep")) or 1
 	if step ~= lastStep then lastStep = step end
-	local tg = target(step)
+	local tg = if bossSt then bossTarget(bossSt) elseif caveOn then caveTarget() else target(step)
 	if not tg then setHandVisible(false); vp.Visible = false; tag2.Visible = false; hideChevrons(); setTargetObj(nil); ringOn(nil); return end
+	-- 10.11.2026: кнопка «у світі» (BillboardGui CustomPrompts: ROLL, FREE / ціна Buy, COLLECT…) видна на екрані — 2D-рука на неї,
+	--   як на кнопку HUD; підпис кроку (Buy, Roll…) — над кнопкою. Далеко / кнопки ще немає — 3D-рука на об'єкті, як раніше.
+	-- 10.11.2026: гравець далеко від цілі (далі FAR) — кнопку у світі не підміняємо 2D-рукою: лише стрілки на підлозі (нижче)
+	local nearT = true
+	if not tg.gui and hrp then
+		local ar = (tg.area or tg.world) :: Vector3?
+		if ar then nearT = Vector3.new(ar.X - hrp.Position.X, 0, ar.Z - hrp.Position.Z).Magnitude <= FAR end
+	end
+	if not tg.gui and tg.btn and nearT then
+		local b = tg.btn :: GuiObject
+		local bb = b.Parent and b:FindFirstAncestorWhichIsA("BillboardGui")
+		local cam = workspace.CurrentCamera
+		local ad = bb and (bb.Adornee or bb.Parent)
+		if bb and bb.Enabled and cam and ad and b.AbsoluteSize.X > 4 and (ad:IsA("BasePart") or ad:IsA("Attachment")) then
+			local wp = (if ad:IsA("Attachment") then (ad :: Attachment).WorldPosition else (ad :: BasePart).Position)
+				+ bb.StudsOffsetWorldSpace + cam.CFrame:VectorToWorldSpace(bb.StudsOffset)
+			local v, onScreen = cam:WorldToViewportPoint(wp)
+			if onScreen and v.Z > 0 then
+				local off = (b.AbsolutePosition - bb.AbsolutePosition) + b.AbsoluteSize / 2 - bb.AbsoluteSize / 2
+				local scr = Vector2.new(v.X, v.Y) + off
+				local vs = cam.ViewportSize
+				if scr.X > 0 and scr.Y > 0 and scr.X < vs.X and scr.Y < vs.Y then
+					-- 10.11.2026: підпис лише якщо на кнопці немає такого ж слова (ROLL — без «Roll»; FREE / ціна — з «Buy»)
+					local dup = false
+					local tl = string.lower(tg.tag or "")
+					for _, d in b:GetDescendants() do
+						if d:IsA("TextLabel") and tl ~= "" and string.find(string.lower(d.Text), tl, 1, true) then dup = true; break end
+					end
+					tg = { gui = b, screen = scr, tag = tg.tag, showTag = not dup, tagAbove = true, obj = tg.obj }
+				end
+			end
+		elseif cam and tg.world and b:FindFirstAncestorWhichIsA("SurfaceGui") then
+			-- 10.11.2026: кнопка на табло (SurfaceGui, картки прокачки) — 2D-рука згори вниз на кнопку, без підпису
+			local v, onScreen = cam:WorldToViewportPoint(tg.world :: Vector3)
+			if onScreen and v.Z > 0 then
+				tg = { gui = b, screen = Vector2.new(v.X, v.Y), half = Vector2.new(0, 10), forceDown = true, showTag = false, obj = tg.obj, btn = b }
+			end
+		end
+	end
 	ringOn(tg.btn or tg.gui)
 	ringTick(t)
 	setTag(tg.tag or "")
@@ -630,15 +968,26 @@ RunService.RenderStepped:Connect(function(dt)
 		-- 2D-рука над кнопкою
 		setHandVisible(false); hideChevrons()
 		local gui = tg.gui :: GuiObject
-		local c = gui.AbsolutePosition + gui.AbsoluteSize / 2 - root.AbsolutePosition
-		local amp = tapAmp("tap", t)
-		local poke = Vector2.new(0.62, 0.72).Unit * (14 * (1 - amp) + 2)
-		local bob = Vector2.new(0, math.sin(t * 2.2) * 2)
+		local c = (tg.screen :: Vector2?) or (gui.AbsolutePosition + gui.AbsoluteSize / 2 - root.AbsolutePosition)
 		local k = uiS()
 		vpScale.Scale = k; tagScale.Scale = k
-		poke *= k
-		vp.Position = UDim2.fromOffset(c.X - TIP2.X * k + poke.X + bob.X, c.Y - TIP2.Y * k + poke.Y + bob.Y)
+		-- 10.11.2026: рука збоку від кнопки, а не на ній: під кнопкою пальцем угору; знизу не влазить — над кнопкою пальцем униз
+		local half0 = (tg.half :: Vector2?) or gui.AbsoluteSize / 2
+		-- спершу праворуч від кнопки (палець ліворуч); не влазить — під кнопкою (палець угору); і там ні — над нею (палець униз)
+		-- 10.11.2026: side = "left" — рука ліворуч від кнопки, дзеркальна, палець праворуч (JOIN біля NEXT BOSS: праворуч — таймер і BOSS)
+		local leftSide = tg.side == "left" and not tg.forceDown
+		local right = not leftSide and not tg.forceDown and c.X + half0.X + VP * 0.5 * k < root.AbsoluteSize.X - 4
+		local down = tg.forceDown == true or (not right and not leftSide and c.Y + half0.Y + VP * 0.5 * k > root.AbsoluteSize.Y - 4)
+		setDir2(leftSide and "right" or (right and "left" or (down and "down" or "up")))
+		local edge = if leftSide then Vector2.new(c.X - half0.X - 2, c.Y)
+			elseif right then Vector2.new(c.X + half0.X + 2, c.Y)
+			else Vector2.new(c.X + half0.X * 0.2, if down then c.Y - half0.Y - 2 else c.Y + half0.Y + 2)
+		local amp = tapAmp("tap", t)
+		local poke = (if leftSide then Vector2.new(-1, 0) elseif right then Vector2.new(1, 0) else Vector2.new(0, if down then -1 else 1)) * (14 * (1 - amp) + 2) * k
+		local bob = Vector2.new(0, math.sin(t * 2.2) * 2)
+		vp.Position = UDim2.fromOffset(edge.X - TIP2.X * k + poke.X + bob.X, edge.Y - TIP2.Y * k + poke.Y + bob.Y)
 		vp.Visible = true
+		syncOutline() -- 10.11.2026: обводка в тому ж кадрі (сигнал зміни властивості приходить із затримкою — обводка відставала)
 		-- підпис: праворуч від кнопки (над кнопкою часто її заголовок); праворуч не влазить — над кнопкою;
 		-- і там не влазить — під рукою. Завжди в межах екрана.
 		local sw, sh = root.AbsoluteSize.X, root.AbsoluteSize.Y
@@ -646,7 +995,9 @@ RunService.RenderStepped:Connect(function(dt)
 		local half = gui.AbsoluteSize / 2
 		local tx, ty
 		local w = math.min(tw, (tag2.TextBounds.X + 8) * 1) -- фактична ширина тексту (TextBounds уже з масштабом)
-		if c.X + half.X + 14 * k + w <= sw - 8 then
+		if tg.tagAbove or right or leftSide then
+			tx, ty = c.X, if down then c.Y + half.Y + th + 6 else c.Y - half.Y - 6 -- над кнопкою у світі (Buy над FREE); рука зверху — підпис під кнопкою
+		elseif c.X + half.X + 14 * k + w <= sw - 8 then
 			tx, ty = c.X + half.X + 14 * k + w / 2, c.Y + th / 2
 		else
 			ty = c.Y - half.Y - 6
@@ -667,10 +1018,13 @@ RunService.RenderStepped:Connect(function(dt)
 	local flatD = Vector3.new(area.X - hrp.Position.X, 0, area.Z - hrp.Position.Z)
 	local goal
 	if flatD.Magnitude > FAR then
-		-- провідник: рука перед гравцем, палець — у бік цілі; стрілки на підлозі
+		-- провідник: рука перед гравцем, палець — у бік цілі; стрілки на підлозі (10.11.2026: по шляху в обхід стін)
+		refreshPath(hrp.Position, area)
 		local dir = flatD.Unit
+		do local _, d0 = alongPath(hrp.Position, 3); if d0 then dir = d0 end end
 		local pos = hrp.Position + dir * 8.5 + Vector3.new(0, 2.2 + math.sin(t * 2.2) * 0.2, 0) -- 08.11.2026: рука далі перед гравцем (було 5)
 		goal = CFrame.lookAt(pos, pos + dir + Vector3.new(0, -0.15, 0))
+		tagBB.StudsOffsetWorldSpace = Vector3.new(0, 2.6, 0)
 		local y = floorY()
 		local shift = (t * 5) % 3.5
 		-- 08.11.2026: стрілки лягають на верх того, що під ними (сходинки, плити) — не ховаються в текстурі
@@ -682,27 +1036,46 @@ RunService.RenderStepped:Connect(function(dt)
 			local d = 3 + (i - 1) * 3.5 + shift
 			local a = math.clamp(1 - math.abs(d - 12) / 12, 0, 1)
 			local base = Vector3.new(hrp.Position.X, y, hrp.Position.Z) + dir * d
+			local cdir = dir
+			if pathPts then
+				local pp, pd = alongPath(hrp.Position, d)
+				if pp and pd then base = Vector3.new(pp.X, y, pp.Z); cdir = pd else a = 0 end -- за кінцем шляху — не показуємо
+			end
 			local hit = workspace:Raycast(base + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), rp)
 			if hit then base = Vector3.new(base.X, hit.Position.Y + 0.06, base.Z) end
-			local cf = CFrame.lookAt(base, base + dir)
+			local cf = CFrame.lookAt(base, base + cdir)
 			c.L.CFrame = cf * CFrame.Angles(0, math.rad(40), 0) * CFrame.new(0, 0, 0.55)
 			c.R.CFrame = cf * CFrame.Angles(0, math.rad(-40), 0) * CFrame.new(0, 0, 0.55)
 			c.L.Transparency = 1 - 0.65 * a; c.R.Transparency = 1 - 0.65 * a
 		end
+		-- 10.11.2026: далеко — руки немає, ведуть лише стрілки на підлозі
+		setHandVisible(false)
+		return
 	else
 		hideChevrons()
 		local appr: Vector3
+		local camFlat = Vector3.zAxis
+		-- 10.11.2026: «показати» об'єкт (руда, плот) — палець над верхом моделі, а не всередині неї
+		if tg.mode == "look" and tg.obj and tg.obj:IsA("Model") then
+			local bcf, bsz = (tg.obj :: Model):GetBoundingBox()
+			local top = bcf.Position.Y + bsz.Y / 2 + 0.2
+			if tp.Y < top then tp = Vector3.new(tp.X, top, tp.Z) end
+		end
 		if tg.normal then
 			appr = ((tg.normal :: Vector3) + Vector3.new(0, 0.55, 0)).Unit
 		else
-			local toP = Vector3.new(hrp.Position.X - tp.X, 0, hrp.Position.Z - tp.Z)
-			local h = toP.Magnitude > 0.1 and toP.Unit or Vector3.zAxis
-			appr = (h * 0.55 + Vector3.new(0, 1, 0)).Unit
+			-- 10.11.2026: рука згори над ціллю, трохи нахилена до камери, тильна сторона (шви) — до камери:
+			--   з камери за спиною гравця рукавичку видно «до нас», палець — униз на ціль (було: рука від гравця, видно манжету)
+			local cam = workspace.CurrentCamera
+			local toC = cam and Vector3.new(cam.CFrame.Position.X - tp.X, 0, cam.CFrame.Position.Z - tp.Z) or Vector3.zero
+			camFlat = toC.Magnitude > 0.1 and toC.Unit or Vector3.zAxis
+			appr = (Vector3.new(0, 1, 0) + camFlat * 0.3).Unit
 		end
 		local amp = tapAmp(tg.mode or "tap", t)
 		local dist = 0.35 + (1 - amp) * 1.1 + math.sin(t * 2) * 0.08
 		local tip = tp + appr * dist
-		goal = CFrame.lookAt(tip, tp)
+		goal = if tg.normal then CFrame.lookAt(tip, tp) else CFrame.lookAt(tip, tp, camFlat)
+		tagBB.StudsOffsetWorldSpace = Vector3.new(0, 6, 0) -- підпис над рукою (рука вертикальна, ~4,5 стада)
 	end
 	if not handShown then handCF = goal end
 	setHandVisible(true)
@@ -735,7 +1108,7 @@ local function stopTut(reward: boolean)
 		local toast = uiev and uiev:FindFirstChild("Toast")
 		if toast then toast:Fire("+" .. REWARD .. " Diamonds!", "blue", nil) end
 	else
-		fxFolder:Destroy(); ui:Destroy()
+		setHandVisible(false); ui.Enabled = false -- 10.11.2026: не знищуємо (навчання «бос»)
 	end
 end
 
@@ -749,3 +1122,105 @@ end
 player:GetAttributeChangedSignal("TutStep"):Connect(sync)
 player:GetAttributeChangedSignal("TutorialDone"):Connect(sync)
 sync()
+
+-- 10.11.2026: навчання «бос» — та сама рука й рамки, без ховання HUD; SKIP — лише до арени ("roll" / "buy" / "join")
+local bossOn = false
+local function bossSkip()
+	local st = player:GetAttribute("BossTut")
+	local can = bossOn and (st == "roll" or st == "buy" or st == "join")
+	if skipRoot then skipRoot.Visible = can end
+	if bossOn and not can then dim.Visible = false end
+	warnRow.Visible = not bossOn -- «не отримаєш 100 діамантів» — лише в основному навчанні
+end
+local function bossSync()
+	-- 10.11.2026: той самий режим (рука без ховання HUD, без SKIP) — і для навчання Cave (CaveTut)
+	local on = player:GetAttribute("TutStep") == nil and (player:GetAttribute("BossTut") ~= nil or player:GetAttribute("CaveTut") ~= nil)
+	if on == bossOn then
+		if bossOn then bossSkip() end -- 10.11.2026: поза навчанням «бос» SKIP не чіпаємо (інакше ховався SKIP основного навчання)
+		return
+	end
+	bossOn = on
+	if on then
+		running = true; ui.Enabled = true
+		bossSkip()
+	else
+		warnRow.Visible = true
+		running = false
+		vp.Visible = false; tag2.Visible = false; hideChevrons(); setTargetObj(nil); ringOn(nil); setHandVisible(false)
+		if not waveT then ui.Enabled = false end
+	end
+end
+player:GetAttributeChangedSignal("BossTut"):Connect(bossSync)
+player:GetAttributeChangedSignal("CaveTut"):Connect(bossSync)
+bossSync()
+-- 10.11.2026: навчання Cave скінчилось (перший голем на стенді) — тост і звук
+do
+	local caveWas = player:GetAttribute("CaveTut")
+	player:GetAttributeChangedSignal("CaveTut"):Connect(function()
+		local now = player:GetAttribute("CaveTut")
+		if caveWas ~= nil and now == nil and player:GetAttribute("CaveTutDone") == true then
+			UISounds.play("claim", 0.1)
+			local uiev = RS:FindFirstChild("UIEvents")
+			local toast = uiev and uiev:FindFirstChild("Toast")
+			if toast then toast:Fire("Golems saved! Now you can go to Map 2", "green", nil) end
+		end
+		caveWas = now
+	end)
+end
+
+-- 10.11.2026: урок ухилення (BossTut "dodge") — «сповільнення часу»: удар боса повільний (сервер), екран трохи блякне й темнішає
+local Lighting = game:GetService("Lighting")
+local slowCC: ColorCorrectionEffect? = nil
+-- банер-підказка по центру екрана: "dodge" — відійди від боса; "back" — повертайся до боса
+local banner = new("TextLabel", { Name = "DodgeHint", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.34),
+	Size = UDim2.fromOffset(760, 64), BackgroundTransparency = 1, FontFace = HEAVY, TextScaled = true, Text = "", TextColor3 = GOLD,
+	Visible = false, ZIndex = 60 }, root)
+new("UITextSizeConstraint", { MaxTextSize = 46 }, banner)
+stroke(banner, INK, 5)
+local bannerScale = new("UIScale", {}, banner)
+RunService.RenderStepped:Connect(function()
+	if banner.Visible then bannerScale.Scale = uiS() * (1 + 0.05 * math.sin(os.clock() * 6)) end
+end)
+local function bannerSync()
+	local st = player:GetAttribute("BossTut")
+	if st == "dodge" then
+		banner.Text = "MOVE AWAY FROM THE BOSS!"; banner.TextColor3 = GOLD; banner.Visible = true
+	elseif st == "back" then
+		banner.Text = "GO BACK AND FIGHT!"; banner.TextColor3 = Color3.fromHex("8dff5a"); banner.Visible = true
+	else
+		banner.Visible = false
+	end
+end
+player:GetAttributeChangedSignal("BossTut"):Connect(bannerSync)
+local function slowMo()
+	local on = player:GetAttribute("BossTut") == "dodge"
+	if on and not slowCC then
+		local c = new("ColorCorrectionEffect", { Name = "TutSlowMo", Saturation = 0, Contrast = 0, Brightness = 0 }, Lighting)
+		slowCC = c
+		TweenService:Create(c, TweenInfo.new(0.4), { Saturation = -0.35, Contrast = 0.15, Brightness = -0.05 }):Play()
+	elseif not on and slowCC then
+		local c = slowCC :: ColorCorrectionEffect
+		slowCC = nil
+		local tw = TweenService:Create(c, TweenInfo.new(0.5), { Saturation = 0, Contrast = 0, Brightness = 0 })
+		tw.Completed:Connect(function() c:Destroy() end)
+		tw:Play()
+	end
+end
+player:GetAttributeChangedSignal("BossTut"):Connect(slowMo)
+
+-- 10.11.2026: крок "shop" — щойно відкрилось вікно BOSS SHOP (StallShopWindow), стрілки до магазину вже не потрібні
+task.spawn(function()
+	while true do
+		task.wait(0.3)
+		if player:GetAttribute("BossTut") == "shop" then
+			local w = playerGui:FindFirstChild("StallShopWindow")
+			local tl = w and findText(w, function(t) return t == "BOSS SHOP" end)
+			if tl and visibleChain(tl) then
+				hideChevrons(); setHandVisible(false)
+				local ba = RS:FindFirstChild("Remotes") and RS.Remotes:FindFirstChild("BossAction")
+				if ba then ba:FireServer("TutShopSeen") end
+				task.wait(1)
+			end
+		end
+	end
+end)

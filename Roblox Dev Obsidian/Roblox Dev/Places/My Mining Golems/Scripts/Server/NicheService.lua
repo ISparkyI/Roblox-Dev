@@ -91,6 +91,16 @@ local function spawnCFrame(slot: Slot): CFrame?
 	return m:GetPivot()
 end
 
+-- 10.11.2026: StreamingEnabled — своя ніша завжди підвантажена в її власника (PersistentPerPlayer). Інакше після арени боса
+--   (далеко) ніша вивантажувалась і з'являлась заново, а клієнтські скрипти (затемнення некуплених плотів, анімації големів…)
+--   лишались прив'язані до старих деталей: куплене виглядало закритим, големів не було видно.
+local function persist(player: Player, model: Model?)
+	if not model then return end
+	pcall(function()
+		model.ModelStreamingMode = Enum.ModelStreamingMode.PersistentPerPlayer
+		model:AddPersistentPlayer(player)
+	end)
+end
 local function teleport(player: Player)
 	local slot = byPlayer[player]
 	local char = player.Character
@@ -122,7 +132,7 @@ local function claim(player: Player)
 				applyOwner(slot)
 			end
 			player:SetAttribute("NicheIndex", slot.index)
-			NicheService.Claimed:Fire(player, slot.model)
+			persist(player, slot.model); NicheService.Claimed:Fire(player, slot.model)
 			if player.Character then task.spawn(teleport, player) end
 			return
 		end
@@ -155,7 +165,7 @@ function NicheService.Rebuild(player: Player)
 	NicheService.Released:Fire(player, slot.model)
 	build(slot, stage)
 	player:SetAttribute("NicheIndex", slot.index)
-	NicheService.Claimed:Fire(player, slot.model)
+	persist(player, slot.model); NicheService.Claimed:Fire(player, slot.model)
 	if player.Character then task.spawn(teleport, player) end
 end
 

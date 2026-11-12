@@ -1696,16 +1696,19 @@ do
 	local gy = 0
 	U.section(gF, 0, gy, "GIVE TO EVERYONE (all servers)"); gy += 30
 	local itemsTop = gy + 56
-	local potF, golF, amtF, passF
+	local potF, golF, amtF, passF, caseF
 	local gPass = { key = "*" }
 	local gLevel = { MoneyTier = 1, MutTier = 1 }
 	local refreshPassF
-	local gWhat = U.choice(gF, 0, gy, (CW - 30) / 6, 44, 6, {
+	-- 10.11.2026: + CASE — кейси всім (Case_<ключ>; кількість — поле AMOUNT, до 1000)
+	local gWhat = U.choice(gF, 0, gy, (CW - 36) / 7, 44, 6, {
 		{ key = "Money", text = "MONEY", color = "green" }, { key = "Diamonds", text = "DIAMONDS", color = "blue" },
 		{ key = "Tickets", text = "TICKETS", color = "yellow" }, { key = "Potion", text = "POTION", color = "purple" },
 		{ key = "Golem", text = "GOLEM", color = "orange" }, { key = "Pass", text = "PASS", color = "red" },
+		{ key = "Case", text = "CASE", color = "gray" },
 	}, "Diamonds", function(k)
 		potF.Visible = k == "Potion"
+		caseF.Visible = k == "Case"
 		golF.Visible = k == "Golem"
 		amtF.Visible = k ~= "Golem" and k ~= "Pass"
 		passF.Visible = k == "Pass"
@@ -1720,6 +1723,12 @@ do
 	local pitems = {}
 	for _, d in Items.POTIONS do table.insert(pitems, { key = d.key, text = string.upper(d.key), color = "purple" }) end
 	local gPot = U.choice(potF, 0, 0, (CW - 18) / 4, 44, 6, pitems, pitems[1] and pitems[1].key, nil, 16)
+	-- кейс (10.11.2026)
+	caseF = frame(gF, 0, itemsTop + 54, CW, 46, nil, { BackgroundTransparency = 1, ZIndex = 4, Visible = false })
+	local citems = {}
+	for _, d in Items.CASES or {} do table.insert(citems, { key = d.key, text = string.upper(d.name or d.key), color = "orange" }) end
+	local nC = math.max(1, #citems)
+	local gCase = U.choice(caseF, 0, 0, (CW - 6 * (nC - 1)) / nC, 44, 6, citems, citems[1] and citems[1].key, nil, 15)
 	-- голем
 	golF = frame(gF, 0, itemsTop, CW, 64, nil, { BackgroundTransparency = 1, ZIndex = 4, Visible = false })
 	local gGolem = { kind = "stone", mut = 0, cls = "miner" }
@@ -1766,6 +1775,15 @@ do
 			end
 		elseif what == "Golem" then
 			n = gCnt.get(); item = golemItem(gGolem); desc = n .. " × " .. U.golemName(gGolem.kind, gGolem.mut)
+		elseif what == "Case" then
+			n = tonumber((string.gsub(gAmount.Text, "[,%s]", "")))
+			if not n or n <= 0 then setStatus("Enter an amount", false); return end
+			n = math.floor(n)
+			if n > 1000 then setStatus("Max 1,000 cases at once", false); return end
+			item = gCase.value
+			local cn = item
+			for _, d in Items.CASES or {} do if d.key == item then cn = d.name or d.key end end
+			desc = U.num(n) .. " × " .. cn
 		else
 			n = tonumber((string.gsub(gAmount.Text, "[,%s]", "")))
 			if not n or n <= 0 then setStatus("Enter an amount", false); return end

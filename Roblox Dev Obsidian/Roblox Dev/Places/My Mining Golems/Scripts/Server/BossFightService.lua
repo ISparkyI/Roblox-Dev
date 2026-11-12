@@ -253,7 +253,7 @@ local function onAction(p: Player, action: any, a: any, b: any)
 	elseif action == "Join" then
 		if phase ~= "reg" or lobby[p] then return end
 		if (tonumber(p:GetAttribute("Stage")) or 1) < Cfg.MIN_STAGE then return end
-		if #validPicks(p) == 0 or lobbyCount() >= Cfg.MAX_PLAYERS or not nearPortal(p) then return end
+		if #validPicks(p) == 0 or lobbyCount() >= Cfg.MAX_PLAYERS then return end -- 10.11.2026: JOIN з будь-якого місця (кнопка JOIN біля NEXT BOSS у HUD), не лише в колі порталу
 		lobby[p] = true
 		table.insert(lobbyOrder, p)
 	elseif action == "Home" then

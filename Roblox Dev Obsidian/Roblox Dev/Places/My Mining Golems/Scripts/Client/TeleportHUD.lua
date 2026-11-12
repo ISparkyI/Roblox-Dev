@@ -37,6 +37,8 @@ if MARKET then ITEMS = { { key = "home", text = "HOME", color = "green", s = 1.2
 local ARENA_ITEMS = { { key = "exit", text = "EXIT", color = "red", s = 1.45 } } -- 05.11.2026: на арені — внизу по центру (fit)
 local function itemsNow()
 	if MARKET then return ITEMS end
+	-- 10.11.2026: навчальна арена (BossTutorialService, атрибут BossTutArena) — без EXIT: навчання на арені не пропускається
+	if player:GetAttribute("InBossArena") == true and player:GetAttribute("BossTutArena") ~= nil then return {} end
 	return player:GetAttribute("InBossArena") == true and ARENA_ITEMS or NORMAL_ITEMS
 end
 local W, H, GAP, CY = 176, 52, 14, 42 -- базовий розмір (× s), реальні пікселі; CY — центр ряду по вертикалі

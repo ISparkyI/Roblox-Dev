@@ -205,6 +205,8 @@ end
 type Key = { t: number, ease: string, pose: { [string]: { r: { number }?, t: { number }? } } }
 local MINE_T = 1.4
 local MINE_HIT = 0.62
+-- 10.11.2026: мить удару (HitTime: звук, цифра шкоди, ефекти) — D.hitAt, якщо власна поза Mine влучає не в MINE_HIT (Spartan — випад списом)
+local HIT_AT = if type(D.hitAt) == "number" then D.hitAt else MINE_HIT
 local READY = {
 	Hips = { t = { 0, -0.10, 0 } },
 	Torso = { r = { 0.12, 0.10, 0 } },
@@ -410,7 +412,7 @@ local function step(dt: number, low: boolean)
 	if current == "Mine" then
 		local tNow = clock % MINE_T
 		local tPrev = (clock - dt * ((model:GetAttribute("AnimSpeed") :: number?) or 1)) % MINE_T
-		local crossed = if tPrev <= tNow then (tPrev < MINE_HIT and tNow >= MINE_HIT) else (tPrev < MINE_HIT or tNow >= MINE_HIT)
+		local crossed = if tPrev <= tNow then (tPrev < HIT_AT and tNow >= HIT_AT) else (tPrev < HIT_AT or tNow >= HIT_AT)
 		if crossed and blendT >= 1 then
 			local target = model:FindFirstChild("MineTarget")
 			if target and target:IsA("ObjectValue") and target.Value then

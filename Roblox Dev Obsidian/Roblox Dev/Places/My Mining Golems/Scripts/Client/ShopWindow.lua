@@ -369,7 +369,7 @@ local DESC = {
 	MutLucky = { fc("ffb3f0", "x2 Mutation Luck") .. " forever", "Mutations " .. fc("ffb3f0", "2x") .. " more often" },
 	AutoEquip = { "Auto-equips " .. fc(GOLD, "best golems"), "Toggle it in Settings" },
 	FastForge = { "Workshop smelts " .. fc(LIME, "2x faster") },
-	AutoCollect = { "Crates go to " .. fc(LIME, "inventory"), "No more COLLECT" },
+	AutoCollect = { "Ore goes straight to your", fc(LIME, "inventory") .. ", " .. fc(LIME, "instantly") .. ".", "Works on " .. fc(GOLD, "every map") .. "!" }, -- 09.11.2026
 	AutoSell = { "Ore & bars " .. fc(LIME, "sell by themselves"), "Works on " .. fc(GOLD, "every map") },
 	AutoWorkshop = { "Smelts ore " .. fc(LIME, "from your inventory"), "Works on " .. fc(GOLD, "every map") },
 	RollStand1 = { fc(GREEN, "+1 roll stand") .. " per stage", "2 stages, up to " .. fc(GREEN, "7 stands") },
@@ -562,18 +562,20 @@ for _, it in passItems do
 end
 
 -- заготовки (SOON): ціни — пропозиція, з'являться разом із системами
+-- 10.11.2026: Starter Pack — окремий розділ STARTER PACK під MONEY MULTIPLIER (з BUNDLES прибрано), діє 1 годину гри
+local STARTER = { key = "StarterPack", kind = "product", noTickets = true, once = true, golem = "stone", mut = 4, name = "Starter Pack", desc = "+$50K Money, 3 Luck Potions and a Diamond Stone Golem. Once per player!",
+	icon = "rbxassetid://97975821667403", tone = "7ef05a", tile = "green", robux = MonCfg.Products.StarterPack.robux, id = MonCfg.Products.StarterPack.id }
 local BUNDLES = {
 	-- 06.11.2026: паки — лише за Robux (noTickets: у режимі TICKETS теж ціна в Robux; сервер відмовляє BuyProduct)
-	{ key = "StarterPack", kind = "product", noTickets = true, once = true, golem = "stone", mut = 4, name = "Starter Pack", desc = "+$50K Money, 3 Luck Potions and a Diamond Stone Golem. Once per player!",
-		icon = "rbxassetid://97975821667403", tone = "7ef05a", tile = "green", robux = MonCfg.Products.StarterPack.robux, id = MonCfg.Products.StarterPack.id },
 	{ key = "PotionPack", kind = "product", noTickets = true, vp = "Icon:PotionPack", name = "Potion Pack", desc = "5 of each potion: Luck, Speed, Money, Strength. Buy as many as you want!",
 		icon = "rbxassetid://104193388781391", tone = "5cc8ff", tile = "blue", robux = MonCfg.Products.PotionPack.robux, id = MonCfg.Products.PotionPack.id },
 	{ key = "ExtraStorage", kind = "product", noTickets = true, name = "Extra Storage", desc = "+50 golem slots in your inventory. Buy as many as you want!",
 		icon = "rbxassetid://107241982376806", tone = "ff8a3a", tile = "orange", robux = MonCfg.Products.ExtraStorage.robux, id = MonCfg.Products.ExtraStorage.id },
-	-- 06.11.2026: Mega Pack — справжній продукт (MonetizationConfig.Products.MegaPack), один раз
-	{ key = "MegaPack", kind = "product", noTickets = true, once = true, golem = "obsidian", mut = 4, name = "Mega Pack", desc = "+500 Tickets, 10 of each potion and a Diamond Obsidian Golem. Once per player!",
-		icon = "rbxassetid://85164603125451", tone = "c08cff", tile = "purple", robux = MonCfg.Products.MegaPack.robux, id = MonCfg.Products.MegaPack.id },
 }
+-- 06.11.2026: Mega Pack — справжній продукт (MonetizationConfig.Products.MegaPack), один раз.
+-- 10.11.2026: з BUNDLES прибрано — з’являється в розділі під MONEY MULTIPLIER замість Starter Pack (куплено або час вийшов), без таймера
+local MEGA = { key = "MegaPack", kind = "product", noTickets = true, once = true, golem = "obsidian", mut = 4, name = "Mega Pack", desc = "+500 Tickets, 10 of each potion and a Diamond Obsidian Golem. Once per player!",
+	icon = "rbxassetid://85164603125451", tone = "c08cff", tile = "purple", robux = MonCfg.Products.MegaPack.robux, id = MonCfg.Products.MegaPack.id }
 -- пакети тікетів (MonetizationConfig.TicketProducts): лише за Robux, багаторазові; вигода — tickets / robux − 1
 local PRODUCTS = {}
 for i, t in MonCfg.TicketProducts do
@@ -1070,6 +1072,28 @@ do
 	end
 	y += 170 + GY + 8
 end
+-- 1.5 Starter Pack (10.11.2026): окремий розділ, таймер справа від заголовка. Час — атрибут StarterEndsAt (час сервера;
+-- ставить MonetizationService, рахується лише онлайн). Куплено або час вийшов — розділ зникає, усе нижче підтягується.
+-- Після Starter Pack (куплено або час вийшов) на тому самому місці — «~ MEGA PACK ~» без таймера (один раз на гравця);
+-- Mega Pack куплено — розділ зникає.
+local spFrom, spH, spKids, spTimer, spHead = y, 0, {}, nil, nil
+local spStarterKids, spMegaKids = {}, {}
+do
+	local before = {}
+	for _, ch in list:GetChildren() do before[ch] = true end
+	header("STARTER PACK")
+	for _, ch in list:GetChildren() do if not before[ch] then spHead = ch; before[ch] = true end end
+	spTimer = textAt(list, PADX, spFrom + 26, CW - 12, 28, "", C("ffe14a"), 2.6, { TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 3 })
+	before[spTimer] = true
+	makeCard(STARTER, PADX, y, CW, 150, "wide")
+	for _, ch in list:GetChildren() do if not before[ch] then table.insert(spStarterKids, ch); before[ch] = true end end
+	makeCard(MEGA, PADX, y, CW, 150, "wide")
+	for _, ch in list:GetChildren() do if not before[ch] then table.insert(spMegaKids, ch); before[ch] = true end end
+	y += 150 + GY + 8
+	for _, ch in list:GetChildren() do if before[ch] and ch.Position.Y.Offset >= spFrom then table.insert(spKids, ch) end end
+	for _, ch in spMegaKids do if ch:IsA("GuiObject") then ch.Visible = false end end
+	spH = y - spFrom
+end
 -- 2. Gamepasses — VIP на всю ширину, решта 2 у ряд
 header("GAMEPASSES")
 do
@@ -1348,6 +1372,49 @@ if #FUTURE > 0 then
 	grid(FUTURE, 3, 226, "compact")
 end
 list.CanvasSize = UDim2.fromOffset(0, y + PADY)
+
+-- Starter Pack: таймер і зникнення розділу
+local spShown = true
+local function spCollapse()
+	if not spShown then return end
+	spShown = false
+	local kids = {}
+	for _, ch in spKids do kids[ch] = true; ch:Destroy() end
+	for _, ch in list:GetChildren() do
+		if ch:IsA("GuiObject") and not kids[ch] and ch.Position.Y.Offset >= spFrom + spH - 1 then ch.Position -= UDim2.fromOffset(0, spH) end
+	end
+	SECTION_Y["STARTER PACK"] = nil
+	for k, v in SECTION_Y do if v >= spFrom + spH - 1 then SECTION_Y[k] = v - spH end end
+	list.CanvasSize = UDim2.fromOffset(0, list.CanvasSize.Y.Offset - spH)
+	for i = #cards, 1, -1 do if cards[i].item == STARTER or cards[i].item == MEGA then table.remove(cards, i) end end
+end
+local spMode = "starter"
+local function spSet(mode: string)
+	if spMode == mode then return end
+	spMode = mode
+	for _, ch in spStarterKids do if ch:IsA("GuiObject") then ch.Visible = mode == "starter" end end
+	for _, ch in spMegaKids do if ch:IsA("GuiObject") then ch.Visible = mode == "mega" end end
+	if spHead and spHead:IsA("TextLabel") then spHead.Text = mode == "mega" and "~ MEGA PACK ~" or "~ STARTER PACK ~" end
+	spTimer.Text = ""
+end
+local function spTick()
+	if not spShown then return end
+	local e = tonumber(player:GetAttribute("StarterEndsAt"))
+	local starterOn = player:GetAttribute("Pass_StarterPack") ~= true and (e == nil or (e > 0 and e > workspace:GetServerTimeNow()))
+	if starterOn then
+		spSet("starter")
+		if not e then spTimer.Text = ""; return end -- дані ще вантажаться
+		local left = math.max(0, math.floor(e - workspace:GetServerTimeNow()))
+		spTimer.Text = string.format("Ends in %d:%02d", left // 60, left % 60)
+		return
+	end
+	if player:GetAttribute("Pass_MegaPack") == true then spCollapse(); return end
+	spSet("mega")
+end
+spTick()
+task.spawn(function()
+	while spShown do task.wait(0.5); spTick() end
+end)
 
 local function refreshAll()
 	swRobux:setColor(currency == "robux" and "green" or "gray")

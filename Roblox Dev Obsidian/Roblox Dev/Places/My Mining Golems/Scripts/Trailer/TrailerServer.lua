@@ -60,7 +60,18 @@ if arenaSrc then
 	clean(arena)
 	arena.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	arena:PivotTo(arena:GetPivot() + OFF)
+	arena:SetAttribute("MovedBy", arenaSrc:GetAttribute("MovedBy")) -- 11.11.2026: арену в ServerStorage зсунули (-4000, 0, -4000) — режисер рахує центр із цим зсувом
 	arena.Parent = sets
+end
+-- печера зі стендами (11.11.2026, кадр Cave): шаблон CaveService (ServerStorage/CaveInsideTemplate)
+local caveSrc = SS:WaitForChild("CaveInsideTemplate", 30)
+if caveSrc and caveSrc:IsA("Model") then
+	local c = caveSrc:Clone()
+	c.Name = "CaveSet"
+	clean(c)
+	c.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	c:PivotTo(c:GetPivot() + OFF)
+	c.Parent = sets
 end
 sets.Parent = workspace
 
@@ -82,6 +93,8 @@ if okT and T and T.bacon then
 		if hum then hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None end
 		local ts = workspace:FindFirstChild("ThumbStudio")
 		local plate = ts and ts:FindFirstChild("Bacon") and ts.Bacon:FindFirstChild("FacePlate")
+		-- 11.11.2026: NicheBoot прибирає Workspace/ThumbStudio на старті — запасна копія пластини в ServerStorage/TrailerFacePlate
+		plate = plate or SS:FindFirstChild("TrailerFacePlate")
 		local head = b:FindFirstChild("ClassicHead")
 		if plate and head and head:IsA("BasePart") then
 			local p = plate:Clone()

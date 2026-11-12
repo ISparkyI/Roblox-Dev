@@ -70,6 +70,21 @@ function MapService.Advance(p: Player, force: boolean?): (boolean, string?)
 		-- 05.11.2026: големи в Mutation Machines не переносяться на нову мапу «в обхід» скидання — спершу їх треба забрати
 		local okM, MS = pcall(require, script.Parent:FindFirstChild("MutationService"))
 		if okM and MS and MS.Records and #MS.Records(p) > 0 then return false, "mutation" end
+		-- 10.11.2026: навчання Cave — перший перехід з мапи 1 без жодного голема в печері: не пускаємо, CaveTut = "on"
+		--   (TutorialClient веде в печеру; перший голем на стенді — CaveStandService ставить CaveTutDone = true)
+		if stage == 1 and p:GetAttribute("CaveTutDone") ~= true and p:GetAttribute("CaveReady") == true then
+			local raw = p:GetAttribute("CaveStandGolems")
+			local empty = true
+			if type(raw) == "string" and raw ~= "" then
+				local okJ, t = pcall(HttpService.JSONDecode, HttpService, raw)
+				empty = not (okJ and type(t) == "table" and next(t) ~= nil)
+			end
+			if empty or p:GetAttribute("CaveTut") ~= nil then -- навчання ще йде (не всі класи в печері) — теж не пускаємо
+				p:SetAttribute("CaveTut", "on")
+				return false, "cave"
+			end
+			p:SetAttribute("CaveTutDone", true) -- голем у печері вже є — навчання не потрібне
+		end
 	end
 	busy[p] = true
 	local ok, err = pcall(function()
