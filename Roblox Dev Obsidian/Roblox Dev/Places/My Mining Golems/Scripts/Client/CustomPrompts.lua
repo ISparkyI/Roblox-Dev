@@ -89,6 +89,17 @@ end
 -- кнопка могла намалюватись зі старим величезним масштабом на весь екран (поява, різкий рух камери).
 -- Камера майже всередині кнопки або позаду — уміст ховаємо.
 local fits: { [BillboardGui]: { holder: Frame, fit: UIScale, w: number } } = {}
+local GROW_NEAR, GROW_FAR = 18, 100 -- 11.11.2026: UIGrow-кнопки ростуть від 18 стадів камери до максимуму на 100 (камера впирається в ~106)
+-- 11.11.2026: на телефоні (дотик без мишки) УСІ кнопки статичні на екрані, як BUY на Robux-стенді — UIWorld / UIGrow ігноруємо;
+--   на ПК — як було (UIWorld у стадах, ROLL росте з відстанню)
+local UIS = game:GetService("UserInputService")
+-- телефон: дотик без мишки, або дотик + маленький екран (емулятор Studio / планшет з мишкою), або останній ввід — дотик
+local function isPhone()
+	if not UIS.TouchEnabled then return false end
+	if not UIS.MouseEnabled then return true end
+	local cam = workspace.CurrentCamera
+	return (cam and cam.ViewportSize.Y < 600) or UIS:GetLastInputType() == Enum.UserInputType.Touch
+end
 local PX_SCALE = 0.85 -- розмір кнопки на екрані: W × H × PX_SCALE пікселів (на екрані висотою 900 px)
 local function adorneePos(a: Instance?): Vector3?
 	if not a then return nil end
@@ -101,6 +112,7 @@ game:GetService("RunService"):BindToRenderStep("CustomPromptFit", Enum.RenderPri
 	local cam = workspace.CurrentCamera
 	if not cam then return end
 	local k = cam.ViewportSize.Y / (2 * math.tan(math.rad(cam.FieldOfView) / 2))
+	local phone = isPhone() -- щокадру: перемкнули пристрій в емуляторі — кнопки одразу перелаштовуються
 	for bb, f in fits do
 		if not bb.Parent then fits[bb] = nil continue end
 		if not bb.Enabled then continue end
@@ -108,7 +120,16 @@ game:GetService("RunService"):BindToRenderStep("CustomPromptFit", Enum.RenderPri
 		if not p then continue end
 		local depth = (p + bb.StudsOffsetWorldSpace - cam.CFrame.Position):Dot(cam.CFrame.LookVector)
 		if depth < 2 then f.holder.Visible = false continue end
-		if f.world then -- UIWorld: BillboardGui у стадах, уміст масштабуємо під його фактичну ширину
+		if f.world and not phone then -- UIWorld: BillboardGui у стадах, уміст масштабуємо під його фактичну ширину
+			-- 11.11.2026: UIGrow = N — кнопка у світі росте з відстанню камери: до GROW_NEAR стадів як була,
+			--   на максимальному віддаленні камери (CameraMaxZoomDistance) — у N раз більша, далі не росте (кнопка ROLL: 2)
+			if bb.Size.X.Offset ~= 0 then f.m = nil; bb.Size = UDim2.fromScale(f.w, f.w * H / W) end -- повернулись із телефонного режиму
+			if f.grow then
+				local dist = (p + bb.StudsOffsetWorldSpace - cam.CFrame.Position).Magnitude
+				local far = math.clamp(player.CameraMaxZoomDistance, GROW_NEAR + 1, GROW_FAR)
+				local m = 1 + math.clamp((dist - GROW_NEAR) / (far - GROW_NEAR), 0, 1) * (f.grow - 1)
+				if math.abs((f.m or 1) - m) > 0.004 then f.m = m; bb.Size = UDim2.fromScale(f.w * m, f.w * m * H / W) end
+			end
 			local s = bb.AbsoluteSize.X / W
 			if s > 0 and math.abs(f.fit.Scale - s) > 1e-3 then f.fit.Scale = s end
 			f.holder.Visible = s > 0
@@ -117,7 +138,7 @@ game:GetService("RunService"):BindToRenderStep("CustomPromptFit", Enum.RenderPri
 		-- 05.11.2026: кнопка СТАТИЧНА на екрані — розмір у пікселях не залежить від відстані камери (раніше підлаштовувалась
 		--   щокадру під дальність і «дьоргалась» при віддаленні); лише під висоту екрана (телефон / ПК)
 		local s = PX_SCALE * math.clamp(cam.ViewportSize.Y / 900, 0.6, 1.3)
-		if f.fit.Scale ~= s then
+		if f.fit.Scale ~= s or bb.Size.X.Scale ~= 0 then -- Scale ≠ 0: щойно створена кнопка ще в стадах (UIWorld на телефоні)
 			f.fit.Scale = s
 			bb.Size = UDim2.fromOffset(W * s, H * s)
 		end
@@ -139,7 +160,8 @@ local function build(prompt: ProximityPrompt, conns: { any })
 	local holder = Instance.new("Frame")
 	holder.BackgroundTransparency = 1; holder.Size = UDim2.fromOffset(W, H); holder.Parent = bb
 	local fit = Instance.new("UIScale"); fit.Parent = holder
-	fits[bb] = { holder = holder, fit = fit, w = widthStuds, world = prompt:GetAttribute("UIWorld") == true }
+	fits[bb] = { holder = holder, fit = fit, w = widthStuds, world = prompt:GetAttribute("UIWorld") == true,
+		grow = (function() local g = prompt:GetAttribute("UIGrow"); return (type(g) == "number" and g > 1) and g or nil end)() }
 	local anim = Instance.new("Frame")
 	anim.BackgroundTransparency = 1; anim.AnchorPoint = Vector2.new(0.5, 0.5)
 	anim.Position = UDim2.fromOffset(W / 2, H / 2); anim.Size = UDim2.fromOffset(W, H); anim.Parent = holder

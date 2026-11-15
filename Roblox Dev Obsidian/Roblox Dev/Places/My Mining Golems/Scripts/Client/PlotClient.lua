@@ -927,6 +927,13 @@ local cscale = Instance.new("UIScale"); cscale.Parent = cholder
 -- оновлюється з запізненням (і не оновлюється, поки білборд вимкнений): при перемиканні на інший ящик, появі чи
 -- різкому русі камери кнопка на 1 кадр малювалась зі старим величезним масштабом на весь екран.
 -- Камера майже всередині кнопки / позаду — уміст ховаємо.
+-- телефон: дотик без мишки, або дотик + маленький екран (емулятор Studio), або останній ввід — дотик (як у CustomPrompts)
+local function isPhoneUI()
+	if not UIS.TouchEnabled then return false end
+	if not UIS.MouseEnabled then return true end
+	local cam = workspace.CurrentCamera
+	return (cam and cam.ViewportSize.Y < 600) or UIS:GetLastInputType() == Enum.UserInputType.Touch
+end
 local function fitCollect()
 	local cam = workspace.CurrentCamera
 	local a = cbb.Adornee :: BasePart?
@@ -934,6 +941,18 @@ local function fitCollect()
 	local pos = a.Position + cbb.StudsOffsetWorldSpace
 	local depth = (pos - cam.CFrame.Position):Dot(cam.CFrame.LookVector)
 	if depth < 2 then cholder.Visible = false; return end
+	-- 11.11.2026: на телефоні кнопка статична на екрані, як підказки CustomPrompts (BUY на Robux-стенді): 0.85 × висота екрана / 900
+	--   (не менше 0.6, не більше 1.3) — не дрібніє, коли камера далеко; на ПК — як було, у стадах
+	if isPhoneUI() then
+		local sc = 0.85 * math.clamp(cam.ViewportSize.Y / 900, 0.6, 1.3) * 250 / CB_W
+		if cscale.Scale ~= sc or cbb.Size.X.Scale ~= 0 then
+			cscale.Scale = sc
+			cbb.Size = UDim2.fromOffset(CB_W * sc, CB_H * sc)
+		end
+		cholder.Visible = true
+		return
+	end
+	if cbb.Size.X.Offset ~= 0 then cbb.Size = UDim2.fromScale(CB_SW, CB_SH) end
 	local pxPerStud = cam.ViewportSize.Y / (2 * depth * math.tan(math.rad(cam.FieldOfView) / 2))
 	-- 04.11.2026: кроками по 5 % (кожен новий масштаб = новий розмір шрифту; щокадру — мерехтіння літер на телефонах)
 	local sc = math.min(CB_SW * pxPerStud / CB_W, 6)

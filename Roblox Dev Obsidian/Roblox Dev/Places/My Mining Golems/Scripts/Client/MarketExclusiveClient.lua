@@ -130,7 +130,8 @@ local function buyersBoard(stand: Instance, e: any)
 	local rows = {}
 	local RW = PW - 40
 	local function render()
-		fVal.Text = NF.full(tonumber(stand:GetAttribute("Price")) or Cfg.priceOf(e, 0))
+		-- 11.11.2026: NEXT PRICE — ціна ПІСЛЯ поточної покупки (поточна вже над стендом): 999 → на дошці 1,499
+		fVal.Text = NF.full((tonumber(stand:GetAttribute("Price")) or Cfg.priceOf(e, 0)) + (e.step or 0))
 		local raw = stand:GetAttribute("Buyers")
 		local ok, data = pcall(HttpService.JSONDecode, HttpService, type(raw) == "string" and raw or "[]")
 		if not ok or type(data) ~= "table" then data = {} end

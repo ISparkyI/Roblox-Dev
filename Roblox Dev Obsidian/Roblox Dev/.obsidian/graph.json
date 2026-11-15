@@ -8,66 +8,45 @@
   "collapse-color-groups": true,
   "colorGroups": [
     {
-      "query": "file:\"Plan -\" OR file:\"Plans\" OR file:\"Map Style Guide\"",
-      "color": {
-        "a": 1,
-        "rgb": 15911244
-      }
-    },
-    {
-      "query": "file:\"Mushroom Golem\"",
-      "color": {
-        "a": 1,
-        "rgb": 15246138
-      }
-    },
-    {
-      "query": "path:\"Places/My Mining Golems/3D Models/Golems\"",
-      "color": {
-        "a": 1,
-        "rgb": 15245882
-      }
-    },
-    {
-      "query": "path:\"Places/My Mining Golems/GDD\"",
+      "query": "path:\"Places/Merge Your Weapon/GDD\"",
       "color": {
         "a": 1,
         "rgb": 4886754
       }
     },
     {
-      "query": "path:\"Places/My Mining Golems/Scripts\"",
+      "query": "path:\"Places/Merge Your Weapon/3D Models\"",
       "color": {
         "a": 1,
-        "rgb": 6079595
+        "rgb": 16098851
       }
     },
     {
-      "query": "path:\"Places/My Mining Golems/3D Models\"",
+      "query": "path:\"Places/Merge Your Weapon/2D\"",
       "color": {
         "a": 1,
-        "rgb": 13218904
+        "rgb": 11893759
       }
     },
     {
-      "query": "path:\"Places/My Mining Golems/Interactive Objects\"",
+      "query": "path:\"Places/Merge Your Weapon/Scripts\"",
       "color": {
         "a": 1,
-        "rgb": 10976219
+        "rgb": 4054167
       }
     },
     {
-      "query": "path:\"Places/My Mining Golems/2D\"",
+      "query": "path:\"Places/Merge Your Weapon\"",
       "color": {
         "a": 1,
-        "rgb": 14839712
+        "rgb": 16731469
       }
     },
     {
-      "query": "path:\"Places/My Mining Golems/Locations\"",
+      "query": "path:\"Places/My Mining Golems\" OR file:\"Mushroom Golem\"",
       "color": {
         "a": 1,
-        "rgb": 4176047
+        "rgb": 2282478
       }
     },
     {
@@ -78,16 +57,16 @@
       }
     }
   ],
-  "collapse-display": false,
+  "collapse-display": true,
   "showArrow": false,
   "textFadeMultiplier": 0.6,
   "nodeSizeMultiplier": 1.2,
   "lineSizeMultiplier": 1,
   "collapse-forces": false,
-  "centerStrength": 0.55,
-  "repelStrength": 9,
-  "linkStrength": 1,
+  "centerStrength": 0,
+  "repelStrength": 0,
+  "linkStrength": 0,
   "linkDistance": 110,
-  "scale": 0.8854989543150137,
+  "scale": 0.1634837056721996,
   "close": false
 }

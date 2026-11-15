@@ -477,6 +477,9 @@ local function refresh()
 	else
 		joinBtn:setColor((ph == "reg" and hasPick and not full) and "green" or "gray"); joinBtn:setText("JOIN FIGHT")
 	end
+	-- 11.11.2026: AUTO блакитна, коли є хоч один воїн (і бої відкриті); інакше сіра
+	local autoCol = (stageOk and #warriors() > 0) and "blue" or "gray"
+	if autoBtn.__col ~= autoCol then autoBtn.__col = autoCol; autoBtn:setColor(autoCol) end
 end
 
 local function lockedOut(): boolean -- до мапи 2 нічого не натискається

@@ -28,7 +28,7 @@ function RollConfig.luckPercent(level: number): number
 end
 
 -- економіка v2 (29.10.2026): Roll Luck дешевша — ціна = 500 × 1,55^(рівень − 1), округлено до «гарних» чисел.
--- 100 % (рівень 20) — разом ≈ $3.76M (було ≈ $12.7T). Рівень 8 (40 %) — ≈ $18.7K (кінець мапи 1). Не скидається і не множиться за мапу.
+-- 100 % (рівень 20) — разом ≈ $3.76M (було ≈ $12.7T); з 11.11.2026 — $192,100 (LUCK_EARLY нижче). Рівень 8 (40 %) — ≈ $18.7K (кінець мапи 1). Не скидається і не множиться за мапу.
 RollConfig.LUCK_START_PRICE = 500
 RollConfig.LUCK_GROWTH = 1.55
 local function nice(x: number): number
@@ -44,10 +44,24 @@ end
 RollConfig.LUCK_MAX_LEVEL = math.huge -- без обмеження (код MAX у RollUpgradeUI / Service лишається на випадок межі)
 RollConfig.LUCK_KNEE = 35      -- до цього рівня — ×1,55, далі — ×LUCK_LATE_GROWTH
 RollConfig.LUCK_LATE_GROWTH = 1.0567
+-- 11.11.2026 (рішення користувача): до 100 % (рівні 1–19 → 20) — дуже дешево, фіксовані ціни; разом $192,100 (було ≈ $3.76M)
+RollConfig.LUCK_EARLY = { 50, 100, 200, 250, 500, 1000, 1500, 2000, 2500, 3000, 3500, 5000, 7500, 10000, 15000, 20000, 30000, 40000, 50000 }
+-- після 100 % — плавний підйом ×LUCK_RAMP від останньої дешевої ціни, поки не дожене стару криву (рівень 26), далі — стара крива
+RollConfig.LUCK_RAMP = 2.5
+local function oldLuckPrice(l: number): number
+	if l <= RollConfig.LUCK_KNEE then return RollConfig.LUCK_START_PRICE * RollConfig.LUCK_GROWTH ^ (l - 1) end
+	local knee = RollConfig.LUCK_START_PRICE * RollConfig.LUCK_GROWTH ^ (RollConfig.LUCK_KNEE - 1)
+	return knee * RollConfig.LUCK_LATE_GROWTH ^ (l - RollConfig.LUCK_KNEE)
+end
 -- ціна переходу з рівня level на level + 1 (nil лише на LUCK_MAX_LEVEL, зараз недосяжний)
 function RollConfig.luckPrice(level: number): number?
 	local l = math.max(1, math.floor(level))
 	if l >= RollConfig.LUCK_MAX_LEVEL then return nil end
+	local early = RollConfig.LUCK_EARLY
+	if l <= #early then return early[l] end
+	local ramp = early[#early] * RollConfig.LUCK_RAMP ^ (l - #early)
+	local old = oldLuckPrice(l)
+	if ramp < old then return nice(ramp) end
 	if l <= RollConfig.LUCK_KNEE then
 		return nice(RollConfig.LUCK_START_PRICE * RollConfig.LUCK_GROWTH ^ (l - 1))
 	end

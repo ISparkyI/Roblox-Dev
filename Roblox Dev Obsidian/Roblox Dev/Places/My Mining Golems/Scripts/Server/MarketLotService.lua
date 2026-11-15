@@ -55,9 +55,19 @@ end
 local CUR_ATTR = { money = "Money", diamonds = "Diamonds", tickets = "Tickets" }
 local busy: { [Player]: boolean } = {}
 local function encodeAttr(p: Player, a: string, v: any) p:SetAttribute(a, HttpService:JSONEncode(v)) end
+-- 11.11.2026: купувати можна лише поруч із продавцем — не далі BUY_DIST стадів (відійшов покупець чи продавець — "far")
+local BUY_DIST = 15
+local function tooFar(a: Player, b: Player): boolean
+	if a == b then return false end
+	local ra = a.Character and a.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local rb = b.Character and b.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not (ra and rb) then return true end
+	return (ra.Position - rb.Position).Magnitude > BUY_DIST
+end
 local function doBuy(buyer: Player, seller: Player, id: number, seenP: any, seenC: any): any
 	local lot = M.GetLot(seller, id)
 	if not lot then return { ok = false, err = "gone" } end
+	if tooFar(buyer, seller) then return { ok = false, err = "far" } end
 	if tonumber(seenP) ~= lot.p or seenC ~= lot.c then return { ok = false, err = "changed" } end
 	local g = golemOf(seller, id)
 	if not g or isPlaced(seller, id) then M.RemoveLot(seller, id); return { ok = false, err = "gone" } end

@@ -157,7 +157,7 @@ local function render(kind: string)
 	st.stand:SetAttribute("Sold", sold[kind] or 0)
 	if st.priceLabel then st.priceLabel.Text = priceText(e, price) end
 	if st.boardPrice then
-		st.boardPrice.Text = T.boardPrice .. ": " .. priceText(e, price)
+		st.boardPrice.Text = T.boardPrice .. ": " .. priceText(e, price + (e.step or 0)) -- 11.11.2026: ціна після поточної покупки
 		local list = buyers[kind] or {}
 		for i, row in st.boardRows do
 			local b = list[i]

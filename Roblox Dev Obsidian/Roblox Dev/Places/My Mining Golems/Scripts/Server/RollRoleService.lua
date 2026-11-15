@@ -34,6 +34,7 @@ local function holdRoll(d: Instance)
 		-- 08.11.2026: кнопка ROLL «у світі» (CustomPrompts UIWorld): сталий розмір у стадах, а не на екрані — не роздувається, коли камера далеко
 		d:SetAttribute("UIWorld", true)
 		if d:GetAttribute("UIWidth") == nil then d:SetAttribute("UIWidth", 6.5) end
+		d:SetAttribute("UIGrow", 2) -- 11.11.2026: здалеку кнопка росте до ×2 (CustomPrompts), щоб її було видно на максимальному віддаленні
 		d.Exclusivity = Enum.ProximityPromptExclusivity.OneGlobally -- разом із BUY на підставках на E видно лише одну (27.10.2026)
 	end
 end

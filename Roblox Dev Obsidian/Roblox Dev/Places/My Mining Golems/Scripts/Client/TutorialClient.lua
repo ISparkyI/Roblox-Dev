@@ -253,6 +253,7 @@ if skipRoot then
 	local skHold = new("Frame", { Name = "SkipHolder", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -22), Size = UDim2.fromOffset(150, 46),
 		BackgroundTransparency = 1 }, root)
 	local sk = new("UIScale", {}, skHold)
+	skHold.Visible = false -- 11.11.2026 (рішення користувача): навчання пропустити не можна — кнопки SKIP немає (основне, «бос», Cave)
 	skipRoot.AnchorPoint = Vector2.new(0, 0); skipRoot.Position = UDim2.fromOffset(0, 0); skipRoot.Parent = skHold
 	local function fitSkip() local k = uiS(); sk.Scale = k; skHold.Position = UDim2.new(0.5, 0, 1, -math.floor(22 * k)) end
 	fitSkip(); root:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitSkip)
@@ -674,6 +675,8 @@ local pathPts: { Vector3 }? = nil
 local pathGoal: Vector3? = nil
 local pathBusy = false
 local fixAt = 0
+local fullAt = 0 -- 11.11.2026: коли востаннє рахували ПОВНИЙ шлях від гравця (раз на FULL_EVERY с — заново)
+local FULL_EVERY = 5
 local function computePath(from: Vector3, goal: Vector3, done: ({ Vector3 }?) -> ())
 	pathBusy = true
 	task.spawn(function()
@@ -707,7 +710,7 @@ local function refreshPath(from: Vector3, goal: Vector3)
 	-- нова ціль — повний шлях один раз
 	if not pathGoal or ((pathGoal :: Vector3) - goal).Magnitude >= 1 then
 		if pathBusy then return end
-		pathGoal = goal; pathPts = nil; fixAt = os.clock()
+		pathGoal = goal; pathPts = nil; fixAt = os.clock(); fullAt = os.clock()
 		computePath(from, goal, function(pts) if pathGoal == goal then pathPts = pts end end)
 		return
 	end
@@ -718,6 +721,13 @@ local function refreshPath(from: Vector3, goal: Vector3)
 			fixAt = os.clock()
 			computePath(from, goal, function(np) if pathGoal == goal then pathPts = np end end)
 		end
+		return
+	end
+	-- 11.11.2026: раз на 5 с — повний шлях заново від гравця до цілі: «латки» до старого шляху могли водити колами,
+	--   якщо гравець бігав навколо (точки старого шляху лишались і стрілки кружляли)
+	if not pathBusy and os.clock() - fullAt > FULL_EVERY then
+		fullAt = os.clock(); fixAt = os.clock()
+		computePath(from, goal, function(np) if pathGoal == goal and np then pathPts = np end end)
 		return
 	end
 	local dist, i = project(pts, from)

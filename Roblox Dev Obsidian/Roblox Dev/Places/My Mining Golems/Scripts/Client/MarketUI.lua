@@ -818,6 +818,14 @@ buyBtn.onClick = function()
 	if (tonumber(player:GetAttribute(({ money = "Money", diamonds = "Diamonds", tickets = "Tickets" })[l.c])) or 0) < l.p then
 		StyleA.shake(buyBtn); toast("Not enough " .. (CUR_NAME[l.c] or "") .. "!", "red", "deny"); return
 	end
+	-- 11.11.2026: продавець або покупець відійшов далі 15 стадів — не купуємо (сервер перевіряє теж: err "far")
+	do
+		local a = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		local b = sellerP.Character and sellerP.Character:FindFirstChild("HumanoidRootPart")
+		if sellerP ~= player and (not (a and b) or (a.Position - b.Position).Magnitude > 15) then
+			StyleA.shake(buyBtn); toast("Player is too far away! Come closer", "red", "deny"); return
+		end
+	end
 	buyBtn.enabled = false
 	local res = action("Buy", { seller = sellerP.UserId, id = l.id, p = l.p, c = l.c })
 	buyBtn.enabled = true
@@ -829,7 +837,7 @@ buyBtn.onClick = function()
 		local e = res and res.err
 		StyleA.shake(buyBtn)
 		toast(e == "map" and Loc.f("Unlocks on Map {number1}", res.map or 2) or e == "full" and "Your inventory is full!" or e == "changed" and "The price has changed!" or (e == "money" or e == "diamonds" or e == "tickets") and ("Not enough " .. CUR_NAME[e] .. "!")
-			or e == "busy" and "Try again" or e == "region" and "Trading is not available in your region" or "This golem is no longer for sale", "red", "deny")
+			or e == "busy" and "Try again" or e == "far" and "Player is too far away! Come closer" or e == "region" and "Trading is not available in your region" or "This golem is no longer for sale", "red", "deny")
 		renderSeller()
 	end
 end
@@ -895,7 +903,11 @@ local function close()
 	end)
 end
 closeBtn.onClick = function() close() end
-backdrop.MouseButton1Click:Connect(close)
+backdrop.MouseButton1Click:Connect(function()
+	-- 11.11.2026: вікно лотів іншого гравця (Seller) закривається лише хрестиком — клік повз вікно / по сітці його не закриває
+	if curPage == "Seller" then return end
+	close()
+end)
 WindowManager.register("Market", function() return isOpen end, close)
 CAS:BindActionAtPriority("MarketEsc", function(_, state)
 	if state == Enum.UserInputState.Begin and isOpen then close(); return Enum.ContextActionResult.Sink end
@@ -920,27 +932,36 @@ local bHist = makeButton(row, BW1 + GAP, 0, BW2, BH, { shadowDy = 6, color = "re
 bSell.onClick = function() if isOpen and curPage ~= "History" then close() else open("Listed") end end
 bHist.onClick = function() if isOpen and curPage == "History" then close() else open("History") end end
 
--- ===== кнопка з монітором у правому нижньому куті: вибір сервера маркету =====
+-- ===== кнопка SERVERS (вибір сервера маркету) =====
+-- 11.11.2026: перенесено з правого нижнього кута (заважала кнопці стрибка на телефоні) у верхній ряд — праворуч від Settings
+--   (MainHUD/TopRow/Btn_Settings), плитка 40 × 40 як сусідні кнопки, без підпису
 do
-	local S = 96
-	local holder = new("Frame", { Name = "ServersBtn", BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -24, 1, -8),
-		Size = UDim2.fromOffset(S, S + 16) }, hud)
-	local sc = new("UIScale", {}, holder)
-	local b = makeButton(holder, 0, 0, S, S, { shadowDy = 6, color = "blue", z = 2 })
-	-- іконка — запечений PNG з нашого пака (SERVERS_ICON); поки ID нема — тимчасовий монітор з фреймів
+	local S = 40
+	local holder = new("Frame", { Name = "ServersBtn", BackgroundTransparency = 1, Position = UDim2.fromOffset(200, 15),
+		Size = UDim2.fromOffset(S, S + 4) }, hud)
+	local b = makeButton(holder, 0, 0, S, S, { shadowDy = 3, color = "blue", z = 2 })
 	if SERVERS_ICON ~= "" then
-		new("ImageLabel", { BackgroundTransparency = 1, Image = SERVERS_ICON, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(18, 9),
-			Size = UDim2.fromOffset(60, 60), ZIndex = 9 }, b.root)
+		new("ImageLabel", { BackgroundTransparency = 1, Image = SERVERS_ICON, ScaleType = Enum.ScaleType.Fit, Position = UDim2.fromOffset(6, 4),
+			Size = UDim2.fromOffset(28, 28), ZIndex = 9 }, b.root)
 	else
-		monitorIcon(b.root, 10, 6, 76, 9)
+		monitorIcon(b.root, 4, 3, 32, 4)
 	end
-	fit(label(holder, -10, S - 14, S + 20, 30, 24, "SERVERS", WHITE, 3.5, { ZIndex = 20 }), 24) -- надпис трохи налазить на низ кнопки
 	b.onClick = function() if isOpen and curPage == "Servers" then close() else open("Servers") end end
+	-- місце: одразу праворуч від Settings у верхньому ряду (той самий проміжок 18 px); Settings ще нема — після кнопок Roblox
+	local GuiService = game:GetService("GuiService")
 	task.spawn(function()
-		while holder.Parent do
-			local cam = workspace.CurrentCamera
-			sc.Scale = math.clamp((cam and cam.ViewportSize.X or 1280) / 1500, 0.55, 1)
-			task.wait(1)
+		while holder.Parent ~= nil do -- знищений разом із MainHUD — зупиняємось
+			local hudMain = playerGui:FindFirstChild("MainHUD")
+			local st = hudMain and hudMain:FindFirstChild("Btn_Settings", true)
+			if st and st:IsA("GuiObject") and st.Visible and st.Parent then
+				-- у той самий шар верхнього ряду MainHUD (ті самі відступи безпечної зони), одразу за Settings
+				if holder.Parent ~= st.Parent then holder.Parent = st.Parent end
+				holder.Position = st.Position + UDim2.fromOffset(st.Size.X.Offset + 18, 0)
+			else
+				if holder.Parent ~= hud then holder.Parent = hud end
+				holder.Position = UDim2.fromOffset(GuiService.TopbarInset.Min.X + 16 + 2 * (S + 18), 15)
+			end
+			task.wait(0.5)
 		end
 	end)
 end

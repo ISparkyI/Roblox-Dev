@@ -1,7 +1,7 @@
 ---
 tags: [plugin, studio, studs, surfaces]
 status: installed
-updated: 2026-10-22
+updated: 2026-11-13
 ---
 
 # Resurface
@@ -121,7 +121,21 @@ end
 
 Це наш **стиль studs за замовчуванням** для моделей у блоковому стилі: видно на 80% (`Transparency 0.2`), у 4 рази дрібніше (`StudsPerTile 0.25`). Без studs лишаються деталі обличчя та блиски.
 
+## Чисті studs без ліній (`StudsClean`)
+ColorMap варіанта `Studs` малює рамку навколо кожного стада. На великих площинах це сітка тонких ліній між пупочками. Для карт робимо свій варіант **тільки з NormalMap**:
+
+```lua
+local mv = Instance.new("MaterialVariant"); mv.Name = "StudsClean"; mv.BaseMaterial = Enum.Material.Plastic
+mv.NormalMap = "rbxassetid://10509831753"; mv.StudsPerTile = 1  -- ColorMap не задаємо
+mv.Parent = game:GetService("MaterialService")
+-- деталь: p.Material = Enum.Material.Plastic; p.MaterialVariant = "StudsClean"
+```
+
+Варіант `Studs` не змінюємо: плагін шукає його за ColorMap і інакше створить дублікат.
+
 ## Клітчата варіація studs
+
+> [!warning] Для карт застаріло (2026-11-13): клітинка має лінії сітки. Шахівницю робимо нашою текстурою з обводкою (`rbxassetid://95108687501967`), див. «GDD - Будівництво карт».
 
 > [!tip] Коли користувач каже «клітчата studs-текстура», «клітчаті стюдси», «як на підлозі в клітинку» — робимо саме так.
 
@@ -161,3 +175,4 @@ t.Parent = p
 ## Досвід і рішення
 - **2026-10-22.** Claude спершу намалював власну PNG-текстуру пупочки (`lego_stud.png`, asset `113154723835043`). Підхід **відхилено**: для studs-стилю використовуємо Resurface.
 - Для дрібних деталей обличчя (очі, зіниці, брови, рот, щічки) пупочки не ставимо, бо обличчя втрачає читабельність.
+- **2026-11-13.** Лінії між пупочками на підлогах дає ColorMap `Studs` і клітинка `6372755229`. Для карт — `StudsClean` (тільки NormalMap) і шахівниця нашою текстурою; `Texture` зі studs на гранях на картах не ставимо.

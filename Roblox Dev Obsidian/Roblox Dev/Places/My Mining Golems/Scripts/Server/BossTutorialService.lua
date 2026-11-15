@@ -535,7 +535,8 @@ local function onAction(p: Player, action: any)
 		end
 	elseif action == "TutSkip" then
 		local cur = p:GetAttribute("BossTut")
-		if active[p] and not arenas[p] and (cur == "roll" or cur == "buy" or cur == "join") then finish(p, true) end
+		-- 11.11.2026 (рішення користувача): навчання «бос» пропустити не можна — "TutSkip" ігноруємо
+		local _ = cur
 	elseif action == "Home" then
 		local T = arenas[p]
 		if T and T.phase == "results" then goHome(T, true) end

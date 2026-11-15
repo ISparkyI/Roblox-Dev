@@ -127,6 +127,13 @@ if MARKET then
 		if inside and not inIdx then
 			local b = ui("HUDButton")
 			if b then b:Fire("Index") end
+		elseif inIdx and not inside then
+			-- 11.11.2026: вийшов з кола — Index закривається (якщо ще відкритий; HUDButton "Index" при відкритому вікні — закрити)
+			local WM = require(RS:WaitForChild("Shared"):WaitForChild("WindowManager"))
+			if table.find(WM.openList(), "Index") then
+				local b = ui("HUDButton")
+				if b then b:Fire("Index") end
+			end
 		end
 		inIdx = inside
 	end)

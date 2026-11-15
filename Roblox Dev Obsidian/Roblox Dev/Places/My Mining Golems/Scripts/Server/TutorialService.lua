@@ -171,7 +171,8 @@ local function onPlayer(p: Player)
 end
 
 local function onAction(p: Player, action: any): any
-	if action == "Skip" and active[p] then finish(p, true); return { ok = true } end
+	-- 11.11.2026 (рішення користувача): навчання пропустити не можна — "Skip" ігноруємо
+	if action == "Skip" then return { ok = false } end
 	return { ok = false }
 end
 
