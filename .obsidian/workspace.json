@@ -8,15 +8,17 @@
         "type": "tabs",
         "children": [
           {
-            "id": "dfbe189b96cb8f12",
+            "id": "553b01041ad5ab56",
             "type": "leaf",
             "state": {
-              "type": "image",
+              "type": "markdown",
               "state": {
-                "file": "Roblox Dev Obsidian/Roblox Dev/Places/My Mining Golems/3D Models/Golems/Лісовий голем/Preview/forest_golem_preview.png"
+                "file": "Roblox Dev Obsidian/Roblox Dev/Places/Merge Your Weapon/GDD/Merge Your Weapon - GDD.md",
+                "mode": "source",
+                "source": false
               },
-              "icon": "lucide-image",
-              "title": "forest_golem_preview"
+              "icon": "lucide-file",
+              "title": "Merge Your Weapon - GDD"
             }
           }
         ]
@@ -41,7 +43,7 @@
                 "sortOrder": "alphabetical",
                 "autoReveal": false,
                 "showSearch": true,
-                "searchQuery": "Ore"
+                "searchQuery": ""
               },
               "icon": "lucide-folder-closed",
               "title": "Файловий менеджер"
@@ -186,8 +188,10 @@
       "bases:Створити нову базу": false
     }
   },
-  "active": "dfbe189b96cb8f12",
+  "active": "553b01041ad5ab56",
   "lastOpenFiles": [
+    "Roblox Dev Obsidian/Roblox Dev/Places/My Mining Golems/GDD/Plans.md",
+    "Roblox Dev Obsidian/Roblox Dev/Places/My Mining Golems/3D Models/Golems/Лісовий голем/Preview/forest_golem_preview.png",
     "Roblox Dev Obsidian/Roblox Dev/Places/My Mining Golems/3D Models/Golems/Лісовий голем/Preview/forest_golem_concept.png",
     "Roblox Dev Obsidian/Roblox Dev/Places/My Mining Golems/3D Models/Ores/Coal Ore/Preview/coal_ore_game.jpg",
     "Roblox Dev Obsidian/Roblox Dev/Places/My Mining Golems/3D Models/Ores/Coal Ore/Coal Ore.md",
@@ -199,8 +203,6 @@
     "Roblox Dev Obsidian/Roblox Dev/Style/Preview/ore_icons_v2_tiles.png",
     "Roblox Dev Obsidian/Roblox Dev/Style/Preview/ore_icons_v2_preview.png",
     "Roblox Dev Obsidian/Roblox Dev/Places/My Mining Golems/3D Models/Golems/Clay Golem/Preview/clay_miner.png",
-    "Roblox Dev Obsidian/Roblox Dev/Places/My Mining Golems/3D Models/Golems/Clay Golem/Preview/clay_miner_hit.png",
-    "Roblox Dev Obsidian/Roblox Dev/Places/My Mining Golems/3D Models/Golems/Clay Golem/Preview/clay_game_03_plot_miner_swing.jpg",
     "Roblox Dev Obsidian/Roblox Dev/Places/My Mining Golems/GDD/Golem Stats/Golem Stats - Miner.md"
   ]
 }
