@@ -7,7 +7,7 @@ updated: 2026-10-25
 
 # Roll Lever
 
-← [[Interactive Objects]]
+← [[Places/My Mining Golems/Interactive Objects/Interactive Objects|Interactive Objects]]
 
 > [!warning] Архів — замінено станцією ролу
 > З 25.10.2026 у ніші замість цього важеля стоїть **станція ролу Roll Station** (пульт з екраном вибору типу голема + тумба з важелем; див. Interactive Objects). Старий важіль збережено в `ServerStorage/NicheBackup/RollLeverModel_old_v1`. Нотатка лишається як опис генератора й першої анімації.

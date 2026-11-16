@@ -1,12 +1,15 @@
 ---
 tags: [ui]
 status: in-game
-updated: 2026-11-15
+updated: 2026-11-16
 ---
 
 # Shop Window
 
 ← [[Merge Your Weapon - 2D|2D]]
+
+![[myw_shopwindow_ingame.jpg]]
+*Скрін з гри, вкладка PACKS (Studio, 2026-11-16).*
 
 Вікно магазину (`ShopController`, дані `ShopConfig`, сервер `ShopService`). Вікно ×0.85, напівпрозоре тіло з розмиттям.
 

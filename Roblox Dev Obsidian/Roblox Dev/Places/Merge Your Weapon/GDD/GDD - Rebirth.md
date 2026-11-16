@@ -27,7 +27,7 @@ updated: 2026-11-15
 | 4 | зброя тіру **24** (Rocket Launcher) | +400% |
 | 5 | зброя тіру **29** (Missile Launcher) | +500% |
 | 6 | зброя тіру **34** (Swarm Launcher) | +600% |
-| 7+ | TBD | — |
+| 7+ | у світі 1 ребьортів **6**; далі — світ 2 (портал після Zone 10, поки «COMING SOON») | — |
 
 Кроки — `RebirthConfig.Steps` (кожен `bonus = 100`). Бонус складається з апгрейдом Cash і множиться на x2 CASH: `(1 + ребьорт% + Cash%) × CashMultiplier`.
 

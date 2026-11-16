@@ -7,7 +7,7 @@ updated: 2026-10-26
 
 # Cave Entrance
 
-← [[Interactive Objects]]
+← [[Places/My Mining Golems/Interactive Objects/Interactive Objects|Interactive Objects]]
 
 *Вхід у печеру големів* у ніші гравця. Біля входу лежить жовте коло з написом **CAVE**, у колі — синя кнопка **E · ENTER CAVE**. Кнопку треба **затиснути 0,9 с** (темна тінь відкриває кнопку зліва направо) — гравець телепортується в печеру-сховище големів цієї ніші; там червона **EXIT CAVE** (теж затиск 0,9 с) повертає до кола входу.
 

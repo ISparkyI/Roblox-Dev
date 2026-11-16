@@ -12,7 +12,7 @@ updated: 2026-10-23
 - [[My Mining Golems - 3D Models|3D Models]]
 - [[My Mining Golems - Scripts|Scripts]]
 - [[My Mining Golems - 2D|2D]]
-- [[Interactive Objects]]
+- [[Places/My Mining Golems/Interactive Objects/Interactive Objects|Interactive Objects]]
 - [[Locations]]
 
 Глобальні ресурси (стиль, ефекти, плагіни) плейс отримує через Roblox: таблиця «Що Roblox передає плейсам».

@@ -20,7 +20,7 @@ updated: 2026-10-28
 - При завантаженні: `Ensure` (старим големам без UID видається UID) і `Dedupe` (той самий UID в інвентарі й печері — лишається один).
 - Глобальний індекс DataStore `GolemIndex` — лише големи з мутацією ≥ 5 і видані адміном: хто власник. `CheckOwnership` ловить копії між гравцями.
 - Журнал DataStore `GolemLog` — денні пакети подій (mint, burn, move).
-- Пошук за UID — вкладка GOLEMS в [[GDD - Admin Panel]].
+- Пошук за UID — вкладка GOLEMS в [[Places/My Mining Golems/GDD/GDD - Admin Panel|GDD - Admin Panel]].
 
 ## Далі
 - [ ] Етап 2: трейди / маркетплейс через `Move` з перевіркою індексу.

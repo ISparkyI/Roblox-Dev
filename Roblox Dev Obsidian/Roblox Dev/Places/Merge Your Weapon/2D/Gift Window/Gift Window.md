@@ -1,12 +1,15 @@
 ---
 tags: [ui]
 status: in-game
-updated: 2026-11-15
+updated: 2026-11-16
 ---
 
 # Gift Window
 
 ← [[Merge Your Weapon - 2D|2D]]
+
+![[myw_giftwindow_ingame.jpg]]
+*Скрін з гри: крок 1 — вибір гравця.*
 
 Вікно **GIFT** (`GiftController`), відкривається кнопкою GIFT! у Shop Window.
 

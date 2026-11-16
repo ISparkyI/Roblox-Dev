@@ -36,6 +36,13 @@
       }
     },
     {
+      "query": "path:\"Places/Merge Your Weapon/World\"",
+      "color": {
+        "a": 1,
+        "rgb": 3066993
+      }
+    },
+    {
       "query": "path:\"Places/Merge Your Weapon\"",
       "color": {
         "a": 1,
@@ -67,6 +74,6 @@
   "repelStrength": 0,
   "linkStrength": 0,
   "linkDistance": 110,
-  "scale": 0.1634837056721996,
+  "scale": 0.6316046762907469,
   "close": false
 }

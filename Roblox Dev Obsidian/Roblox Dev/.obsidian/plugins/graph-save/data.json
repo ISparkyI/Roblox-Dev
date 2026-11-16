@@ -232,8 +232,8 @@
     },
     {
       "id": "Places/My Mining Golems/Locations/Niche Stage 3/Niche Stage 3.md",
-      "x": 482.20001220703125,
-      "y": 191
+      "x": 494.2664489746094,
+      "y": 194.1932373046875
     },
     {
       "id": "Places/My Mining Golems/Locations/Niche Stage 4/Niche Stage 4.md",
@@ -294,11 +294,6 @@
       "id": "Places/My Mining Golems/Interactive Objects/Sell Shop/Sell Shop.md",
       "x": 155.6999969482422,
       "y": 399.5
-    },
-    {
-      "id": "Places/My Mining Golems/Interactive Objects/Forge/Source/forge_window_SPEC.md",
-      "x": 165.60000610351562,
-      "y": 352.6000061035156
     },
     {
       "id": "Places/My Mining Golems/3D Models/Golems/Golems.md",
@@ -492,8 +487,8 @@
     },
     {
       "id": "Places/My Mining Golems/3D Models/Golems/Wooden Golem/Wooden Golem.md",
-      "x": -139.31714232976861,
-      "y": 356.90482751296884
+      "x": -139.3000030517578,
+      "y": 356.8999938964844
     },
     {
       "id": "Places/My Mining Golems/3D Models/Golems/Golem Reference GDD.md",
@@ -607,28 +602,13 @@
     },
     {
       "id": "Places/My Mining Golems/3D Models/Ores/Ores.md",
-      "x": -565.2000122070312,
-      "y": 237.60000610351562
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Ores/Coal Ore/Coal Ore.md",
-      "x": -550.4000244140625,
-      "y": 283.20001220703125
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Ores/Copper Ore/Copper Ore.md",
-      "x": -603,
-      "y": 267.1000061035156
-    },
-    {
-      "id": "Places/My Mining Golems/3D Models/Ores/Iron Ore/Iron Ore.md",
-      "x": -605.9000244140625,
-      "y": 212.1999969482422
+      "x": -607.1206665039062,
+      "y": 260.2701721191406
     },
     {
       "id": "Places/My Mining Golems/3D Models/Instruments/Instruments.md",
-      "x": -596.9000244140625,
-      "y": 140
+      "x": -564.9806518554688,
+      "y": 118.53993225097656
     },
     {
       "id": "Places/My Mining Golems/3D Models/Instruments/Carrier Crate/Carrier Crate.md",
@@ -641,459 +621,9 @@
       "y": 138.3000030517578
     },
     {
-      "id": "Places/My Mining Golems/3D Models/Instruments/Pickaxe/Pickaxe.md",
-      "x": -611.7000122070312,
-      "y": 94.4000015258789
-    },
-    {
       "id": "Places/My Mining Golems/3D Models/Exclusive Case/Exclusive Case.md",
       "x": -558.5,
       "y": 44.900001525878906
-    },
-    {
-      "id": "Places/Merge Your Weapon/Merge Your Weapon.md",
-      "x": 2300,
-      "y": 0
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/Merge Your Weapon - GDD.md",
-      "x": 2300,
-      "y": -460.20001220703125
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Balance.md",
-      "x": 2283.300048828125,
-      "y": -381.79998779296875
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Crates.md",
-      "x": 2250.89990234375,
-      "y": -396.79998779296875
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Fight.md",
-      "x": 2228.300048828125,
-      "y": -424.29998779296875
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - HUD and Windows.md",
-      "x": 2219.800048828125,
-      "y": -459
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Item Shop.md",
-      "x": 2227.199951171875,
-      "y": -493.8999938964844
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Mobs and Drops.md",
-      "x": 2249.10009765625,
-      "y": -522.2000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Multiplayer.md",
-      "x": 2281,
-      "y": -538.0999755859375
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Rebirth.md",
-      "x": 2316.699951171875,
-      "y": -538.7000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Saves.md",
-      "x": 2349.10009765625,
-      "y": -523.7000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Shop and Passes.md",
-      "x": 2371.699951171875,
-      "y": -496.1000061035156
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Spawn and Zones.md",
-      "x": 2380.199951171875,
-      "y": -461.3999938964844
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Tutorial.md",
-      "x": 2372.800048828125,
-      "y": -426.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Upgrades.md",
-      "x": 2350.89990234375,
-      "y": -398.29998779296875
-    },
-    {
-      "id": "Places/Merge Your Weapon/GDD/GDD - Weapons and Merge.md",
-      "x": 2319,
-      "y": -382.29998779296875
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Merge Your Weapon - 2D.md",
-      "x": 2743.199951171875,
-      "y": -78.0999984741211
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Backpack/Backpack.md",
-      "x": 2673.199951171875,
-      "y": -80.5999984741211
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Codes Window/Codes Window.md",
-      "x": 2683.800048828125,
-      "y": -115.19999694824219
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Gift Window/Gift Window.md",
-      "x": 2710.300048828125,
-      "y": -139.89999389648438
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/HUD/HUD.md",
-      "x": 2745.60009765625,
-      "y": -148.10000610351562
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Icons/Icons.md",
-      "x": 2780.300048828125,
-      "y": -137.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Index Window/Index Window.md",
-      "x": 2805,
-      "y": -111
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Rebirth Window/Rebirth Window.md",
-      "x": 2813.10009765625,
-      "y": -75.69999694824219
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Settings Window/Settings Window.md",
-      "x": 2802.5,
-      "y": -41
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Shop Window/Shop Window.md",
-      "x": 2776,
-      "y": -16.299999237060547
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Textures/Textures.md",
-      "x": 2740.699951171875,
-      "y": -8.199999809265137
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Upgrades Window/Upgrades Window.md",
-      "x": 2706.10009765625,
-      "y": -18.799999237060547
-    },
-    {
-      "id": "Places/Merge Your Weapon/2D/Weapon Tags/Weapon Tags.md",
-      "x": 2681.39990234375,
-      "y": -45.29999923706055
-    },
-    {
-      "id": "Places/Merge Your Weapon/Interactive Objects/Interactive Objects.md",
-      "x": 2582.800048828125,
-      "y": 282.79998779296875
-    },
-    {
-      "id": "Places/Merge Your Weapon/Interactive Objects/Plots/Plots.md",
-      "x": 2544.699951171875,
-      "y": 224.10000610351562
-    },
-    {
-      "id": "Places/Merge Your Weapon/Interactive Objects/Slot Stand/Slot Stand.md",
-      "x": 2652.699951171875,
-      "y": 279.20001220703125
-    },
-    {
-      "id": "Places/Merge Your Weapon/Interactive Objects/Weapon Stands/Weapon Stands.md",
-      "x": 2551.10009765625,
-      "y": 345.20001220703125
-    },
-    {
-      "id": "Places/Merge Your Weapon/Scripts/Merge Your Weapon - Scripts.md",
-      "x": 1972.300048828125,
-      "y": -229.39999389648438
-    },
-    {
-      "id": "Places/Merge Your Weapon/Scripts/Client/Merge Your Weapon - Client.md",
-      "x": 2020.0999755859375,
-      "y": -178.1999969482422
-    },
-    {
-      "id": "Places/Merge Your Weapon/Scripts/Modules/Merge Your Weapon - Modules.md",
-      "x": 1904.0999755859375,
-      "y": -213.6999969482422
-    },
-    {
-      "id": "Places/Merge Your Weapon/Scripts/Server/Merge Your Weapon - Server.md",
-      "x": 1992.800048828125,
-      "y": -296.3999938964844
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Merge Your Weapon - 3D Models.md",
-      "x": 2118.300048828125,
-      "y": 389.70001220703125
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Farm Props.md",
-      "x": 2032,
-      "y": 559
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Barrel/Barrel.md",
-      "x": 2102.39990234375,
-      "y": 634.4000244140625
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Cabbage/Cabbage.md",
-      "x": 2066.699951171875,
-      "y": 656.0999755859375
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Crate/Crate.md",
-      "x": 2025.4000244140625,
-      "y": 661.9000244140625
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Farm Props/HayBale/HayBale.md",
-      "x": 1985.199951171875,
-      "y": 650.9000244140625
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Pumpkin/Pumpkin.md",
-      "x": 1952.5999755859375,
-      "y": 624.7999877929688
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Tractor/Tractor.md",
-      "x": 1933,
-      "y": 588
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Wheat/Wheat.md",
-      "x": 1929.699951171875,
-      "y": 546.4000244140625
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Mobs/Mobs.md",
-      "x": 1952.0999755859375,
-      "y": 481.79998779296875
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Mobs/Animations/Animations.md",
-      "x": 1959.5999755859375,
-      "y": 529.2000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieFarmer/ZombieFarmer.md",
-      "x": 1910.0999755859375,
-      "y": 505.1000061035156
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieFarmerBoss/ZombieFarmerBoss.md",
-      "x": 1915.9000244140625,
-      "y": 450.29998779296875
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Sandbags/Sandbags.md",
-      "x": 1929,
-      "y": 373.20001220703125
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Shop/Shop.md",
-      "x": 1970.5999755859375,
-      "y": 270.1000061035156
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Watchtower/Watchtower.md",
-      "x": 2062.699951171875,
-      "y": 208
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Weapons.md",
-      "x": 2262.10009765625,
-      "y": 822.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/AntiMaterielRifle/AntiMaterielRifle.md",
-      "x": 2234.199951171875,
-      "y": 623.9000244140625
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/AssaultRifle/AssaultRifle.md",
-      "x": 2270.10009765625,
-      "y": 622.0999755859375
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/AutoShotgun/AutoShotgun.md",
-      "x": 2305.800048828125,
-      "y": 626.7000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/BattleRifle/BattleRifle.md",
-      "x": 2340,
-      "y": 637.7000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Blowpipe/Blowpipe.md",
-      "x": 2371.699951171875,
-      "y": 654.5999755859375
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Blunderbuss/Blunderbuss.md",
-      "x": 2400,
-      "y": 676.7999877929688
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Bow/Bow.md",
-      "x": 2423.800048828125,
-      "y": 703.7999877929688
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Crossbow/Crossbow.md",
-      "x": 2442.300048828125,
-      "y": 734.5999755859375
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/DoubleBarrel/DoubleBarrel.md",
-      "x": 2455.10009765625,
-      "y": 768.2000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Flintlock/Flintlock.md",
-      "x": 2461.699951171875,
-      "y": 803.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/GatlingShotgun/GatlingShotgun.md",
-      "x": 2461.89990234375,
-      "y": 839.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/GrenadeGatling/GrenadeGatling.md",
-      "x": 2455.699951171875,
-      "y": 874.9000244140625
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/GrenadeLauncher/GrenadeLauncher.md",
-      "x": 2443.199951171875,
-      "y": 908.5999755859375
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/HandCannon/HandCannon.md",
-      "x": 2424.89990234375,
-      "y": 939.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/HeavyMachineGun/HeavyMachineGun.md",
-      "x": 2401.39990234375,
-      "y": 966.7000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/HeavyMinigun/HeavyMinigun.md",
-      "x": 2373.39990234375,
-      "y": 989.2999877929688
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/HuntingRifle/HuntingRifle.md",
-      "x": 2341.800048828125,
-      "y": 1006.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/LMG/LMG.md",
-      "x": 2307.699951171875,
-      "y": 1017.7999877929688
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/LeverRifle/LeverRifle.md",
-      "x": 2272.10009765625,
-      "y": 1022.7999877929688
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Minigun/Minigun.md",
-      "x": 2236.199951171875,
-      "y": 1021.2999877929688
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/MissileLauncher/MissileLauncher.md",
-      "x": 2201.10009765625,
-      "y": 1013.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Musket/Musket.md",
-      "x": 2168,
-      "y": 999.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/PumpShotgun/PumpShotgun.md",
-      "x": 2137.89990234375,
-      "y": 979.9000244140625
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/QuadRocketLauncher/QuadRocketLauncher.md",
-      "x": 2111.699951171875,
-      "y": 955.2000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/RecoillessRifle/RecoillessRifle.md",
-      "x": 2090.5,
-      "y": 926.2000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Revolver/Revolver.md",
-      "x": 2074.699951171875,
-      "y": 893.9000244140625
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/RocketLauncher/RocketLauncher.md",
-      "x": 2065,
-      "y": 859.2999877929688
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/SMG/SMG.md",
-      "x": 2061.60009765625,
-      "y": 823.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Slingshot/Slingshot.md",
-      "x": 2064.60009765625,
-      "y": 787.7000122070312
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/SniperRifle/SniperRifle.md",
-      "x": 2074,
-      "y": 752.9000244140625
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/Stick/Stick.md",
-      "x": 2089.39990234375,
-      "y": 720.5
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/SwarmLauncher/SwarmLauncher.md",
-      "x": 2110.39990234375,
-      "y": 691.2999877929688
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/TitanCannon/TitanCannon.md",
-      "x": 2136.300048828125,
-      "y": 666.2999877929688
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/TripleMinigun/TripleMinigun.md",
-      "x": 2166.199951171875,
-      "y": 646.4000244140625
-    },
-    {
-      "id": "Places/Merge Your Weapon/3D Models/Weapons/TwinMachineGun/TwinMachineGun.md",
-      "x": 2199.199951171875,
-      "y": 632.0999755859375
     },
     {
       "id": "Places/Places.md",
@@ -1172,8 +702,8 @@
     },
     {
       "id": "Style/GDD - Блоковий стиль моделей.md",
-      "x": 655,
-      "y": -1450
+      "x": 659.7000122070312,
+      "y": -1449.5
     },
     {
       "id": "Style/GDD - Будівництво карт.md",
@@ -1259,9 +789,885 @@
       "id": "Golems/Кам'яний голем/Claude outputs/INSTRUCTIONS.md",
       "x": 1570,
       "y": -1450
+    },
+    {
+      "id": "Places/Merge Your Weapon/Merge Your Weapon.md",
+      "x": 2452.147216796875,
+      "y": -15.690539360046387
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/Merge Your Weapon - GDD.md",
+      "x": 2407.89990234375,
+      "y": -481.29998779296875
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Analytics.md",
+      "x": 2395.300048828125,
+      "y": -378.8999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Balance.md",
+      "x": 2361.10009765625,
+      "y": -389.3999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Crates.md",
+      "x": 2332.5,
+      "y": -411
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Fight.md",
+      "x": 2313,
+      "y": -441
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - HUD and Windows.md",
+      "x": 2304.89990234375,
+      "y": -475.8999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Item Shop.md",
+      "x": 2309.300048828125,
+      "y": -511.3999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Localization.md",
+      "x": 2325.5,
+      "y": -543.4000244140625
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Mobs and Drops.md",
+      "x": 2351.699951171875,
+      "y": -567.7999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Multiplayer.md",
+      "x": 2384.699951171875,
+      "y": -581.7999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Rebirth.md",
+      "x": 2420.5,
+      "y": -583.7000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Roadmap.md",
+      "x": 2454.699951171875,
+      "y": -573.2000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Saves.md",
+      "x": 2483.300048828125,
+      "y": -551.5999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Shop and Passes.md",
+      "x": 2502.800048828125,
+      "y": -521.5999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Spawn and Zones.md",
+      "x": 2510.89990234375,
+      "y": -486.70001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Supplies.md",
+      "x": 2506.5,
+      "y": -451.1000061035156
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Tutorial.md",
+      "x": 2490.300048828125,
+      "y": -419.20001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Upgrades.md",
+      "x": 2464.10009765625,
+      "y": -394.79998779296875
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD/GDD - Weapons and Merge.md",
+      "x": 2431.10009765625,
+      "y": -380.79998779296875
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/World.md",
+      "x": 2805.89990234375,
+      "y": -249.1999969482422
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Portal Island/Portal Island (World).md",
+      "x": 2737.300048828125,
+      "y": -220.10000610351562
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Spawn/Spawn.md",
+      "x": 2731.699951171875,
+      "y": -255.3000030517578
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone 1/Zone 1.md",
+      "x": 2743,
+      "y": -289.1000061035156
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone 10/Zone 10.md",
+      "x": 2768.800048828125,
+      "y": -313.79998779296875
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone 2/Zone 2.md",
+      "x": 2803,
+      "y": -323.6000061035156
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone 3/Zone 3.md",
+      "x": 2837.89990234375,
+      "y": -316.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone 4/Zone 4.md",
+      "x": 2865.5,
+      "y": -293.8999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone 5/Zone 5.md",
+      "x": 2879.39990234375,
+      "y": -261.1000061035156
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone 6/Zone 6.md",
+      "x": 2876.5,
+      "y": -225.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone 7/Zone 7.md",
+      "x": 2857.39990234375,
+      "y": -195.39999389648438
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone 8/Zone 8.md",
+      "x": 2826.5,
+      "y": -177.60000610351562
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone 9/Zone 9.md",
+      "x": 2790.89990234375,
+      "y": -176.3000030517578
+    },
+    {
+      "id": "Places/Merge Your Weapon/World/Zone Props.md",
+      "x": 2758.699951171875,
+      "y": -191.60000610351562
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Merge Your Weapon - 2D.md",
+      "x": 2863.699951171875,
+      "y": 150.60000610351562
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Backpack/Backpack.md",
+      "x": 2795.60009765625,
+      "y": 108.0999984741211
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Codes Window/Codes Window.md",
+      "x": 2820.800048828125,
+      "y": 82.69999694824219
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Gift Window/Gift Window.md",
+      "x": 2854.5,
+      "y": 70.9000015258789
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/HUD/HUD.md",
+      "x": 2890,
+      "y": 74.80000305175781
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Icons/Icons.md",
+      "x": 2920.199951171875,
+      "y": 93.69999694824219
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Index Window/Index Window.md",
+      "x": 2939.300048828125,
+      "y": 123.9000015258789
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Rebirth Window/Rebirth Window.md",
+      "x": 2943.39990234375,
+      "y": 159.3000030517578
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Settings Window/Settings Window.md",
+      "x": 2931.699951171875,
+      "y": 193.10000610351562
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Shop Window/Shop Window.md",
+      "x": 2906.5,
+      "y": 218.39999389648438
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Supply Shop Window/Supply Shop Window.md",
+      "x": 2872.800048828125,
+      "y": 230.1999969482422
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Textures/Textures.md",
+      "x": 2837.39990234375,
+      "y": 226.3000030517578
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Upgrades Window/Upgrades Window.md",
+      "x": 2807.10009765625,
+      "y": 207.39999389648438
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Weapon Icons/Weapon Icons.md",
+      "x": 2788,
+      "y": 177.1999969482422
+    },
+    {
+      "id": "Places/Merge Your Weapon/2D/Weapon Tags/Weapon Tags.md",
+      "x": 2783.89990234375,
+      "y": 141.8000030517578
+    },
+    {
+      "id": "Places/Merge Your Weapon/Interactive Objects/Interactive Objects.md",
+      "x": 2637.800048828125,
+      "y": 353.20001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/Interactive Objects/Plot Signs/Plot Signs.md",
+      "x": 2618.5,
+      "y": 285.8999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/Interactive Objects/Plots/Plots.md",
+      "x": 2695.800048828125,
+      "y": 314
+    },
+    {
+      "id": "Places/Merge Your Weapon/Interactive Objects/Slot Stand/Slot Stand.md",
+      "x": 2692.89990234375,
+      "y": 396.29998779296875
+    },
+    {
+      "id": "Places/Merge Your Weapon/Interactive Objects/Weapon Stands/Weapon Stands.md",
+      "x": 2613.800048828125,
+      "y": 419
+    },
+    {
+      "id": "Places/Merge Your Weapon/Interactive Objects/Zone Gates/Zone Gates.md",
+      "x": 2567.800048828125,
+      "y": 350.70001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/Scripts/Merge Your Weapon - Scripts.md",
+      "x": 2114.699951171875,
+      "y": -156.39999389648438
+    },
+    {
+      "id": "Places/Merge Your Weapon/Scripts/Client/Merge Your Weapon - Client.md",
+      "x": 2170.60009765625,
+      "y": -114.19999694824219
+    },
+    {
+      "id": "Places/Merge Your Weapon/Scripts/Modules/Merge Your Weapon - Modules.md",
+      "x": 2050.199951171875,
+      "y": -129
+    },
+    {
+      "id": "Places/Merge Your Weapon/Scripts/Server/Merge Your Weapon - Server.md",
+      "x": 2123.199951171875,
+      "y": -225.8000030517578
+    },
+    {
+      "id": "Places/Merge Your Weapon/GDD - Admin Panel.md",
+      "x": 2253.223388671875,
+      "y": -348.990478515625
+    },
+    {
+      "id": "Places/Merge Your Weapon/Portal Island.md",
+      "x": 2671.232177734375,
+      "y": 243.6920623779297
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Merge Your Weapon - 3D Models.md",
+      "x": 2147.89990234375,
+      "y": 360
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Weapons.md",
+      "x": 2226.10009765625,
+      "y": 803.7000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/AntiMaterielRifle/AntiMaterielRifle.md",
+      "x": 2233.10009765625,
+      "y": 603.2999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/AssaultRifle/AssaultRifle.md",
+      "x": 2268.800048828125,
+      "y": 607.7999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/AutoShotgun/AutoShotgun.md",
+      "x": 2303.10009765625,
+      "y": 618.5999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/BattleRifle/BattleRifle.md",
+      "x": 2334.89990234375,
+      "y": 635.2999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Blowpipe/Blowpipe.md",
+      "x": 2363.300048828125,
+      "y": 657.4000244140625
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Blunderbuss/Blunderbuss.md",
+      "x": 2387.199951171875,
+      "y": 684.2000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Bow/Bow.md",
+      "x": 2405.89990234375,
+      "y": 714.9000244140625
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Crossbow/Crossbow.md",
+      "x": 2418.89990234375,
+      "y": 748.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/DoubleBarrel/DoubleBarrel.md",
+      "x": 2425.699951171875,
+      "y": 783.7999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Flintlock/Flintlock.md",
+      "x": 2426,
+      "y": 819.7000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/GatlingShotgun/GatlingShotgun.md",
+      "x": 2420,
+      "y": 855.2000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/GrenadeGatling/GrenadeGatling.md",
+      "x": 2407.699951171875,
+      "y": 888.9000244140625
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/GrenadeLauncher/GrenadeLauncher.md",
+      "x": 2389.5,
+      "y": 920
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/HandCannon/HandCannon.md",
+      "x": 2366.10009765625,
+      "y": 947.2999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/HeavyMachineGun/HeavyMachineGun.md",
+      "x": 2338.300048828125,
+      "y": 970
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/HeavyMinigun/HeavyMinigun.md",
+      "x": 2306.800048828125,
+      "y": 987.2999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/HuntingRifle/HuntingRifle.md",
+      "x": 2272.699951171875,
+      "y": 998.7999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/LMG/LMG.md",
+      "x": 2237.10009765625,
+      "y": 1004
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/LeverRifle/LeverRifle.md",
+      "x": 2201.199951171875,
+      "y": 1002.7000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Minigun/Minigun.md",
+      "x": 2166.10009765625,
+      "y": 995.0999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/MissileLauncher/MissileLauncher.md",
+      "x": 2132.89990234375,
+      "y": 981.2999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Musket/Musket.md",
+      "x": 2102.699951171875,
+      "y": 961.7999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/PumpShotgun/PumpShotgun.md",
+      "x": 2076.39990234375,
+      "y": 937.2000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/QuadRocketLauncher/QuadRocketLauncher.md",
+      "x": 2055,
+      "y": 908.2999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/RecoillessRifle/RecoillessRifle.md",
+      "x": 2039.0999755859375,
+      "y": 876.0999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Revolver/Revolver.md",
+      "x": 2029.199951171875,
+      "y": 841.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/RocketLauncher/RocketLauncher.md",
+      "x": 2025.5999755859375,
+      "y": 805.7000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/SMG/SMG.md",
+      "x": 2028.5,
+      "y": 769.9000244140625
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Slingshot/Slingshot.md",
+      "x": 2037.699951171875,
+      "y": 735.0999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/SniperRifle/SniperRifle.md",
+      "x": 2053,
+      "y": 702.5999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/Stick/Stick.md",
+      "x": 2073.800048828125,
+      "y": 673.2999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/SwarmLauncher/SwarmLauncher.md",
+      "x": 2099.5,
+      "y": 648.2000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/TitanCannon/TitanCannon.md",
+      "x": 2129.300048828125,
+      "y": 628.0999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/TripleMinigun/TripleMinigun.md",
+      "x": 2162.300048828125,
+      "y": 613.5999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Weapons/TwinMachineGun/TwinMachineGun.md",
+      "x": 2197.199951171875,
+      "y": 605.2999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/Mobs.md",
+      "x": 1765.0999755859375,
+      "y": 581
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/Animations/Animations.md",
+      "x": 1966.699951171875,
+      "y": 515.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieAxeThrower/ZombieAxeThrower.md",
+      "x": 1974.9000244140625,
+      "y": 550.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieCharred/ZombieCharred.md",
+      "x": 1977,
+      "y": 586.4000244140625
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieChemist/ZombieChemist.md",
+      "x": 1973.0999755859375,
+      "y": 622.2000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieCommander/ZombieCommander.md",
+      "x": 1963.0999755859375,
+      "y": 656.7000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieCyborg/ZombieCyborg.md",
+      "x": 1947.5,
+      "y": 689.0999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieDynamiter/ZombieDynamiter.md",
+      "x": 1926.5999755859375,
+      "y": 718.4000244140625
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieExperiment/ZombieExperiment.md",
+      "x": 1901.0999755859375,
+      "y": 743.7000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieFarmer/ZombieFarmer.md",
+      "x": 1871.5999755859375,
+      "y": 764.2999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieFarmerBoss/ZombieFarmerBoss.md",
+      "x": 1839.0999755859375,
+      "y": 779.7000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieFirefighter/ZombieFirefighter.md",
+      "x": 1804.5,
+      "y": 789.2999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieGravedigger/ZombieGravedigger.md",
+      "x": 1768.699951171875,
+      "y": 793
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieHazmat/ZombieHazmat.md",
+      "x": 1732.800048828125,
+      "y": 790.5999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieIceBrute/ZombieIceBrute.md",
+      "x": 1697.9000244140625,
+      "y": 782.0999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieLabAssistant/ZombieLabAssistant.md",
+      "x": 1664.9000244140625,
+      "y": 767.7999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieLavaGolem/ZombieLavaGolem.md",
+      "x": 1634.800048828125,
+      "y": 748.2000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieLumberjack/ZombieLumberjack.md",
+      "x": 1608.4000244140625,
+      "y": 723.7999877929688
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieMachineGunner/ZombieMachineGunner.md",
+      "x": 1586.5,
+      "y": 695.2000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieMiner/ZombieMiner.md",
+      "x": 1565.1192889320214,
+      "y": 659.767734791848
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieMutant/ZombieMutant.md",
+      "x": 1558.699951171875,
+      "y": 629.2000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieNecromancer/ZombieNecromancer.md",
+      "x": 1553.5,
+      "y": 593.5999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombiePolarExplorer/ZombiePolarExplorer.md",
+      "x": 1554.4000244140625,
+      "y": 557.7000122070312
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombiePolice/ZombiePolice.md",
+      "x": 1561.4000244140625,
+      "y": 522.4000244140625
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieRadioOperator/ZombieRadioOperator.md",
+      "x": 1574.199951171875,
+      "y": 488.79998779296875
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieSkeleton/ZombieSkeleton.md",
+      "x": 1592.5999755859375,
+      "y": 457.8999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieSoldier/ZombieSoldier.md",
+      "x": 1615.800048828125,
+      "y": 430.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieTourist/ZombieTourist.md",
+      "x": 1643.4000244140625,
+      "y": 407.3999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieVolcanologist/ZombieVolcanologist.md",
+      "x": 1674.5,
+      "y": 389.3999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/ZombieWorker/ZombieWorker.md",
+      "x": 1708.199951171875,
+      "y": 376.79998779296875
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/Zone 10 Mobs.md",
+      "x": 1743.5,
+      "y": 370.1000061035156
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/Zone 3 Mobs.md",
+      "x": 1779.5,
+      "y": 369.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/Zone 4 Mobs.md",
+      "x": 1815,
+      "y": 375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/Zone 5 Mobs.md",
+      "x": 1849.0999755859375,
+      "y": 386.3999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/Zone 6 Mobs.md",
+      "x": 1880.800048828125,
+      "y": 403.3999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/Zone 7 Mobs.md",
+      "x": 1909.199951171875,
+      "y": 425.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/Zone 8 Mobs.md",
+      "x": 1933.4000244140625,
+      "y": 452.1000061035156
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Mobs/Zone 9 Mobs.md",
+      "x": 1952.800048828125,
+      "y": 482.3999938964844
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/Supplies.md",
+      "x": 1948.5,
+      "y": 267.1000061035156
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/Bandage/Bandage.md",
+      "x": 2004.4000244140625,
+      "y": 309.20001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/BodyArmor/BodyArmor.md",
+      "x": 1969,
+      "y": 334
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/EnergyDrink/EnergyDrink.md",
+      "x": 1925.699951171875,
+      "y": 333.29998779296875
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/Grenade/Grenade.md",
+      "x": 1891.199951171875,
+      "y": 307.20001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/IceGrenade/IceGrenade.md",
+      "x": 1878.5,
+      "y": 265.79998779296875
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/KamikazeDrone/KamikazeDrone.md",
+      "x": 1892.5999755859375,
+      "y": 224.89999389648438
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/Medkit/Medkit.md",
+      "x": 1928,
+      "y": 200.10000610351562
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/Mine/Mine.md",
+      "x": 1971.300048828125,
+      "y": 200.89999389648438
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/Molotov/Molotov.md",
+      "x": 2005.800048828125,
+      "y": 226.89999389648438
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Supplies/Turret/Turret.md",
+      "x": 2018.5,
+      "y": 268.29998779296875
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/Crates.md",
+      "x": 2072.60009765625,
+      "y": 153.3000030517578
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/CityCrate/CityCrate.md",
+      "x": 2082.39990234375,
+      "y": 222.60000610351562
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/FarmCrate/FarmCrate.md",
+      "x": 2039.800048828125,
+      "y": 215.10000610351562
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/FrostCrate/FrostCrate.md",
+      "x": 2009.699951171875,
+      "y": 184
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/GraveCrate/GraveCrate.md",
+      "x": 2003.699951171875,
+      "y": 141.1999969482422
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/LabCrate/LabCrate.md",
+      "x": 2024,
+      "y": 103
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/LavaCrate/LavaCrate.md",
+      "x": 2062.89990234375,
+      "y": 84
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/LumberCrate/LumberCrate.md",
+      "x": 2105.5,
+      "y": 91.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/MilitaryCrate/MilitaryCrate.md",
+      "x": 2135.60009765625,
+      "y": 122.5999984741211
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/MiningCrate/MiningCrate.md",
+      "x": 2141.60009765625,
+      "y": 165.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Crates/ToxicCrate/ToxicCrate.md",
+      "x": 2121.300048828125,
+      "y": 203.6999969482422
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Farm Props.md",
+      "x": 2302.89990234375,
+      "y": 416.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Barrel/Barrel.md",
+      "x": 2369.199951171875,
+      "y": 337.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Cabbage/Cabbage.md",
+      "x": 2395.10009765625,
+      "y": 370.20001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Crate/Crate.md",
+      "x": 2405.89990234375,
+      "y": 410.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Farm Props/HayBale/HayBale.md",
+      "x": 2399.89990234375,
+      "y": 451.70001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Pumpkin/Pumpkin.md",
+      "x": 2378,
+      "y": 487.20001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Tractor/Tractor.md",
+      "x": 2343.800048828125,
+      "y": 511.20001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Farm Props/Wheat/Wheat.md",
+      "x": 2302.89990234375,
+      "y": 519.5999755859375
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Sandbags/Sandbags.md",
+      "x": 2312.300048828125,
+      "y": 345.70001220703125
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Shop/Shop.md",
+      "x": 2290.800048828125,
+      "y": 277.5
+    },
+    {
+      "id": "Places/Merge Your Weapon/3D Models/Watchtower/Watchtower.md",
+      "x": 2242.5,
+      "y": 224.89999389648438
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Instruments/Pickaxe/Pickaxe.md",
+      "x": -660.75341796875,
+      "y": 75.44628143310547
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Ores/Coal Ore/Coal Ore.md",
+      "x": -603.2897338867188,
+      "y": 359.8643798828125
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Ores/Copper Ore/Copper Ore.md",
+      "x": -668.0125122070312,
+      "y": 307.30694580078125
+    },
+    {
+      "id": "Places/My Mining Golems/3D Models/Ores/Iron Ore/Iron Ore.md",
+      "x": -700.020263671875,
+      "y": 259.3125305175781
+    },
+    {
+      "id": "Places/My Mining Golems/Interactive Objects/Forge/Source/forge_window_SPEC.md",
+      "x": 167.29486083984375,
+      "y": 348.3031311035156
     }
   ],
-  "pinnedNodes": [],
+  "pinnedNodes": [
+    "Places/My Mining Golems/3D Models/Ores/Copper Ore/Copper Ore.md",
+    "Places/My Mining Golems/3D Models/Instruments/Pickaxe/Pickaxe.md",
+    "Places/My Mining Golems/3D Models/Ores/Coal Ore/Coal Ore.md",
+    "Places/My Mining Golems/3D Models/Ores/Iron Ore/Iron Ore.md",
+    "Places/My Mining Golems/Interactive Objects/Forge/Source/forge_window_SPEC.md"
+  ],
   "snapshots": [],
   "globalOptions": {},
   "workspacesGraphData": {},

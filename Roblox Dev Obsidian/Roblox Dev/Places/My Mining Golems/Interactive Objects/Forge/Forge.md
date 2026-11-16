@@ -7,7 +7,7 @@ updated: 2026-10-25
 
 # Forge
 
-← [[Interactive Objects]]
+← [[Places/My Mining Golems/Interactive Objects/Interactive Objects|Interactive Objects]]
 
 *Кузня з големом-ковалем* у правому передньому куті ніші, біля входу. Гравець приносить руду, голем переплавляє її в злитки, які продаються дорожче за руду. На початку кожної мапи голем спить, і його треба розбудити рудою цієї мапи. Правила гри, числа й вимоги — [GDD - Ores and Bars](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGDD%20-%20Ores%20and%20Bars) (розділ Forge).
 

@@ -1,0 +1,53 @@
+import sys; sys.path.insert(0, '/home/claude/mobs2/build')
+from lib import *
+reset()
+SKIN, SKIN2, SKIN3 = mat('CHSkin', '#3E3430'), mat('CHSkin2', '#2A2220'), mat('CHSkin3', '#5A4A42')
+CRACK, CRACK2, EYE = mat('CHCrack', '#FF6A1A', 2.5), mat('CHCrack2', '#FFB43A', 2.5), mat('CHEye', '#FF8A2A', 3.0)
+RAG, RAG2, BELT = mat('CHRag', '#3A2A22'), mat('CHRag2', '#4E3A2A'), mat('CHBelt', '#1A1412')
+TEETH, MOUTH = mat('CHTeeth', '#C8B89A'), mat('CHMouth', '#FF4A1A', 2.0)
+t = Obj('Torso')
+t.box(SKIN, (0, 0, 3.05), (2.04, 1.1, 2.1))
+t.box(RAG, (0, 0, 2.45), (2.1, 1.16, 0.9))                   # burnt shirt remains (lower torso)
+t.box(RAG2, (0.55, -0.6, 2.75), (0.6, 0.04, 0.4)).box(RAG2, (-0.6, 0.6, 2.6), (0.7, 0.04, 0.5))
+t.box(BELT, (0, 0, 2.08), (2.14, 1.2, 0.2))
+# glowing cracks on the chest and back
+t.box(CRACK, (-0.4, -0.565, 3.5), (0.13, 0.03, 0.8), rot=(0, 25, 0)).box(CRACK, (-0.2, -0.565, 3.05), (0.6, 0.03, 0.13), rot=(0, 10, 0))
+t.box(CRACK2, (0.45, -0.565, 3.6), (0.5, 0.03, 0.13), rot=(0, -20, 0)).box(CRACK, (0.6, -0.565, 3.3), (0.13, 0.03, 0.5))
+t.box(CRACK, (0.2, 0.565, 3.4), (0.13, 0.03, 1.0), rot=(0, -15, 0)).box(CRACK2, (-0.4, 0.565, 3.7), (0.6, 0.03, 0.13))
+t.box(SKIN3, (-0.7, -0.57, 3.85), (0.4, 0.04, 0.24))
+t.box(CRACK2, (0.15, -0.57, 3.82), (0.24, 0.04, 0.24)).box(CRACK2, (-0.75, 0.57, 3.2), (0.2, 0.04, 0.2))
+t.box(CRACK, (-0.1, -0.595, 2.6), (0.13, 0.03, 0.6), rot=(0, -30, 0))
+t.build()
+h = Obj('Head')
+h.box(SKIN, (0, 0, 4.85), (1.58, 1.46, 1.56))
+h.box(SKIN2, (0, -0.79, 4.78), (0.24, 0.14, 0.3))
+for x in (-0.36, 0.36): h.box(SKIN2, (x, -0.74, 5.0), (0.44, 0.04, 0.32)).box(EYE, (x, -0.765, 5.0), (0.18, 0.03, 0.14))
+h.box(MOUTH, (0, -0.74, 4.42), (0.86, 0.04, 0.22))
+for x in (-0.28, 0.0, 0.28): h.box(TEETH, (x, -0.755, 4.47), (0.13, 0.03, 0.11))
+h.box(CRACK, (0.5, -0.74, 5.3), (0.11, 0.03, 0.4), rot=(0, 30, 0)).box(CRACK2, (-0.55, -0.74, 4.6), (0.3, 0.03, 0.11))
+h.box(CRACK, (0, 0.74, 5.0), (0.11, 0.03, 0.9), rot=(0, 20, 0))
+h.box(SKIN3, (0.3, 0, 5.62), (0.9, 0.9, 0.12))            # charred scalp patch
+h.build()
+c = Obj('Hat')   # burnt hair tufts
+for x, y in ((-0.5, 0.2), (0.1, -0.3), (0.5, 0.35), (-0.2, 0.5)): c.box(SKIN2, (x, y, 5.72), (0.3, 0.3, 0.22), taper=(0.4, 0.4))
+c.box(CRACK2, (-0.5, 0.2, 5.86), (0.1, 0.1, 0.08))
+c.build()
+def arm(name, sx):
+    a = Obj(name); x = 1.47 * sx
+    a.box(SKIN, (x, 0, 2.9), (0.98, 0.98, 2.3))
+    a.box(RAG, (x, 0, 3.7), (1.04, 1.04, 0.6))
+    a.box(CRACK, (x + 0.495 * sx, 0, 2.7), (0.03, 0.13, 0.9)).box(CRACK2, (x, -0.495, 2.2), (0.4, 0.03, 0.13))
+    a.box(SKIN2, (x, 0, 1.6), (1.0, 1.0, 0.3))
+    for dx in (-0.3, 0, 0.3): a.box(SKIN2, (x + dx, -0.15, 1.26), (0.2, 0.6, 0.34), rot=(-15, 0, 0))     # claws
+    a.build()
+arm('RightArm', 1); arm('LeftArm', -1)
+def leg(name, sx):
+    l = Obj(name); x = 0.52 * sx
+    l.box(RAG2, (x, 0, 1.4), (1.04, 1.1, 1.2))
+    l.box(SKIN, (x, 0, 0.6), (0.98, 1.04, 0.6))
+    l.box(CRACK, (x, -0.525, 0.65), (0.5, 0.03, 0.13), rot=(0, 15 * sx, 0))
+    l.box(SKIN2, (x, -0.1, 0.15), (1.02, 1.3, 0.3))
+    l.build()
+leg('RightLeg', 1); leg('LeftLeg', -1)
+if '--export' in sys.argv: export('/home/claude/mobs9/out_models/myw_zombiecharred.glb')
+print(render_preview('/home/claude/mobs9/out_models/ch.png', center=(0, 0, 3.2), dist=12))

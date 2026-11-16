@@ -114,7 +114,7 @@ updated: 2026-11-04
 | --- | --- |
 | [[GDD - Data Saving]] | DataStore, сесійний замок, що зберігається |
 | [[GDD - Golem UID]] | унікальний ID голема, анти-дюп, глобальний індекс і журнал |
-| [[GDD - Admin Panel]] | адмін-панель F2, ролі, івенти Roll Luck / Mutation Luck / Money з чергою, оголошення |
+| [[Places/My Mining Golems/GDD/GDD - Admin Panel\|GDD - Admin Panel]] | адмін-панель F2, ролі, івенти Roll Luck / Mutation Luck / Money з чергою, оголошення |
 | [[GDD - Studio Scene]] | що де в Explorer, ніші й автоклейм, технічні правила |
 
 ### Плани й гайди
@@ -168,7 +168,7 @@ updated: 2026-11-04
 - [x] Збереження даних (DataStore, сесійне блокування, автозбереження, Forge) — [[GDD - Data Saving]]; решту систем (големи, квести, Index тощо) додаємо в збереження разом з ними
 - [x] Глобальні множники Money і плашка над TOTAL MULTI ([[GDD - Monetization]]); 21 Developer Product x2 Money створено в Creator Hub; геймпаси ще ні
 - [x] UID големів і анти-дюп етап 1 (28.10.2026) — [[GDD - Golem UID]]
-- [x] Адмін-панель, ролі, івенти з чергою, нова формула удачі (28.10.2026) — [[GDD - Admin Panel]]
+- [x] Адмін-панель, ролі, івенти з чергою, нова формула удачі (28.10.2026) — [[Places/My Mining Golems/GDD/GDD - Admin Panel|GDD - Admin Panel]]
 - [ ] Група Roblox **OSIRIUS**: аватарка (4 варіанти в Claude Workspace / OSIRIUS_icons_v2), опис; бонус за членство в групі *(уточнити)*
 - [x] Табло Forge: третя картка Ore per Hit, прокрутка, іконки в стилі HUD; Speed до 0,25 с; анімація голема йде в темп швидкості; x2 Money — коми, анімація покупки, відліт на MAX
 - [ ] Мапи й печера збереження (вхід у ніші вже стоїть)

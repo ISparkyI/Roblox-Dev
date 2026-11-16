@@ -1,12 +1,15 @@
 ---
 tags: [interactive, monetization]
 status: in-game
-updated: 2026-11-15
+updated: 2026-11-16
 ---
 
 # Weapon Stands
 
 ← [[Places/Merge Your Weapon/Interactive Objects/Interactive Objects|Interactive Objects]]
+
+![[myw_weapon_stands.jpg]]
+*+10 / +100 / +500 WEAPONS — 29 / 199 / 699 R$.*
 
 Три стенди на кожному плоті (`Plot<N>/Stands/Stand1..3`), зліва направо:
 

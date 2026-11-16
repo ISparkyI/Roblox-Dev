@@ -1,0 +1,53 @@
+import sys; sys.path.insert(0, '/home/claude/mobs2/build')
+from lib import *
+reset()
+SUIT, SUIT2, SUIT3 = mat('VLSuit', '#C8CCD0'), mat('VLSuit2', '#A0A4AA'), mat('VLSuit3', '#7A7E84')
+VISOR, VISOR2 = mat('VLVisor', '#E8B830'), mat('VLVisor2', '#B8862A')
+BURN, BELT, GLOVE, BOOT = mat('VLBurn', '#3A302C'), mat('VLBelt', '#2A2A2E'), mat('VLGlove', '#5A4A3A'), mat('VLBoot', '#2A2422')
+TANK, TANK2, LOGO = mat('VLTank', '#D8352A'), mat('VLTank2', '#8A8E94'), mat('VLLogo', '#F2C82A')
+SKIN, EYE = mat('Z9Skin', '#8A7A62'), mat('VLEye', '#FF8A2A', 3.0)
+STEEL, MAGMA, MAGMA2 = mat('VLSteel', '#5A5E66'), mat('VLMagma', '#FF6A1A', 2.5), mat('VLMagma2', '#3A2A24')
+t = Obj('Torso')
+t.box(SUIT, (0, 0, 3.05), (2.1, 1.16, 2.1))
+for z in (2.5, 3.0, 3.5): t.box(SUIT2, (0, 0, z), (2.14, 1.2, 0.08))           # quilted seams
+t.box(BELT, (0, 0, 2.15), (2.18, 1.24, 0.24)).box(VISOR2, (0, -0.63, 2.15), (0.3, 0.04, 0.18))
+t.box(LOGO, (-0.55, -0.6, 3.6), (0.4, 0.04, 0.4), rot=(0, 45, 0)).box(BURN, (0.5, -0.6, 2.75), (0.5, 0.04, 0.4))
+# backpack air tank
+t.box(TANK, (0, 0.85, 3.1), (1.2, 0.5, 1.6)).box(TANK2, (0, 0.85, 4.0), (0.4, 0.4, 0.2)).box(TANK2, (0, 0.85, 2.25), (1.3, 0.56, 0.12))
+t.box(BURN, (0.3, 1.11, 2.9), (0.4, 0.04, 0.5))
+t.build()
+h = Obj('Head')
+h.box(SKIN, (0, 0, 4.85), (1.5, 1.4, 1.5))
+h.box(EYE, (-0.32, -0.71, 4.95), (0.16, 0.03, 0.12)).box(EYE, (0.32, -0.71, 4.95), (0.16, 0.03, 0.12))
+h.build()
+c = Obj('Hat')   # heat-suit hood with a gold visor
+c.box(SUIT, (0, 0.04, 5.0), (1.76, 1.68, 2.04))
+c.box(VISOR, (0, -0.86, 4.98), (1.36, 0.04, 0.9)).box(VISOR2, (0, -0.86, 4.98), (1.5, 0.03, 1.04))
+c.box(SUIT2, (0, 0.04, 6.06), (1.6, 1.52, 0.12)).box(SUIT2, (0, 0.04, 4.0), (1.9, 1.82, 0.12))
+c.box(BURN, (-0.6, -0.85, 5.6), (0.4, 0.04, 0.3))
+c.build()
+def arm(name, sx):
+    a = Obj(name); x = 1.52 * sx
+    a.box(SUIT, (x, 0, 3.0), (1.08, 1.08, 2.2))
+    a.box(SUIT2, (x, 0, 3.3), (1.12, 1.12, 0.08)).box(SUIT2, (x, 0, 2.6), (1.12, 1.12, 0.08))
+    a.box(GLOVE, (x, 0, 1.68), (1.14, 1.14, 0.6))
+    for dx in (-0.3, 0, 0.3): a.box(GLOVE, (x + dx, -0.12, 1.3), (0.24, 0.6, 0.32))
+    a.build()
+arm('RightArm', 1); arm('LeftArm', -1)
+def leg(name, sx):
+    l = Obj(name); x = 0.54 * sx
+    l.box(SUIT, (x, 0, 1.35), (1.08, 1.14, 1.3)).box(SUIT2, (x, 0, 1.2), (1.12, 1.18, 0.08))
+    l.box(BOOT, (x, -0.06, 0.38), (1.14, 1.36, 0.76))
+    l.build()
+leg('RightLeg', 1); leg('LeftLeg', -1)
+g = Obj('Tongs', bevel=0.02)
+X, Z = 1.52, 1.3
+for dz in (-0.14, 0.14): g.box(STEEL, (X, -1.0, Z + dz), (0.12, 2.2, 0.1))
+g.box(STEEL, (X, 0.05, Z), (0.16, 0.3, 0.4))
+for dz in (-0.3, 0.3): g.box(STEEL, (X, -2.15, Z + dz), (0.12, 0.3, 0.12))
+g.build()
+m = Obj('Magma', bevel=0.04)
+m.box(MAGMA2, (X, -2.45, Z), (0.7, 0.66, 0.62)).box(MAGMA, (X, -2.45, Z), (0.56, 0.72, 0.5), rot=(20, 0, 15))
+m.build()
+if '--export' in sys.argv: export('/home/claude/mobs9/out_models/myw_zombievolcanologist.glb')
+print(render_preview('/home/claude/mobs9/out_models/vl.png', center=(0, 0, 3.4), dist=13))

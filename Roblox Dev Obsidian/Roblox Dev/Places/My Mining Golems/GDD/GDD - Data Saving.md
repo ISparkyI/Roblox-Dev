@@ -44,5 +44,5 @@ updated: 2026-10-28
 
 ## Додано 28.10.2026
 - Секція профілю `AdminTx` — виконані адмін-видачі (без дублів).
-- DataStore `AdminMail` (офлайн-видачі), `AdminRoles` (ролі), `GolemIndex`, `GolemLog` — див. [[GDD - Admin Panel]], [[GDD - Golem UID]].
+- DataStore `AdminMail` (офлайн-видачі), `AdminRoles` (ролі), `GolemIndex`, `GolemLog` — див. [[Places/My Mining Golems/GDD/GDD - Admin Panel|GDD - Admin Panel]], [[GDD - Golem UID]].
 - У кожного голема (інвентар, печера) є поле `uid`.
