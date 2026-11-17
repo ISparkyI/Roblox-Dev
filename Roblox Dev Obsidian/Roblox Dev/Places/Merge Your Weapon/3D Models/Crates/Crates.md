@@ -10,7 +10,7 @@ updated: 2026-11-16
 
 10 сундуків — по одному на зону. Падають з мобів, лежать у рюкзаку, відкриваються кліком (анімація `CratePopController`). Логіка — `CrateService`, таблиці — `ReplicatedStorage/CrateConfig`.
 
-| Зона | Сундук | Зброя (35 / 20 / 7%) | Вигляд |
+| Зона | Сундук | Зброя (18 / 8 / 3%) | Вигляд |
 | --- | --- | --- | --- |
 | 1 | [[Places/Merge Your Weapon/3D Models/Crates/FarmCrate/FarmCrate\|Farm Crate]] | Slingshot T2 · Blowpipe T3 · Bow T4 | ![[myw_crate1_ingame.jpg\|120]] |
 | 2 | [[Places/Merge Your Weapon/3D Models/Crates/LumberCrate/LumberCrate\|Lumber Crate]] | Crossbow T5 · Flintlock T6 · Musket T7 | ![[myw_crate2_ingame.jpg\|120]] |
@@ -23,4 +23,4 @@ updated: 2026-11-16
 | 9 | [[Places/Merge Your Weapon/3D Models/Crates/LavaCrate/LavaCrate\|Lava Crate]] | Twin MG T26 · Quad Rocket T27 · Gatling Shotgun T28 | ![[myw_crate9_ingame.jpg\|120]] |
 | 10 | [[Places/Merge Your Weapon/3D Models/Crates/LabCrate/LabCrate\|Lab Crate]] | Missile Launcher T29 · Heavy Minigun T30 · Grenade Gatling T31 | ![[myw_crate10_ingame.jpg\|120]] |
 
-Решта шансу — гроші (30%) і геми (8%), суми ростуть із зоною. Моделі — `ReplicatedStorage/DropModels/Crate1…10`, 2D-іконки — `2D/Crate Icons`.
+Решта шансу — гроші (60%) і геми (11%), суми ростуть із зоною. Моделі — `ReplicatedStorage/DropModels/Crate1…10`, 2D-іконки — `2D/Crate Icons`.
