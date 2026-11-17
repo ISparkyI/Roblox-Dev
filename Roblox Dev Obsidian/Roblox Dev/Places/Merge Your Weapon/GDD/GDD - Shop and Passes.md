@@ -15,6 +15,7 @@ updated: 2026-11-15
 | --- | --- | --- | --- | --- | --- |
 | +1 Weapon Slot | `2088315580` | 99 | 4-й слот зброї в бою | стенд перед плотом (Slot Stand) | `PassWeaponSlot` |
 | Auto Merge | `2088603644` | 299 | зброя на плоті мерджиться сама | SHOP → PASSES | `Pass_AutoMerge` |
+| Auto Buy | `2088448320` | 249 | сам купує зброю твого Buy Tier, коли є кеш і місце на плоті (раз на 1 с) | SHOP → PASSES, стенд AUTO BUY на плоті | `Pass_AutoBuy`, вмик. `AutoBuyOn` |
 | Auto Fight | `2089119579` | 199 | зброя цілиться й стріляє сама | SHOP → PASSES | `Pass_AutoFight` |
 | Infinite Stamina | `2088573555` | 149 | спринт без витрат | SHOP → PASSES | `Pass_InfStamina` |
 
@@ -66,6 +67,7 @@ updated: 2026-11-15
 | Продукт | ID | R$ |
 | --- | --- | --- |
 | Gift Auto Merge | `3731520790` | 299 |
+| Gift Auto Buy | `3731849484` | 249 |
 | Gift Auto Fight | `3731520983` | 199 |
 | Gift Infinite Stamina | `3731521060` | 149 |
 | Gift +1 Weapon Slot | `3731521135` | 99 |
@@ -82,7 +84,7 @@ updated: 2026-11-15
 
 | Що дарується | Через який продукт |
 | --- | --- |
-| Геймпаси (Auto Merge, Auto Fight, Infinite Stamina, +1 Weapon Slot) | свій Gift-продукт (пас купити іншому Roblox не дає) |
+| Геймпаси (Auto Merge, Auto Buy, Auto Fight, Infinite Stamina, +1 Weapon Slot) | свій Gift-продукт (пас купити іншому Roblox не дає) |
 | x2 CASH | **наступний ступінь отримувача** (є x4 → даруєш x8 за ціну x8), ті самі продукти драбини |
 | Набори 10 / 25 / 50 / 100 зброї | ті самі продукти, що в магазині |
 
@@ -108,3 +110,6 @@ updated: 2026-11-15
 - Пакети гемів за Robux — не плануємо, поки не буде на що витрачати геми.
 
 ![[MYW ref - shop.png]]
+
+## План: нагорода за групу (Roadmap, п. 2)
+- Вступ у групу → один раз **+10 Weapons** (тір BUY TIER) на плот після перезаходу. Стенд-білборд на плоті справа спереду, навпроти «+1 Weapon Slot». Вікно-нагадування 1 раз за сесію через ~4 хв, якщо не в групі.

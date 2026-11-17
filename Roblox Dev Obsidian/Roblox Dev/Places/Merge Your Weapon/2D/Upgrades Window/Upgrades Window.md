@@ -1,12 +1,15 @@
 ---
 tags: [ui]
 status: in-game
-updated: 2026-11-14
+updated: 2026-11-16
 ---
 
 # Upgrades Window
 
 ← [[Merge Your Weapon - 2D|2D]]
+
+![[myw_upgradeswindow_ingame.jpg]]
+*Скрін з гри на новому акаунті: видно лише корінь дерева, решта відкривається покупками.*
 
 Вікно **UPGRADES** (`UpgradesController`, дані `UpgradeConfig`, сервер `UpgradeService`). Гілки і ціни — GDD - Upgrades.
 

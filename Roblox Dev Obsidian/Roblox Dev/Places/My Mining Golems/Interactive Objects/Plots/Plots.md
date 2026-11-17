@@ -7,7 +7,7 @@ updated: 2026-10-25
 
 # Plots
 
-← [[Interactive Objects]]
+← [[Places/My Mining Golems/Interactive Objects/Interactive Objects|Interactive Objects]]
 
 Зони фарму (плоти) у ніші гравця. На плоті росте руда, големи-майнери її ламають, шматки руди падають на підлогу. Голем-носій збирає їх і висипає в **ящик плоту**, а з ящика гравець забирає руду в інвентар кнопкою **COLLECT**. Прокачка йде через табло плоту (8 карток), а розставляють големів через вікно **Place Golems**. Правила й числа — [GDD - Plots](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGDD%20-%20Plots) (прокачка, големи на плоті) і [GDD - Ores and Bars](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGDD%20-%20Ores%20and%20Bars) (руда). Моделі руди — [Ores](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FOres%2FOres), ящичок носія — [Carrier Crate](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2F3D%20Models%2FInstruments%2FCarrier%20Crate%2FCarrier%20Crate).
 

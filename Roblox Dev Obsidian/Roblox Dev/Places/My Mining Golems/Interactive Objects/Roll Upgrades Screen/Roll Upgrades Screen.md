@@ -7,7 +7,7 @@ updated: 2026-10-24
 
 # Roll Upgrades Screen
 
-← [[Interactive Objects]]
+← [[Places/My Mining Golems/Interactive Objects/Interactive Objects|Interactive Objects]]
 
 *Табло покращень ролу* (Roll Luck і кількість місць ролу). Висить сховане в жолобі на стелі. Коли власник ніші зупиняється біля важеля ролу й стоїть 0,25 секунди, табло ефектно падає на ланцюгах. Коли гравець відходить, табло піднімається назад. На екрані — дві картки покращень: **Roll Luck** і **Roll Stands** (кількість підставок ролу).
 

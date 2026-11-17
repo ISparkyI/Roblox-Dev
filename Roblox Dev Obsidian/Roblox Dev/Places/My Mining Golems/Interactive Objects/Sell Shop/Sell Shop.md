@@ -7,7 +7,7 @@ updated: 2026-10-25
 
 # Sell Shop
 
-← [[Interactive Objects]]
+← [[Places/My Mining Golems/Interactive Objects/Interactive Objects|Interactive Objects]]
 
 Лавка скупщика руди в ніші гравця: навіс з зелено-кремовим брезентом, прилавок, голем-продавець **Наґґет**, зелене коло з написом **SELL**. Тут гравець продає руду й злитки за Money: заходить у коло — відкривається вікно **SELL** (у стилі вікна Forge).
 

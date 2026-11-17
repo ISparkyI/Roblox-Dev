@@ -1,0 +1,58 @@
+import sys; sys.path.insert(0, '/home/claude/mobs2/build')
+from lib import *
+reset()
+SKIN, SKIN2, BOIL = mat('Z6Skin', '#7DBA48'), mat('Z6Skin2', '#5A9030'), mat('Z6Boil', '#B6FF5A', 2.0)
+COAT, COAT2, STAIN, SHIRT, TIE = mat('CHCoat', '#EEF0EC'), mat('CHCoat2', '#C8CCC6'), mat('CHStain', '#7CD83A'), mat('CHShirt', '#6A8AB8'), mat('CHTie', '#3A3C40')
+GLOVE, PANTS, SHOE, SOLE = mat('CHGlove', '#E8C22A'), mat('CHPants', '#3A3C44'), mat('CHShoe', '#2A2420'), mat('CHSole', '#141210')
+GOG, LENS, HAIR = mat('CHGoggle', '#2A6A9A'), mat('CHLens', '#9FE8FF'), mat('CHHair', '#D8D4C8')
+GLASS, LIQ, CORK, PEN = mat('CHGlass', '#CFEFE8'), mat('CHLiquid', '#8CFF3A', 2.5), mat('CHCork', '#8A6A40'), mat('CHPen', '#C83A2A')
+DARK, EYE, TEETH, MOUTH = mat('Z6Dark', '#141620'), mat('CHEye', '#C8FF4A', 2.5), mat('Z6Teeth', '#E2DFC8'), mat('Z6Mouth', '#2A1510')
+t = Obj('Torso')
+t.box(SHIRT, (0, 0, 3.08), (1.96, 1.04, 1.96))
+t.box(TIE, (0, -0.53, 3.4), (0.22, 0.04, 1.0))
+t.box(COAT, (-0.66, 0, 3.05), (0.74, 1.12, 2.1)).box(COAT, (0.66, 0, 3.05), (0.74, 1.12, 2.1)).box(COAT, (0, 0.3, 3.05), (2.06, 0.54, 2.1))
+t.box(COAT2, (-0.32, -0.57, 3.7), (0.12, 0.04, 0.7)).box(COAT2, (0.32, -0.57, 3.7), (0.12, 0.04, 0.7))
+t.box(COAT, (0, 0, 1.7), (2.08, 1.14, 0.7))        # coat skirt
+t.box(STAIN, (0.6, -0.58, 2.2), (0.4, 0.03, 0.5)).box(STAIN, (-0.7, -0.58, 3.0), (0.25, 0.03, 0.3)).box(STAIN, (0.3, 0.6, 2.6), (0.5, 0.03, 0.4))
+t.box(COAT2, (0.62, -0.58, 3.3), (0.42, 0.05, 0.4)).box(PEN, (0.52, -0.62, 3.5), (0.06, 0.05, 0.4))
+# flasks on the belt
+for x in (-0.6, -0.25):
+    t.box(GLASS, (x, -0.62, 2.0), (0.24, 0.2, 0.4)).box(LIQ, (x, -0.66, 1.95), (0.2, 0.16, 0.24))
+t.build()
+h = Obj('Head')
+h.box(SKIN, (0, 0, 4.85), (1.58, 1.46, 1.56))
+h.box(SKIN2, (0, -0.79, 4.78), (0.24, 0.14, 0.3))
+h.box(DARK, (-0.37, -0.745, 5.0), (0.42, 0.04, 0.3)).box(EYE, (-0.35, -0.765, 5.0), (0.16, 0.03, 0.14))
+h.box(DARK, (0.37, -0.745, 5.0), (0.42, 0.04, 0.3)).box(EYE, (0.39, -0.765, 5.0), (0.16, 0.03, 0.14))
+h.box(MOUTH, (0, -0.76, 4.42), (0.8, 0.04, 0.2))
+for x in (-0.25, 0.25): h.box(TEETH, (x, -0.77, 4.46), (0.12, 0.03, 0.1))
+h.box(BOIL, (0.55, -0.75, 4.4), (0.16, 0.05, 0.16)).box(BOIL, (-0.7, 0.2, 5.2), (0.05, 0.16, 0.16))
+h.build()
+c = Obj('Hat')
+c.box(HAIR, (0, 0.2, 5.55), (1.66, 1.2, 0.36)).box(HAIR, (-0.8, 0.2, 5.0), (0.16, 1.0, 0.8)).box(HAIR, (0.8, 0.2, 5.0), (0.16, 1.0, 0.8))   # bald top, wild sides
+for x in (-0.6, -0.2, 0.25, 0.6): c.box(HAIR, (x, 0.35, 5.82), (0.2, 0.2, 0.3), rot=(0, 20 * (1 if x > 0 else -1), 0))
+c.box(GOG, (0, 0.02, 5.25), (1.66, 1.54, 0.14))
+for x in (-0.38, 0.38): c.cyl(GOG, (x, -0.82, 5.0), 0.26, 0.18, axis='Y', seg=10).cyl(LENS, (x, -0.92, 5.0), 0.2, 0.04, axis='Y', seg=10)
+c.build()
+def arm(name, sx):
+    a = Obj(name); x = 1.45 * sx
+    a.box(COAT, (x, 0, 3.0), (1.04, 1.04, 2.0)).box(COAT2, (x, 0, 2.02), (1.08, 1.08, 0.12))
+    a.box(GLOVE, (x, 0, 1.68), (0.96, 0.96, 0.56))
+    for dx in (-0.28, 0, 0.28): a.box(GLOVE, (x + dx, -0.12, 1.34), (0.22, 0.56, 0.3))
+    if sx > 0: a.box(STAIN, (x, -0.53, 2.6), (0.4, 0.03, 0.4))
+    a.build()
+arm('RightArm', 1); arm('LeftArm', -1)
+def leg(name, sx):
+    l = Obj(name); x = 0.5 * sx
+    l.box(PANTS, (x, 0, 1.15), (1.0, 1.06, 1.3))
+    l.box(SHOE, (x, -0.1, 0.3), (1.04, 1.3, 0.5)).box(SOLE, (x, -0.1, 0.05), (1.08, 1.36, 0.1))
+    l.build()
+leg('RightLeg', 1); leg('LeftLeg', -1)
+# the flask in the right hand (thrown)
+f = Obj('Flask', bevel=0.02)
+X, Z = 1.45, 1.2
+f.box(GLASS, (X, -0.45, Z - 0.05), (0.62, 0.62, 0.55)).box(GLASS, (X, -0.45, Z + 0.4), (0.24, 0.24, 0.45))
+f.box(LIQ, (X, -0.45, Z - 0.12), (0.54, 0.54, 0.36)).box(CORK, (X, -0.45, Z + 0.68), (0.28, 0.28, 0.14))
+f.build()
+if '--export' in sys.argv: export('/home/claude/mobs6/out_models/myw_zombiechemist.glb')
+print(render_preview('/home/claude/mobs6/out_models/ch.png', center=(0, 0, 3.4), dist=13))

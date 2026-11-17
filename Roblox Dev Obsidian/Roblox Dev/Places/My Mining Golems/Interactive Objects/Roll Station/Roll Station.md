@@ -7,7 +7,7 @@ updated: 2026-10-27
 
 # Roll Station
 
-← [[Interactive Objects]]
+← [[Places/My Mining Golems/Interactive Objects/Interactive Objects|Interactive Objects]]
 
 *Станція ролу големів* замість голого важеля (Roll Lever). Стоїть на тому ж місці в ніші, між підставками ролу. Це пульт із похилим екраном і тумба з важелем праворуч. Гравець на екрані обирає **тип голема** (Miner / Carrier / Warrior), натискає **E · ROLL** на дерев'яному фронті пульта, і важіль робить ривок. Правила ролу — [GDD - Roll](obsidian://open?vault=Roblox%20Dev&file=Places%2FMy%20Mining%20Golems%2FGDD%2FGDD%20-%20Roll).
 

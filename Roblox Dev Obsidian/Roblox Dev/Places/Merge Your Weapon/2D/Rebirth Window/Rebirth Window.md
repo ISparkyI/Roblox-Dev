@@ -1,12 +1,15 @@
 ---
 tags: [ui]
 status: in-game
-updated: 2026-11-14
+updated: 2026-11-16
 ---
 
 # Rebirth Window
 
 ← [[Merge Your Weapon - 2D|2D]]
+
+![[myw_rebirthwindow_ingame.jpg]]
+*Скрін з гри: Rebirth 1 — потрібна зброя тіра 9.*
 
 Вікно **REBIRTH** (`RebirthController`, дані `RebirthConfig`, сервер `RebirthService`).
 

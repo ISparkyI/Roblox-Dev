@@ -22,11 +22,11 @@ updated: 2026-11-15
 ## Системи
 | Нотатка | Що там | Стан |
 | --- | --- | --- |
-| [[Places/Merge Your Weapon/GDD/GDD - Spawn and Zones\|Spawn and Zones]] | Spawn з 6 плотами, зони-арени, проходи, відродження зомбі | Zone 1 готова |
+| [[Places/Merge Your Weapon/GDD/GDD - Spawn and Zones\|Spawn and Zones]] | Spawn з 6 плотами, зони-арени, проходи, відродження зомбі | Zone 1–2 готові |
 | [[Places/Merge Your Weapon/GDD/GDD - Weapons and Merge\|Weapons and Merge]] | 35 тірів, мердж, плот, слоти в бою, покупка, Index | у грі |
 | [[Places/Merge Your Weapon/GDD/GDD - Fight\|Fight]] | автострільба, HP, спринт і стаміна, камера, цифри урону, атаки зброї | у грі |
-| [[Places/Merge Your Weapon/GDD/GDD - Mobs and Drops\|Mobs and Drops]] | зомбі, їхні атаки, дроп грошей, гемів, сундуків | Zone 1 |
-| [[Places/Merge Your Weapon/GDD/GDD - Crates\|Crates]] | сундуки, лут, відкриття до 8 за раз | Zone 1 |
+| [[Places/Merge Your Weapon/GDD/GDD - Mobs and Drops\|Mobs and Drops]] | зомбі, їхні атаки, дроп грошей, гемів, сундуків | Zone 1–2 |
+| [[Places/Merge Your Weapon/GDD/GDD - Crates\|Crates]] | сундуки, лут, 1 клік = 1 сундук (черга) | Zone 1–2 |
 | [[Places/Merge Your Weapon/GDD/GDD - Upgrades\|Upgrades]] | дерево апгрейдів із шестикутників | у грі |
 | [[Places/Merge Your Weapon/GDD/GDD - Rebirth\|Rebirth]] | умови, скидання, +100%, обмеження мерджу | у грі |
 | [[Places/Merge Your Weapon/GDD/GDD - Balance\|Balance]] | урон, ціни, HP і гроші зон 1–10, симуляція | застосовано |
@@ -35,12 +35,14 @@ updated: 2026-11-15
 | [[Places/Merge Your Weapon/GDD/GDD - Multiplayer\|Multiplayer]] | що спільне, що своє; локальні моби | у грі |
 | [[Places/Merge Your Weapon/GDD/GDD - Saves\|Saves]] | DataStore, що зберігається | у грі |
 | [[Places/Merge Your Weapon/GDD/GDD - HUD and Windows\|HUD and Windows]] | HUD, вікна, інвентар | у грі |
-| [[Places/Merge Your Weapon/GDD/GDD - Item Shop\|Item Shop]] | магазин гранат / аптечок за Gems | чернетка |
+| [[Places/Merge Your Weapon/GDD/GDD - Supplies\|Supplies]] | 10 розхідників для бою (бинт, гранати, турель…), 3 слоти, відкати, Supply Shop | у грі |
+| [[Places/Merge Your Weapon/GDD/GDD - Item Shop\|Item Shop]] | магазин розхідників на пагорбі | у грі (Supply Shop) |
+| [[Places/Merge Your Weapon/GDD/GDD - Roadmap\|Roadmap]] | що ще немає в грі і що вирішили зробити: зони 3–10, група, бейджі, друзі, offline, funnels, туторіал 2, портал у світ 2 | план |
 
 ## Ігровий цикл
 1. **База:** купити зброю (BUY WEAPON) і змерджити однакові.
 2. **FIGHT:** найкращі N зброї (N = слоти) злітають з плоту, телепорт на старт Zone 1.
-3. **Забіг:** зачищати зони по черзі. Зброя стріляє сама, гравець рухається, спринтує, збирає дроп. Зачистив зону — HP повне, прохід далі відкритий, через 20 с зомбі відроджуються.
+3. **Забіг:** зачищати зони по черзі. Зброя стріляє сама, гравець рухається, спринтує, збирає дроп, тисне розхідники (до 3 видів). Зачистив зону — HP повне, прохід далі відкритий, через 20 с зомбі відроджуються.
 4. **Повернення:** RETURN / пішки / смерть — на плот. Усе підібране вже твоє (гроші й геми в балансі, сундуки в рюкзаку).
 5. **Прогрес:** відкрити сундуки, купити апгрейди, змерджити далі → новий забіг, уже глибше.
 6. **Rebirth:** зброя тіру 9 / 14 / 19 / 24 / 29 / 34 → скинути все за +100% до грошей. Без ребьорту мердж вище цього тіру закритий.
@@ -87,10 +89,18 @@ updated: 2026-11-15
 - [x] Баланс світу 1 (10 зон) застосовано, ціни округлені (2026-11-15)
 - [x] Сейви, мультиплеєр (локальні моби), туторіал (2026-11-15)
 - [x] Монетизація: 4 геймпаси, 23 Developer Products, x2 CASH, подарунки (2026-11-15)
-- [ ] Зони 2–10: макети, зомбі, сундуки
-- [ ] Item Shop
+- [x] Zone 2 (Lumber Camp): макет, 3 нові зомбі зі своїми анімаціями, Lumber Crate (2026-11-15)
+- [ ] Зони 3–10 — див. Roadmap
+- [x] Моделі 10 розхідників (2026-11-15)
+- [x] Система розхідників (Supplies) і Supply Shop (2026-11-15)
+- [ ] Група (+10 Weapons), бейджі, друзі +25%, offline-заробіток, funnels, туторіал 2, портал у світ 2 — Roadmap
 - [ ] Рядки плейсу в таблиці «Що Roblox передає плейсам»
 
 ## Відкриті питання
 - Теми і зомбі зон 6–10.
-- Ребьорти після 6-го і що далі після світу 1.
+- Offline-заробіток: який варіант (Roadmap, п. 5).
+- Світ 2: теми, зброя (Index продовжується), ребьорти.
+
+## Рішення (2026-11-15)
+- У світі 1 — 6 ребьортів; після Zone 10 — локація з порталом у світ 2 («COMING SOON»).
+- Вихід пішки = END; стартово 10 місць на плоті; у забіг без зброї не можна.

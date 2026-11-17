@@ -1,12 +1,15 @@
 ---
 tags: [ui]
 status: in-game
-updated: 2026-11-14
+updated: 2026-11-16
 ---
 
 # Index Window
 
 ← [[Merge Your Weapon - 2D|2D]]
+
+![[myw_indexwindow_ingame.jpg]]
+*Скрін з гри: відкрито 4 / 35, невідкриті — силуети.*
 
 Вікно **INDEX** (`IndexController`). 35 карток (усі тіри з `WeaponConfig`), кольорові смуги за тірами, 3D-модель знайденої зброї, силует (тінь) невідкритої, значок ребьорту на тірах-вимогах.
 

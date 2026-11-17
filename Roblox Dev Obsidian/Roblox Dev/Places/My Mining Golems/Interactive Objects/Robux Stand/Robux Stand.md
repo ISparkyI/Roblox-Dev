@@ -7,7 +7,7 @@ updated: 2026-11-10
 
 # Robux Stand
 
-← [[Interactive Objects]] · [[Roll Station]]
+← [[Places/My Mining Golems/Interactive Objects/Interactive Objects|Interactive Objects]] · [[Roll Station]]
 
 Стенд у ніші біля бортика плоту, збоку від ролу. На ньому по колу змінюються големи, яких можна купити за Robux. Сам стенд стоїть рівно, а голем на ньому повернутий діагонально до важеля, щоб ті, хто ролить, його бачили.
 

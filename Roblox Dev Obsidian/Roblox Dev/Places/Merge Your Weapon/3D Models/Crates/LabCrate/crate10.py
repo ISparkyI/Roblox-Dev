@@ -1,0 +1,27 @@
+import sys; sys.path.insert(0, '/home/claude/mobs2/build')
+from lib import *
+reset()
+BODY, BODY2, EDGE = mat('C10Body', '#E8ECF0'), mat('C10Body2', '#C8CED6'), mat('C10Metal', '#5A6068')
+CYAN, YEL, DARK, GREEN, GLASS = mat('C10Glow', '#3AE8FF', 2.0), mat('C10Hazard', '#F2C82A'), mat('C10Dark', '#1E2226'), mat('C10Vial', '#6CF04A', 2.0), mat('C10Window', '#2A3A44')
+W, D, H = 2.0, 1.5, 1.12
+b = Obj('Body')
+b.box(BODY, (0, 0, H / 2), (W, D, H))
+for sx in (-1, 1):
+    for sy in (-1, 1): b.box(EDGE, (sx * (W / 2 - 0.02), sy * (D / 2 - 0.02), H / 2), (0.18, 0.18, H + 0.06))
+b.box(EDGE, (0, 0, 0.1), (W + 0.04, D + 0.04, 0.16))
+b.box(CYAN, (0, -D / 2 - 0.015, 0.3), (W - 0.3, 0.03, 0.06)).box(CYAN, (0, D / 2 + 0.015, 0.3), (W - 0.3, 0.03, 0.06))
+for sx in (-1, 1): b.box(CYAN, (sx * (W / 2 + 0.015), 0, 0.3), (0.03, D - 0.3, 0.06))
+# window with a glowing vial on the front + hazard emblem
+b.box(EDGE, (-0.35, -D / 2 - 0.03, 0.65), (0.7, 0.06, 0.5)).box(GLASS, (-0.35, -D / 2 - 0.065, 0.65), (0.56, 0.03, 0.38))
+b.box(GREEN, (-0.35, -D / 2 - 0.085, 0.63), (0.12, 0.03, 0.26))
+b.box(YEL, (0.5, -D / 2 - 0.03, 0.65), (0.42, 0.06, 0.42), rot=(0, 45, 0)).box(DARK, (0.5, -D / 2 - 0.065, 0.65), (0.14, 0.03, 0.14))
+b.box(BODY2, (0, 0, H - 0.01), (W - 0.24, D - 0.24, 0.04))
+b.build()
+L = Obj('Lid')
+L.box(BODY2, (0, 0, H + 0.13), (W + 0.06, D + 0.06, 0.26)).box(EDGE, (0, 0, H + 0.03), (W + 0.1, D + 0.1, 0.08))
+L.box(EDGE, (0, -D / 2 - 0.05, H + 0.08), (0.34, 0.06, 0.2)).box(CYAN, (0, -D / 2 - 0.09, H + 0.08), (0.12, 0.04, 0.1))
+L.box(EDGE, (0, 0, H + 0.36), (0.9, 0.16, 0.2)).box(EDGE, (-0.4, 0, H + 0.3), (0.12, 0.16, 0.1)).box(EDGE, (0.4, 0, H + 0.3), (0.12, 0.16, 0.1))
+L.box(CYAN, (0, 0.45, H + 0.27), (1.2, 0.12, 0.03))
+L.build()
+if '--export' in sys.argv: export('/home/claude/mobs10/out_models/myw_crate_zone10.glb')
+print(render_preview('/home/claude/mobs10/out_models/c10.png', center=(0, 0, 0.9), dist=5.5))

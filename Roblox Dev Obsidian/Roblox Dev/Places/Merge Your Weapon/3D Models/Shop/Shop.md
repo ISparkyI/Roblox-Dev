@@ -1,12 +1,15 @@
 ---
 tags: [model, building]
 status: in-game
-updated: 2026-11-14
+updated: 2026-11-16
 ---
 
 # Shop
 
 ← [[Merge Your Weapon - 3D Models|3D Models]]
+
+![[myw_shop_ingame.jpg]]
+*Бункер SHOP на спавні, червона зона — вхід у Supply Shop.*
 
 Бункер-магазин **SHOP** на спавні (військовий стиль). Вікно магазину — Shop Window.
 

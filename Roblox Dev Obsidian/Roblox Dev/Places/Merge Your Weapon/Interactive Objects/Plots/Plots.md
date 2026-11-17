@@ -1,12 +1,14 @@
 ---
 tags: [interactive, plot]
 status: in-game
-updated: 2026-11-14
+updated: 2026-11-16
 ---
 
 # Plots
 
 ← [[Places/Merge Your Weapon/Interactive Objects/Interactive Objects|Interactive Objects]]
+
+![[myw_plot_overview.jpg]]
 
 6 плотів на спавні (`Workspace/Spawn/Plots/Plot1..6`). Плот видається гравцю при вході (`PlotService`), атрибут гравця `PlotId`.
 

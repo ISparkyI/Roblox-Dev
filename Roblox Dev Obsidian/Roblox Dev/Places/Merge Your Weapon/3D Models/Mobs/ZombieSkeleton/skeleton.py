@@ -1,0 +1,68 @@
+import sys; sys.path.insert(0, '/home/claude/mobs2/build')
+from lib import *
+reset()
+BONE, BONE2, BONE3 = mat('SKBone', '#E8E0C8'), mat('SKBone2', '#C8BCA0'), mat('SKBone3', '#A89A7A')
+DARK, EYE = mat('SKDark', '#1A1420'), mat('SKEye', '#B05AFF', 3.0)
+RAG, RAG2 = mat('SKRag', '#3A2E4A'), mat('SKRag2', '#2A2036')
+RUST, RUST2, STEEL, GRIP = mat('SKRust', '#7A4A2A'), mat('SKRust2', '#5A3A22'), mat('SKSteel', '#8A8E94'), mat('SKGrip', '#3A2A1E')
+t = Obj('Torso')
+t.box(DARK, (0, 0.05, 3.1), (1.5, 0.8, 1.8))
+t.box(BONE2, (0, 0.36, 3.05), (0.36, 0.36, 2.1))
+for z in (3.72, 3.37, 3.02, 2.67): t.box(BONE, (0, 0, z), (2.0 - (3.72 - z) * 0.25, 1.0, 0.18))
+t.box(BONE, (0, -0.08, 4.0), (2.1, 0.62, 0.22))
+t.box(BONE2, (0, -0.52, 3.25), (0.3, 0.1, 1.3))
+t.box(BONE, (0, 0, 2.17), (1.7, 0.9, 0.46))
+t.box(RAG, (0, 0, 2.0), (1.8, 1.0, 0.34))
+t.box(RAG2, (0.35, -0.54, 1.72), (0.7, 0.06, 0.62), rot=(0, 6, 0)).box(RAG2, (-0.45, 0.54, 1.75), (0.6, 0.06, 0.56), rot=(0, -8, 0))
+t.box(RAG, (-0.55, -0.3, 3.55), (0.9, 1.08, 0.5), rot=(0, 25, 0))   # torn cloth strip over the shoulder
+t.build()
+h = Obj('Head')
+h.box(BONE, (0, 0, 4.95), (1.5, 1.4, 1.3))
+h.box(BONE2, (0, -0.1, 4.2), (1.1, 1.1, 0.3))
+for x in (-0.34, 0.34):
+    h.box(DARK, (x, -0.71, 5.0), (0.44, 0.04, 0.38)).box(EYE, (x, -0.735, 5.0), (0.16, 0.03, 0.16))
+h.box(DARK, (0, -0.71, 4.64), (0.18, 0.04, 0.22))
+h.box(BONE3, (0, -0.705, 4.42), (0.92, 0.03, 0.16))
+for x in (-0.3, -0.1, 0.1, 0.3): h.box(DARK, (x, -0.725, 4.42), (0.04, 0.03, 0.12))
+h.box(DARK, (0.45, -0.71, 5.35), (0.06, 0.04, 0.34), rot=(0, 30, 0))
+h.build()
+c = Obj('Hat')
+c.box(RUST, (0, 0, 5.78), (1.62, 1.52, 0.46), taper=(0.85, 0.85)).box(RUST2, (0, 0, 5.6), (1.68, 1.58, 0.12))
+c.box(RUST2, (0, 0, 6.15), (0.22, 0.22, 0.34), taper=(0.2, 0.2))
+c.box(RUST2, (0, -0.82, 5.3), (0.2, 0.08, 0.5))   # nose guard
+c.box(DARK, (0.4, -0.73, 5.82), (0.3, 0.06, 0.2))   # hole in the helmet
+c.build()
+def arm(name, sx):
+    a = Obj(name); x = 1.45 * sx
+    a.box(BONE, (x, 0, 3.72), (0.8, 0.8, 0.62))
+    a.box(BONE, (x, 0, 3.0), (0.38, 0.38, 1.0))
+    a.box(BONE2, (x, 0, 2.4), (0.52, 0.52, 0.4))
+    for dx in (-0.11, 0.11): a.box(BONE, (x + dx, 0, 1.85), (0.17, 0.34, 0.86))
+    a.box(BONE2, (x, -0.02, 1.32), (0.62, 0.5, 0.3))
+    for dx in (-0.2, 0, 0.2): a.box(BONE3, (x + dx, -0.12, 1.0), (0.13, 0.13, 0.4))
+    if sx < 0:
+        a.box(RUST, (x, 0, 4.12), (1.02, 1.0, 0.3), rot=(0, -12, 0)).box(RUST2, (x - 0.1, 0, 3.88), (1.0, 0.96, 0.2), rot=(0, -12, 0))
+    else:
+        a.box(RAG2, (x, 0, 3.2), (0.56, 0.56, 0.5), rot=(0, 0, 10))
+    a.build()
+arm('RightArm', 1); arm('LeftArm', -1)
+def leg(name, sx):
+    l = Obj(name); x = 0.5 * sx
+    l.box(BONE2, (x, 0, 1.8), (0.62, 0.62, 0.36))
+    l.box(BONE, (x, 0, 1.4), (0.4, 0.4, 0.86))
+    l.box(BONE2, (x, -0.02, 0.92), (0.56, 0.56, 0.34))
+    l.box(BONE, (x, 0, 0.48), (0.34, 0.34, 0.72))
+    l.box(BONE2, (x, -0.16, 0.11), (0.62, 0.92, 0.22))
+    for dx in (-0.18, 0.18): l.box(BONE3, (x + dx, -0.68, 0.08), (0.14, 0.24, 0.14))
+    l.build()
+leg('RightLeg', 1); leg('LeftLeg', -1)
+s = Obj('Sword', bevel=0.02)
+X, Z = 1.45, 1.3
+s.box(GRIP, (X, 0.05, Z), (0.2, 0.62, 0.2)).box(RUST2, (X, 0.42, Z), (0.28, 0.16, 0.28))
+s.box(RUST2, (X, -0.32, Z), (0.24, 0.14, 0.84))
+s.box(STEEL, (X, -1.7, Z), (0.1, 2.6, 0.4), taper=None)
+s.box(RUST, (X, -1.2, Z + 0.12), (0.12, 0.6, 0.18)).box(RUST, (X, -2.3, Z - 0.1), (0.12, 0.5, 0.2))
+s.box(STEEL, (X, -3.12, Z), (0.1, 0.3, 0.26), rot=(45, 0, 0))
+s.build()
+if '--export' in sys.argv: export('/home/claude/mobs8/out_models/myw_zombieskeleton.glb')
+print(render_preview('/home/claude/mobs8/out_models/sk.png', center=(0, 0, 3.2), dist=12))

@@ -20,6 +20,7 @@ updated: 2026-11-15
 | Рюкзак | Crates_* (сундуки по зонах) |
 | Магазин | PackStage, Pass_*, PassWeaponSlot, CashMultiplier (x2 CASH) |
 | Туторіал | TutorialStep (`nil` = пройдено) |
+| Розхідники | Supply_* (скільки є), SStock_* (запас у магазині цього циклу), SStockCycle, SupplySlot1..3 |
 | Коди | Code_* |
 | Плот | вся зброя: тір + місце на полі (зброя в бою теж — вона лишається в плоті) |
 
@@ -41,3 +42,7 @@ updated: 2026-11-15
 
 ## Тест
 Team Test (DataStore працює). У звичайному Play без «Enable Studio Access to API Services» гра йде без сейвів (warning у консолі).
+
+## План
+- Офлайн-заробіток (Roadmap, п. 5) — варіант ще не вибраний.
+- Нові поля: `GroupReward` (нагорода за групу видана), прапорці бейджів не потрібні (BadgeService сам пам'ятає).
